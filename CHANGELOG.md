@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.3] - 2026-01-07
+
+### Adicionado
+- Nenhuma mudança
+
+### Corrigido
+
+### Alterado
+- Nenhuma mudança
+
+### Documentação
+- Nenhuma mudança
+
+
+
 ## [0.2.2] - 2026-01-07
 
 ### Adicionado
