@@ -169,19 +169,19 @@ jobs:
 
           # Categorize commits
           echo "### Adicionado" >> CHANGELOG.new
-          git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep -E " feat[\(:]" || echo "- Nenhuma mudança" >> CHANGELOG.new
+          git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep -E " feat(\(|:)" || echo "- Nenhuma mudança" >> CHANGELOG.new
           echo "" >> CHANGELOG.new
 
           echo "### Corrigido" >> CHANGELOG.new
-          git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep -E " fix[\(:]" || echo "- Nenhuma mudança" >> CHANGELOG.new
+          git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep -E " fix(\(|:)" || echo "- Nenhuma mudança" >> CHANGELOG.new
           echo "" >> CHANGELOG.new
 
           echo "### Alterado" >> CHANGELOG.new
-          git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep -E " (refactor|perf)[\(:]" || echo "- Nenhuma mudança" >> CHANGELOG.new
+          git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep -E " (refactor|perf)(\(|:)" || echo "- Nenhuma mudança" >> CHANGELOG.new
           echo "" >> CHANGELOG.new
 
           echo "### Documentação" >> CHANGELOG.new
-          git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep -E " docs[\(:]" || echo "- Nenhuma mudança" >> CHANGELOG.new
+          git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep -E " docs(\(|:)" || echo "- Nenhuma mudança" >> CHANGELOG.new
           echo "" >> CHANGELOG.new
 
           # Append existing changelog if it exists
