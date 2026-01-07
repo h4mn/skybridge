@@ -1,0 +1,225 @@
+# Release workflow for Skybridge (ADR012)
+# Triggered on push to main, automates version bumping and releases
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type (major, minor, patch, or specific version)'
+        required: true
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - major
+          - minor
+          - patch
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install conventional-commits-parser
+        run: |
+          npm install -g conventional-commits-parser
+          npm install -g git-raw-commits
+
+      - name: Parse commits and determine version bump
+        id: parse_commits
+        run: |
+          # Get the latest tag (or default to v0.0.0 if none)
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+
+          # Get commits since last tag
+          COMMITS=$(git log ${LATEST_TAG}..HEAD --pretty=format:"%H %s")
+          echo "Commits since last tag:"
+          echo "$COMMITS"
+
+          # Check for BREAKING CHANGE (MAJOR)
+          if echo "$COMMITS" | grep -iE "BREAKING CHANGE|feat.*!|fix.*!"; then
+            echo "bump=major" >> $GITHUB_OUTPUT
+            echo "Detected MAJOR bump (BREAKING CHANGE)"
+          # Check for feat (MINOR)
+          elif echo "$COMMITS" | grep -iE "^feat"; then
+            echo "bump=minor" >> $GITHUB_OUTPUT
+            echo "Detected MINOR bump (feat)"
+          # Check for fix (PATCH)
+          elif echo "$COMMITS" | grep -iE "^fix"; then
+            echo "bump=patch" >> $GITHUB_OUTPUT
+            echo "Detected PATCH bump (fix)"
+          else
+            echo "bump=none" >> $GITHUB_OUTPUT
+            echo "No version bump needed (no feat/fix/breaking commits)"
+          fi
+
+      - name: Bump version
+        if: steps.parse_commits.outputs.bump != 'none'
+        id: bump_version
+        run: |
+          BUMP_TYPE=${{ steps.parse_commits.outputs.bump }}
+          INPUT_BUMP=${{ github.event.inputs.version_bump }}
+
+          # Use manual input if provided, otherwise use auto-detected
+          if [ "$INPUT_BUMP" != "" ] && [ "$INPUT_BUMP" != "auto" ]; then
+            BUMP_TYPE=$INPUT_BUMP
+          fi
+
+          # Read current version from VERSION file
+          source VERSION
+          CURRENT_VERSION=$SKYBRIDGE_VERSION
+          echo "Current version: $CURRENT_VERSION"
+
+          # Parse version
+          IFS='.' read -ra PARTS <<< "$CURRENT_VERSION"
+          MAJOR=${PARTS[0]}
+          MINOR=${PARTS[1]}
+          PATCH=${PARTS[2]}
+
+          # Bump version
+          case $BUMP_TYPE in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "New version: $NEW_VERSION"
+          echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Update VERSION file
+        if: steps.parse_commits.outputs.bump != 'none'
+        run: |
+          NEW_VERSION=${{ steps.bump_version.outputs.new_version }}
+
+          # Update VERSION file
+          cat > VERSION << EOF
+          # Skybridge Version - Single Source of Truth (ADR012)
+          # Updated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          SKYBRIDGE_VERSION=${NEW_VERSION}
+          KERNEL_API_VERSION=${NEW_VERSION}
+          OPENAPI_CONTRACT_VERSION=${NEW_VERSION}
+          EOF
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Commit VERSION file
+          git add VERSION
+          git commit -m "chore(release): bump version to ${NEW_VERSION}" -m "Bump type: ${{ steps.parse_commits.outputs.bump }}"
+
+          # Push commit
+          git push
+
+      - name: Generate changelog
+        if: steps.parse_commits.outputs.bump != 'none'
+        id: changelog
+        run: |
+          NEW_VERSION=${{ steps.bump_version.outputs.new_version }}
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+
+          # Generate changelog from commits
+          echo "# Changelog" > CHANGELOG.new
+          echo "" >> CHANGELOG.new
+          echo "## [${NEW_VERSION}] - $(date -u +"%Y-%m-%d")" >> CHANGELOG.new
+          echo "" >> CHANGELOG.new
+
+          # Categorize commits
+          echo "### Adicionado" >> CHANGELOG.new
+          git log ${LATEST_TAG}..HEAD --pretty=format:"- %s ([%h])" | grep -iE "^- feat" || echo "- Nenhuma mudança" >> CHANGELOG.new
+          echo "" >> CHANGELOG.new
+
+          echo "### Corrigido" >> CHANGELOG.new
+          git log ${LATEST_TAG}..HEAD --pretty=format:"- %s ([%h])" | grep -iE "^- fix" || echo "- Nenhuma mudança" >> CHANGELOG.new
+          echo "" >> CHANGELOG.new
+
+          echo "### Alterado" >> CHANGELOG.new
+          git log ${LATEST_TAG}..HEAD --pretty=format:"- %s ([%h])" | grep -iE "^- refactor|^- perf" || echo "- Nenhuma mudança" >> CHANGELOG.new
+          echo "" >> CHANGELOG.new
+
+          echo "### Documentação" >> CHANGELOG.new
+          git log ${LATEST_TAG}..HEAD --pretty=format:"- %s ([%h])" | grep -iE "^- docs" || echo "- Nenhuma mudança" >> CHANGELOG.new
+          echo "" >> CHANGELOG.new
+
+          # Append existing changelog if it exists
+          if [ -f CHANGELOG.md ]; then
+            echo "" >> CHANGELOG.new
+            tail -n +2 CHANGELOG.md >> CHANGELOG.new
+          fi
+
+          # Replace changelog
+          mv CHANGELOG.new CHANGELOG.md
+
+          # Commit changelog
+          git add CHANGELOG.md
+          git commit -m "docs(release): update changelog for ${NEW_VERSION}"
+          git push
+
+          # Set output for release notes
+          # Get the new section for release notes
+          sed -n "/## \[${NEW_VERSION}\]/,/## \[/p" CHANGELOG.md | head -n -1 > release_notes.md
+
+      - name: Create Git tag
+        if: steps.parse_commits.outputs.bump != 'none'
+        run: |
+          NEW_VERSION=${{ steps.bump_version.outputs.new_version }}
+          git tag -a "v${NEW_VERSION}" -m "Release v${NEW_VERSION}"
+          git push origin "v${NEW_VERSION}"
+
+      - name: Create GitHub Release
+        if: steps.parse_commits.outputs.bump != 'none'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.bump_version.outputs.new_version }}
+          name: Release v${{ steps.bump_version.outputs.new_version }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        if: steps.parse_commits.outputs.bump != 'none'
+        run: |
+          echo "## Release created! :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** v${{ steps.bump_version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bump type:** ${{ steps.parse_commits.outputs.bump }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** v${{ steps.bump_version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Skip release
+        if: steps.parse_commits.outputs.bump == 'none'
+        run: |
+          echo "## No release needed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No feat/fix/BREAKING commits found since last release." >> $GITHUB_STEP_SUMMARY
