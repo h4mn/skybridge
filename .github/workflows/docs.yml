@@ -80,19 +80,23 @@ jobs:
         run: |
           VERSION=${{ steps.version.outputs.skybridge_version }}
 
-          # Find all SPEC files and update version references
-          find docs/specs -name "*.md" -type f -exec sed -i "s/Skybridge v[0-9.]*/Skybridge v${VERSION}/g" {} \;
+          # Only proceed if spec directory exists
+          if [ -d "docs/spec" ]; then
+            # Find all SPEC files and update version references
+            find docs/spec -name "*.md" -type f -exec sed -i "s/Skybridge v[0-9.]*/Skybridge v${VERSION}/g" {} \;
 
-          # Commit if changed
-          if git diff --quiet; then
-            echo "No changes to SPEC files"
+            # Commit if changed
+            if git diff --quiet; then
+              echo "No changes to SPEC files"
+            else
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git add docs/spec
+              git commit -m "docs(specs): update version references to ${VERSION}" || true
+              git push || true
+            fi
           else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add docs/specs
-            git commit -m "docs(specs): update version references to ${VERSION}" || true
-            git push || true
-          fi
+            echo "docs/spec directory does not exist, skipping"
 
       - name: Generate version index
         run: |
