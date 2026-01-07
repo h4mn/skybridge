@@ -67,11 +67,11 @@ jobs:
             echo "bump=major" >> $GITHUB_OUTPUT
             echo "Detected MAJOR bump (BREAKING CHANGE)"
           # Check for feat (MINOR)
-          elif echo "$COMMITS" | grep -iE "^feat"; then
+          elif echo "$COMMITS" | grep -iE " feat"; then
             echo "bump=minor" >> $GITHUB_OUTPUT
             echo "Detected MINOR bump (feat)"
           # Check for fix (PATCH)
-          elif echo "$COMMITS" | grep -iE "^fix"; then
+          elif echo "$COMMITS" | grep -iE " fix"; then
             echo "bump=patch" >> $GITHUB_OUTPUT
             echo "Detected PATCH bump (fix)"
           else
