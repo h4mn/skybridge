@@ -1,0 +1,42 @@
+# Workspace - dados gerados (nao versionar)
+workspace/
+!workspace/.gitkeep
+nul
+
+# Repositórios embutidos (subrepos de agentes)
+.agents/repos/
+
+# Ambiente virtual
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Ambiente
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testes
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log

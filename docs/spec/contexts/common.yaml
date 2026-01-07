@@ -1,0 +1,302 @@
+---
+# SPEC: Contexts - Common Schemas
+# Versão: 1.0.0
+# Descrição: Schemas compartilhados utilizados por múltiplos contextos
+openapi: 3.1.0
+info:
+  title: Skybridge Common Schemas
+  version: 1.0.0
+  description: Schemas reutilizáveis para envelopes, erros e respostas padrão
+
+components:
+  schemas:
+
+    # ============================================
+    # ENVELOPE REQUEST (v0.3)
+    # ============================================
+    EnvelopeRequest:
+      type: object
+      additionalProperties: true
+      description: "Envelope de requisição Sky-RPC v0.3"
+      properties:
+        ticket_id:
+          type: string
+          format: uuid
+          description: "UUID do ticket obtido via GET /ticket"
+        detail:
+          oneOf:
+            - $ref: '#/components/schemas/EnvelopeDetailStruct'
+            - $ref: '#/components/schemas/EnvelopeDetailString'
+          description: "Detalhes da operação (compatibilidade v0.2 via string)"
+      required:
+        - ticket_id
+        - detail
+
+    EnvelopeDetailStruct:
+      type: object
+      description: "Formato estruturado de detalhes (v0.3)"
+      properties:
+        context:
+          type: string
+          description: "Contexto do domínio (ex: fileops, tasks)"
+          example: "fileops"
+        action:
+          type: string
+          description: "Ação a ser executada"
+          example: "read"
+        subject:
+          type: string
+          description: "Sujeito da operação (opcional, contexto-dependente)"
+          example: "README.md"
+        scope:
+          type: string
+          description: "Escopo da operação (ex: tenant:sky)"
+          example: "tenant:sky"
+        options:
+          type: object
+          additionalProperties: true
+          description: "Opções específicas da operação"
+          example:
+            limit: 100
+        payload:
+          type: object
+          additionalProperties: true
+          description: "Payload adicional (opcional em v0.3)"
+      required:
+        - context
+        - action
+
+    EnvelopeDetailString:
+      type: string
+      description: "Formato legado (compatibilidade v0.1/v0.2)"
+      example: "README.md"
+
+    # ============================================
+    # ENVELOPE RESPONSE
+    # ============================================
+    EnvelopeResponse:
+      type: object
+      description: "Resposta padrão de envelope Sky-RPC"
+      properties:
+        ok:
+          type: boolean
+          description: "Indica se a operação foi bem-sucedida"
+        id:
+          type: string
+          format: uuid
+          description: "UUID correlacionado com a requisição"
+        result:
+          type: object
+          additionalProperties: true
+          description: "Resultado da operação (presente quando ok=true)"
+        error:
+          $ref: '#/components/schemas/Error'
+          description: "Erro (presente quando ok=false)"
+      required:
+        - ok
+        - id
+
+    # ============================================
+    # TICKET RESPONSE
+    # ============================================
+    TicketResponse:
+      type: object
+      description: "Resposta de criação de ticket"
+      properties:
+        ok:
+          type: boolean
+          example: true
+        ticket:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: "UUID do ticket"
+            method:
+              type: string
+              description: "Método solicitado"
+              example: "fileops.read"
+            expires_in:
+              type: integer
+              description: "Tempo até expiração (segundos)"
+              example: 30
+            accepts:
+              type: string
+              description: "Content-Type aceito"
+              example: "application/json"
+      required:
+        - ok
+        - ticket
+
+    # ============================================
+    # ERROR
+    # ============================================
+    Error:
+      type: object
+      description: "Erro padrão Sky-RPC"
+      properties:
+        code:
+          type: integer
+          description: "Código do erro (Sky-RPC ou HTTP)"
+          example: 4221
+        message:
+          type: string
+          description: "Mensagem de erro legível"
+          example: "Payload vazio não permitido"
+        details:
+          type: object
+          additionalProperties: true
+          description: "Detalhes adicionais do erro"
+      required:
+        - code
+        - message
+
+    # CommonErrorCodes:
+    #   type: object
+    #   description: "Códigos de erro comuns"
+    #   properties:
+    #     4000:
+    #       type: string
+    #       example: "Bad Request"
+    #     4010:
+    #       type: string
+    #       example: "Unauthorized"
+    #     4030:
+    #       type: string
+    #       example: "Forbidden"
+    #     4040:
+    #       type: string
+    #       example: "Not Found"
+    #     4220:
+    #       type: string
+    #       example: "Validation Error"
+    #     4221:
+    #       type: string
+    #       example: "Empty Payload"
+    #     4290:
+    #       type: string
+    #       example: "Rate Limited"
+    #     5000:
+    #       type: string
+    #       example: "Internal Server Error"
+
+    # ============================================
+    # DISCOVERY
+    # ============================================
+    SkyRpcHandler:
+      type: object
+      description: "Metadados de um handler RPC"
+      properties:
+        method:
+          type: string
+          description: "Nome canônico do método (ex: fileops.read)"
+          example: "fileops.read"
+        kind:
+          type: string
+          enum: [query, command]
+          description: "Tipo de operação"
+        module:
+          type: string
+          description: "Caminho do módulo Python que implementa"
+          example: "skybridge.core.contexts.fileops.handlers"
+        description:
+          type: string
+          description: "Descrição do handler"
+        input_schema:
+          type: object
+          description: "JSON Schema do input (opcional)"
+        output_schema:
+          type: object
+          description: "JSON Schema do output (opcional)"
+        auth_required:
+          type: boolean
+          description: "Se requer autenticação"
+          default: true
+      required:
+        - method
+        - kind
+        - module
+
+    SkyRpcDiscovery:
+      type: object
+      description: "Resposta de descoberta de handlers"
+      properties:
+        version:
+          type: string
+          description: "Versão do Sky-RPC"
+          example: "0.3.0"
+        discovery:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SkyRpcHandler'
+          description: "Mapa de method → handler metadata"
+        total:
+          type: integer
+          description: "Total de handlers ativos"
+      required:
+        - version
+        - discovery
+
+    # ============================================
+    # HEALTH
+    # ============================================
+    HealthResponse:
+      type: object
+      description: "Resposta de health check"
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          description: "Status do sistema"
+        version:
+          type: string
+          description: "Versão do Skybridge"
+        uptime:
+          type: number
+          description: "Uptime em segundos"
+        checks:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/HealthCheck'
+          description: "Checagens específicas"
+      required:
+        - status
+
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pass, fail, warn]
+        description:
+          type: string
+        observed_value:
+          type: string
+        observed_unit:
+          type: string
+      required:
+        - status
+
+  # ============================================
+  # SECURITY SCHEMES
+  # ============================================
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key ou JWT
+      description: "Autenticação via Bearer token"
+
+  # ============================================
+  # TAGS
+  # ============================================
+  tags:
+    - name: ticket
+      description: "Operações de ticket"
+    - name: envelope
+      description: "Execução RPC"
+    - name: discovery
+      description: "Introspecção de handlers"
+    - name: health
+      description: "Health checks"

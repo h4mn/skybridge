@@ -1,0 +1,18 @@
+extends: default
+
+rules:
+  line-length:
+    max: 120
+    level: warning
+
+  document-start:
+    present: false
+
+  new-lines:
+    type: platform
+
+  trailing-spaces:
+    level: warning
+
+  comments:
+    min-spaces-from-content: 1

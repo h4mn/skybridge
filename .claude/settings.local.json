@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "WebSearch",
+      "Bash(curl:*)",
+      "Bash(redocly lint:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(gh api:*)"
+    ]
+  }
+}

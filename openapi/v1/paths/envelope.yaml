@@ -1,0 +1,34 @@
+/envelope:
+  post:
+    operationId: submitEnvelope
+    summary: Envia detalhes para execução
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/envelope.yaml#/EnvelopeRequest'
+          examples:
+            fileops_read_legacy:
+              summary: Ler arquivo (v0.1 legado)
+              value:
+                ticket_id: "a3f9b1e2"
+                detail: "README.md"
+            fileops_read_structured:
+              summary: Ler arquivo (v0.2 estruturado)
+              value:
+                ticket_id: "a3f9b1e2"
+                detail:
+                  context: "fileops.read"
+                  subject: "README.md"
+                  action: "read"
+                  payload:
+                    encoding: "utf-8"
+                    line_limit: 100
+    responses:
+      '200':
+        description: Resposta de execução
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/envelope.yaml#/EnvelopeResponse'

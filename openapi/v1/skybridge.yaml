@@ -1,0 +1,176 @@
+openapi: 3.1.0
+info:
+  title: Skybridge API
+  version: 0.2.2
+  description: |
+    Sky-RPC v0.2 (ticket + envelope estruturado). Use /ticket para obter um ticket e /envelope para enviar o payload.
+servers:
+  - url: https://cunning-dear-primate.ngrok-free.app
+    description: Servidor público via ngrok
+security:
+  - BearerAuth: []
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: token
+  schemas:
+    ErrorObject:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+      required:
+        - code
+        - message
+    TicketResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        ticket:
+          type: object
+          properties:
+            id:
+              type: string
+            method:
+              type: string
+              description: "Nome da operação Sky-RPC (ex.: fileops.read). Não é verbo HTTP."
+            expires_in:
+              type: integer
+            accepts:
+              type: string
+          required:
+            - id
+            - method
+            - expires_in
+            - accepts
+      required:
+        - ok
+        - ticket
+    EnvelopeDetail:
+      type: object
+      description: Envelope estruturado Sky-RPC v0.2
+      properties:
+        context:
+          type: string
+          description: "Contexto da operação (ex.: fileops.read)"
+        subject:
+          type: string
+          description: "Entidade-alvo (arquivo, job, secret, etc)"
+        action:
+          type: string
+          description: "Ação dentro do contexto (read, create, list...)"
+        payload:
+          type: object
+          description: "Dados específicos da execução"
+          additionalProperties: true
+          minProperties: 1
+      required:
+        - context
+        - action
+        - payload
+    EnvelopeRequest:
+      type: object
+      properties:
+        ticket_id:
+          type: string
+          description: "Identificador do ticket obtido em GET /ticket"
+        detail:
+          oneOf:
+            - type: string
+              description: "Compatibilidade legada - valor simples"
+              deprecated: true
+            - $ref: '#/components/schemas/EnvelopeDetail'
+      required:
+        - ticket_id
+        - detail
+    EnvelopeResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        id:
+          type: string
+        result:
+          type: object
+          additionalProperties: true
+        error:
+          $ref: '#/components/schemas/ErrorObject'
+      required:
+        - ok
+paths:
+  /ticket:
+    get:
+      operationId: createTicket
+      summary: Cria ticket de execução
+      parameters:
+        - name: method
+          in: query
+          required: true
+          schema:
+            type: string
+          description: "Nome da operação Sky-RPC (ex.: fileops.read). Não é verbo HTTP."
+      responses:
+        '200':
+          description: Ticket criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketResponse'
+  /envelope:
+    post:
+      operationId: submitEnvelope
+      summary: Envia detalhes para execução
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvelopeRequest'
+            examples:
+              fileops_read_legacy:
+                summary: Ler arquivo (v0.1 legado)
+                value:
+                  ticket_id: "a3f9b1e2"
+                  detail: "README.md"
+              fileops_read_structured:
+                summary: Ler arquivo (v0.2 estruturado)
+                value:
+                  ticket_id: "a3f9b1e2"
+                  detail:
+                    context: "fileops.read"
+                    subject: "README.md"
+                    action: "read"
+                    payload:
+                      encoding: "utf-8"
+                      line_limit: 100
+      responses:
+        '200':
+          description: Resposta de execução
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+  /openapi:
+    get:
+      operationId: openapiDocument
+      summary: OpenAPI document
+      description: Retorna o documento OpenAPI atual.
+      responses:
+        '200':
+          description: Documento OpenAPI
+  /privacy:
+    get:
+      operationId: privacyPolicy
+      summary: Política de Privacidade
+      description: Retorna o texto da política de privacidade.
+      responses:
+        '200':
+          description: Política de privacidade

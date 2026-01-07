@@ -1,0 +1,289 @@
+---
+# SPEC: Discovery - Runtime Introspecção
+# Versão: 0.3.0
+# Descrição: Contrato de descoberta dinâmica de handlers Sky-RPC
+---
+
+openapi: 3.1.0
+info:
+  title: Skybridge Runtime Discovery API
+  version: 0.3.0
+  description: |
+    API de introspecção runtime para descoberta de handlers Sky-RPC ativos.
+    Permite que clientes descubram dinamicamente quais operações estão disponíveis
+    sem hardcoding.
+
+servers:
+  - url: http://localhost:8000
+    description: Servidor local de desenvolvimento
+  - url: https://api.skybridge.dev
+    description: Servidor de produção
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: discovery
+    description: Introspecção de handlers
+
+paths:
+  /discover:
+    get:
+      summary: Listar handlers ativos
+      description: |
+        Retorna catálogo completo de handlers RPC carregados no runtime.
+        Inclui metadados como method, kind, module, schemas e descrição.
+      operationId: listHandlers
+      tags: [discovery]
+      responses:
+        '200':
+          description: Catálogo de handlers
+          content:
+            application/json:
+              schema:
+                $ref: '../contexts/common.yaml#/components/schemas/SkyRpcDiscovery'
+              examples:
+                success:
+                  summary: Exemplo com múltiplos handlers
+                  value:
+                    version: "0.3.0"
+                    discovery:
+                      health:
+                        method: "health"
+                        kind: "query"
+                        module: "skybridge.core.handlers.health"
+                        description: "Health check do sistema"
+                        auth_required: false
+                        input_schema:
+                          type: "object"
+                          properties: {}
+                        output_schema:
+                          $ref: '#/components/schemas/HealthResponse'
+                      "fileops.read":
+                        method: "fileops.read"
+                        kind: "query"
+                        module: "skybridge.core.contexts.fileops.handlers"
+                        description: "Lê conteúdo de um arquivo"
+                        auth_required: true
+                        input_schema:
+                          type: "object"
+                          required: ["context", "action", "subject"]
+                          properties:
+                            context:
+                              type: "string"
+                              enum: ["fileops"]
+                            action:
+                              type: "string"
+                              enum: ["read"]
+                            subject:
+                              type: "string"
+                        output_schema:
+                          type: "object"
+                          properties:
+                            content:
+                              type: "string"
+                            size:
+                              type: "integer"
+                            path:
+                              type: "string"
+                      "tasks.create":
+                        method: "tasks.create"
+                        kind: "command"
+                        module: "skybridge.core.contexts.tasks.handlers"
+                        description: "Cria uma nova tarefa"
+                        auth_required: true
+                        input_schema:
+                          $ref: '#/components/schemas/CreateTaskInput'
+                        output_schema:
+                          $ref: '#/components/schemas/TaskResponse'
+                    total: 3
+        '401':
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '../contexts/common.yaml#/components/schemas/Error'
+              example:
+                code: 4010
+                message: "Unauthorized"
+        '403':
+          description: Sem permissão
+          content:
+            application/json:
+              schema:
+                $ref: '../contexts/common.yaml#/components/schemas/Error'
+              example:
+                code: 4030
+                message: "Forbidden"
+
+  /discover/reload:
+    post:
+      summary: Recarregar registry de handlers
+      description: |
+        Força recarga do registry a partir do código atual.
+        Requer privilégios de administrador.
+        Operação idempotente: múltiplas chamadas não causam duplicação.
+      operationId: reloadHandlers
+      tags: [discovery]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Registry recarregado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  added:
+                    type: array
+                    items:
+                      type: string
+                    description: "Handlers adicionados"
+                    example: ["fileops.write", "tasks.create"]
+                  removed:
+                    type: array
+                    items:
+                      type: string
+                    description: "Handlers removidos"
+                    example: ["legacy.method"]
+                  total:
+                    type: integer
+                    description: "Total de handlers após reload"
+                    example: 15
+                  version:
+                    type: string
+                    description: "Versão do Sky-RPC"
+                    example: "0.3.0"
+              required: [ok, added, removed, total, version]
+              examples:
+                success:
+                  summary: Reload com mudanças
+                  value:
+                    ok: true
+                    added: ["fileops.write", "tasks.create"]
+                    removed: ["legacy.method"]
+                    total: 15
+                    version: "0.3.0"
+                no_changes:
+                  summary: Reload sem mudanças
+                  value:
+                    ok: true
+                    added: []
+                    removed: []
+                    total: 13
+                    version: "0.3.0"
+        '401':
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '../contexts/common.yaml#/components/schemas/Error'
+              example:
+                code: 4010
+                message: "Unauthorized"
+        '403':
+          description: Sem privilégios de administrador
+          content:
+            application/json:
+              schema:
+                $ref: '../contexts/common.yaml#/components/schemas/Error'
+              example:
+                code: 4030
+                message: "Administrator privileges required"
+        '500':
+          description: Erro no reload (registry anterior preservado)
+          content:
+            application/json:
+              schema:
+                $ref: '../contexts/common.yaml#/components/schemas/Error'
+              example:
+                code: 5000
+                message: "Reload failed, previous registry preserved"
+                details:
+                  error: "ImportError in tasks.handlers"
+
+  /discover/{method}:
+    get:
+      summary: Obter metadados de um handler específico
+      description: |
+        Retorna metadados detalhados de um único handler.
+        Útil para documentação e geração de clientes.
+      operationId: getHandler
+      tags: [discovery]
+      parameters:
+        - name: method
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "Nome do método (ex: fileops.read)"
+          example: "fileops.read"
+      responses:
+        '200':
+          description: Metadados do handler
+          content:
+            application/json:
+              schema:
+                $ref: '../contexts/common.yaml#/components/schemas/SkyRpcHandler'
+              examples:
+                query:
+                  summary: Handler de query
+                  value:
+                    method: "fileops.read"
+                    kind: "query"
+                    module: "skybridge.core.contexts.fileops.handlers"
+                    description: "Lê conteúdo de um arquivo"
+                    auth_required: true
+                    input_schema:
+                      type: "object"
+                      required: ["context", "action", "subject"]
+                      properties:
+                        context:
+                          type: "string"
+                        action:
+                          type: "string"
+                        subject:
+                          type: "string"
+                    output_schema:
+                      type: "object"
+                      properties:
+                        content:
+                          type: "string"
+                        size:
+                          type: "integer"
+                command:
+                  summary: Handler de command
+                  value:
+                    method: "tasks.create"
+                    kind: "command"
+                    module: "skybridge.core.contexts.tasks.handlers"
+                    description: "Cria uma nova tarefa"
+                    auth_required: true
+                    input_schema:
+                      $ref: '#/components/schemas/CreateTaskInput'
+                    output_schema:
+                      $ref: '#/components/schemas/TaskResponse'
+        '404':
+          description: Handler não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '../contexts/common.yaml#/components/schemas/Error'
+              example:
+                code: 4040
+                message: "Handler not found: unknown.method"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        Autenticação via Bearer token.
+        Para /discover: qualquer token válido.
+        Para /discover/reload: requer token de administrador.

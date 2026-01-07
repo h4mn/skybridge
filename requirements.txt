@@ -1,0 +1,20 @@
+# Skybridge Requirements
+# Python 3.11+
+
+# Core
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+
+# CLI (sb)
+typer>=0.9.0
+requests>=2.31.0
+rich>=13.7.0
+
+# Ngrok (opcional)
+pyngrok>=7.0.0
+
+# Logging (futuro)
+# structlog>=23.2.0
+# colorlog>=6.8.0
