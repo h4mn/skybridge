@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Setup configuration for Skybridge.
+
+Versionamento: Lido do arquivo VERSION (single source of truth - ADR012)
 """
 
 from pathlib import Path
@@ -8,9 +10,23 @@ from setuptools import setup, find_packages
 
 README = (Path(__file__).parent / "README.md").read_text(encoding="utf-8")
 
+# Read version from VERSION file (single source of truth per ADR012)
+_VERSION_FILE = Path(__file__).parent / "VERSION"
+_version = "0.1.0"  # fallback
+
+if _VERSION_FILE.exists():
+    with open(_VERSION_FILE, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                if k.strip() == "SKYBRIDGE_VERSION":
+                    _version = v.strip()
+                    break
+
 setup(
     name="skybridge",
-    version="0.3.0",
+    version=_version,
     description="Skybridge - Microkernel RPC Platform",
     long_description=README,
     long_description_content_type="text/markdown",

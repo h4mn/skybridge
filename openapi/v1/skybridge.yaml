@@ -1,9 +1,12 @@
 openapi: 3.1.0
 info:
   title: Skybridge API
-  version: 0.2.2
+  version: 0.1.0
   description: |
-    Sky-RPC v0.2 (ticket + envelope estruturado). Use /ticket para obter um ticket e /envelope para enviar o payload.
+    Sky-RPC v0.3 (RPC-first semântico). Use /discover para introspecção dinâmica,
+    /ticket para obter um ticket e /envelope para enviar o payload.
+
+    Versionamento: Single source of truth via arquivo VERSION (ADR012)
 servers:
   - url: https://cunning-dear-primate.ngrok-free.app
     description: Servidor público via ngrok

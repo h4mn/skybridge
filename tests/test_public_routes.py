@@ -1,3 +1,13 @@
+"""
+Testes de Rotas Públicas da API.
+
+NOTA DE ARQUIVAMENTO SKY-RPC (2025-01-05):
+As rotas /ticket e /envelope ainda existem no código, mas Sky-RPC foi arquivado.
+Estes testes verificam que as rotas estão documentadas no OpenAPI, o que continua válido.
+
+Ver: docs/report/skyrpc-post-mortem-arquivamento.md
+"""
+
 import sys
 import unittest
 import yaml
