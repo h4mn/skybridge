@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.4] - 2026-01-07
+
+### Adicionado
+- Nenhuma mudança
+
+### Corrigido
+- fix(ci): capture grep output in variable before writing to file ([fc8eb95])
+
+### Alterado
+- Nenhuma mudança
+
+### Documentação
+- Nenhuma mudança
+
+
+
 ## [0.2.3] - 2026-01-07
 
 ### Adicionado
