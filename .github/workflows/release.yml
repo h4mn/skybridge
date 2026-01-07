@@ -168,39 +168,39 @@ jobs:
           fi
 
           # Categorize commits
-          echo "### Adicionado" >> CHANGELOG.new
+          echo "### Added" >> CHANGELOG.new
           FEAT_COMMITS=$(git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep "feat" || true)
           if [ -n "$FEAT_COMMITS" ]; then
             echo "$FEAT_COMMITS" >> CHANGELOG.new
           else
-            echo "- Nenhuma mudança" >> CHANGELOG.new
+            echo "- No changes" >> CHANGELOG.new
           fi
           echo "" >> CHANGELOG.new
 
-          echo "### Corrigido" >> CHANGELOG.new
+          echo "### Fixed" >> CHANGELOG.new
           FIX_COMMITS=$(git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep "fix" || true)
           if [ -n "$FIX_COMMITS" ]; then
             echo "$FIX_COMMITS" >> CHANGELOG.new
           else
-            echo "- Nenhuma mudança" >> CHANGELOG.new
+            echo "- No changes" >> CHANGELOG.new
           fi
           echo "" >> CHANGELOG.new
 
-          echo "### Alterado" >> CHANGELOG.new
+          echo "### Changed" >> CHANGELOG.new
             REFACTOR_COMMITS=$(git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep -E "refactor|perf" || true)
           if [ -n "$REFACTOR_COMMITS" ]; then
             echo "$REFACTOR_COMMITS" >> CHANGELOG.new
           else
-            echo "- Nenhuma mudança" >> CHANGELOG.new
+            echo "- No changes" >> CHANGELOG.new
           fi
           echo "" >> CHANGELOG.new
 
-          echo "### Documentação" >> CHANGELOG.new
+          echo "### Docs" >> CHANGELOG.new
           DOCS_COMMITS=$(git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep "docs" || true)
           if [ -n "$DOCS_COMMITS" ]; then
             echo "$DOCS_COMMITS" >> CHANGELOG.new
           else
-            echo "- Nenhuma mudança" >> CHANGELOG.new
+            echo "- No changes" >> CHANGELOG.new
           fi
           echo "" >> CHANGELOG.new
 

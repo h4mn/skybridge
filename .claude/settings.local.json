@@ -7,7 +7,11 @@
       "Bash(redocly lint:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(gh run:*)",
+      "Bash(gh release list:*)",
+      "Bash(gh release view:*)",
+      "Bash(git stash:*)"
     ]
   }
 }
