@@ -1,17 +1,5 @@
-# VERSION - Single Source of Truth
-# Data de início: 2026-01-06
-# Gerido por workflows (PRD012 - Estratégia de Versionamento)
-#
-# Formato: KEY=VALUE
-# - Linhas começando com # são comentários
-# - Linhas em branco são ignoradas
-# - Não usar espaços ao redor do =
-#
-# Componentes:
-# - SKYBRIDGE_VERSION: Versão principal do projeto
-# - KERNEL_API_VERSION: Versão do SDK interno
-# - OPENAPI_CONTRACT_VERSION: Versão do contrato HTTP exposto
-
-SKYBRIDGE_VERSION=0.1.0
-KERNEL_API_VERSION=0.1.0
-OPENAPI_CONTRACT_VERSION=0.1.0
+# Skybridge Version - Single Source of Truth (ADR012)
+# Updated: 2026-01-07T02:08:25Z
+SKYBRIDGE_VERSION=0.2.0
+KERNEL_API_VERSION=0.2.0
+OPENAPI_CONTRACT_VERSION=0.2.0
