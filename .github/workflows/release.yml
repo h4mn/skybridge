@@ -169,19 +169,39 @@ jobs:
 
           # Categorize commits
           echo "### Adicionado" >> CHANGELOG.new
-          git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep "feat" || echo "- Nenhuma mudança" >> CHANGELOG.new
+          FEAT_COMMITS=$(git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep "feat" || true)
+          if [ -n "$FEAT_COMMITS" ]; then
+            echo "$FEAT_COMMITS" >> CHANGELOG.new
+          else
+            echo "- Nenhuma mudança" >> CHANGELOG.new
+          fi
           echo "" >> CHANGELOG.new
 
           echo "### Corrigido" >> CHANGELOG.new
-          git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep "fix" || echo "- Nenhuma mudança" >> CHANGELOG.new
+          FIX_COMMITS=$(git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep "fix" || true)
+          if [ -n "$FIX_COMMITS" ]; then
+            echo "$FIX_COMMITS" >> CHANGELOG.new
+          else
+            echo "- Nenhuma mudança" >> CHANGELOG.new
+          fi
           echo "" >> CHANGELOG.new
 
           echo "### Alterado" >> CHANGELOG.new
-          git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep -E "refactor|perf" || echo "- Nenhuma mudança" >> CHANGELOG.new
+            REFACTOR_COMMITS=$(git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep -E "refactor|perf" || true)
+          if [ -n "$REFACTOR_COMMITS" ]; then
+            echo "$REFACTOR_COMMITS" >> CHANGELOG.new
+          else
+            echo "- Nenhuma mudança" >> CHANGELOG.new
+          fi
           echo "" >> CHANGELOG.new
 
           echo "### Documentação" >> CHANGELOG.new
-          git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep "docs" || echo "- Nenhuma mudança" >> CHANGELOG.new
+          DOCS_COMMITS=$(git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep "docs" || true)
+          if [ -n "$DOCS_COMMITS" ]; then
+            echo "$DOCS_COMMITS" >> CHANGELOG.new
+          else
+            echo "- Nenhuma mudança" >> CHANGELOG.new
+          fi
           echo "" >> CHANGELOG.new
 
           # Append existing changelog if it exists
