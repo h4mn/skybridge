@@ -21,6 +21,7 @@ from rich.json import JSON
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from skybridge.platform.config.config import get_config
+from skybridge import __version__
 
 app = typer.Typer(
     name="sb",
@@ -235,7 +236,7 @@ def rpc_reload(
 @app.command("version")
 def version():
     """Mostra versão do Skybridge."""
-    console.print(f"[cyan]Skybridge[/cyan] v0.3.0")
+    console.print(f"[cyan]Skybridge[/cyan] v{__version__}")
 
 
 def main():

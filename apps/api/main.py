@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 from skybridge.platform.bootstrap.app import get_app
 from skybridge.platform.config.config import get_config, load_ngrok_config
 from skybridge.platform.observability.logger import get_logger
+from skybridge import __version__
 
 
 def main():
@@ -24,7 +25,7 @@ def main():
     config = get_config()
     logger = get_logger(level=config.log_level)
 
-    logger.info(f"Starting {config.title} v{config.version}")
+    logger.info(f"Starting {config.title} v{__version__}")
 
     # Check ngrok
     ngrok_config = load_ngrok_config()
