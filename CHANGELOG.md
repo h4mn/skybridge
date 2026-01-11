@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0] - 2026-01-11
+
+### Added
+- feat: Webhook Autonomous Agents + Snapshot Service + AI Agent Interface (v0.3.0) (#6) ([f7756cd])
+
+### Fixed
+- No changes
+
+### Changed
+- No changes
+
+### Docs
+- No changes
+
+
+
 ## [0.2.5] - 2026-01-08
 
 ### Added
