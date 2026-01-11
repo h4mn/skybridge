@@ -9,16 +9,76 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+import threading
 import uuid
 import yaml
 
 from skybridge.platform.config.config import get_config, get_fileops_config
-from skybridge.platform.observability.logger import get_logger
+from skybridge.platform.observability.logger import get_logger, print_separator, Colors
 from skybridge.kernel import get_query_registry
 from skybridge.kernel.registry.discovery import discover_modules
 from skybridge.kernel.registry.skyrpc_registry import get_skyrpc_registry
 from skybridge.infra.contexts.fileops.filesystem_adapter import create_filesystem_adapter
 from skybridge.core.contexts.fileops.application.queries.read_file import ReadFileQuery, set_read_file_query
+
+# Webhook worker (PRD013)
+_webhook_worker_thread = None
+
+
+def start_webhook_worker():
+    """Inicia worker em thread separada."""
+    import asyncio
+    from skybridge.platform.background.webhook_worker import main as worker_main
+    from skybridge.platform.config.config import get_webhook_config
+
+    webhook_config = get_webhook_config()
+
+    if "github" not in webhook_config.enabled_sources:
+        return
+
+    logger = get_logger()
+    logger.info(f"Iniciando worker de {Colors.WHITE}Webhook{Colors.RESET} em thread de background")
+
+    # Run worker in new event loop
+    asyncio.run(worker_main())
+
+
+def start_webhook_worker_sync():
+    """Inicia worker de forma síncrona (para rodar em thread)."""
+    import asyncio
+    from skybridge.platform.background.webhook_worker import WebhookWorker
+    from skybridge.core.contexts.webhooks.application.job_orchestrator import (
+        JobOrchestrator,
+    )
+    from skybridge.core.contexts.webhooks.application.worktree_manager import (
+        WorktreeManager,
+    )
+    from skybridge.core.contexts.webhooks.application.handlers import get_job_queue
+    from skybridge.platform.config.config import get_webhook_config
+
+    webhook_config = get_webhook_config()
+
+    if "github" not in webhook_config.enabled_sources:
+        return
+
+    logger = get_logger()
+    logger.info(f"Iniciando worker de {Colors.WHITE}Webhook{Colors.RESET}")
+
+    job_queue = get_job_queue()
+    worktree_manager = WorktreeManager(webhook_config.worktree_base_path)
+    orchestrator = JobOrchestrator(job_queue, worktree_manager)
+    worker = WebhookWorker(job_queue, orchestrator)
+
+    # Create new event loop for this thread
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        loop.run_until_complete(worker.start())
+    finally:
+        loop.close()
+
+
 
 
 class CorrelationMiddleware(BaseHTTPMiddleware):
@@ -62,6 +122,26 @@ class SkybridgeApp:
         self._setup_middleware()
         self._register_queries()
         self._setup_routes()
+        self._start_webhook_worker()  # PRD013: inicia worker
+
+    def _start_webhook_worker(self):
+        """Inicia worker em thread separada."""
+        from skybridge.platform.config.config import get_webhook_config
+
+        webhook_config = get_webhook_config()
+
+        if "github" in webhook_config.enabled_sources:
+            global _webhook_worker_thread
+
+            # Usa daemon=True para thread não bloquear shutdown
+            _webhook_worker_thread = threading.Thread(
+                target=start_webhook_worker_sync,
+                daemon=True,
+                name="webhook-worker"
+            )
+            _webhook_worker_thread.start()
+
+            self.logger.info(f"Thread do worker de {Colors.WHITE}Webhook{Colors.RESET} iniciada")
 
     def _custom_openapi(self):
         """
@@ -261,7 +341,7 @@ class SkybridgeApp:
             include_submodules=discovery_config.include_submodules,
         )
 
-        self.logger.info("Queries registered", extra={
+        self.logger.info("Queries registradas", extra={
             "count": len(registry.list_all()),
             "fileops_mode": fileops_config.allowlist_mode,
             "modules": modules,
@@ -271,7 +351,7 @@ class SkybridgeApp:
         """Configura rotas."""
         from skybridge.platform.delivery.routes import create_rpc_router
         self.app.include_router(create_rpc_router(), tags=["Sky-RPC"])
-        self.logger.info("Routes configured")
+        self.logger.info("Rotas configuradas")
 
     def run(self, host: str | None = None, port: int | None = None):
         """Executa o servidor com uvicorn."""
@@ -284,7 +364,7 @@ class SkybridgeApp:
         ssl_config = get_ssl_config()
 
         self.logger.info(
-            f"Starting {self.config.title}",
+            f"Iniciando {self.config.title}",
             extra={
                 "host": host,
                 "port": port,
@@ -304,13 +384,21 @@ class SkybridgeApp:
                 uvicorn_kwargs["ssl_keyfile"] = ssl_config.key_file
             else:
                 self.logger.warning(
-                    "SSL enabled but cert/key not configured",
+                    "SSL habilitado mas cert/key não configurados",
                     extra={"cert_file": ssl_config.cert_file, "key_file": ssl_config.key_file},
                 )
+
+        # Separador antes dos logs do uvicorn
+        print()
+        print_separator("─", 60)
 
         uvicorn.run(
             **uvicorn_kwargs,
         )
+
+        # Separador depois dos logs do uvicorn
+        print()
+        print_separator("═", 60)
 
 
 # Singleton global

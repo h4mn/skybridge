@@ -1,6 +1,8 @@
 # Workspace - dados gerados (nao versionar)
 workspace/
 !workspace/.gitkeep
+!workspace/skybridge/.gitkeep
+!workspace/skybridge/logs/.gitkeep
 nul
 
 # Repositórios embutidos (subrepos de agentes)

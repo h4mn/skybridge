@@ -6,9 +6,21 @@ Carrega de base.yaml + profiles + environment variables.
 """
 
 import os
+import sys
 from dataclasses import dataclass
 from typing import Any
 from pathlib import Path
+
+
+# Diretório base para worktrees (configurável por ambiente)
+# Conforme SPEC008 seção 8.1.1
+WORKTREES_BASE_PATH = Path(os.getenv(
+    "WORKTREES_BASE_PATH",
+    "B:/_repositorios/skybridge-worktrees"
+))
+
+# Garante que o diretório existe
+WORKTREES_BASE_PATH.mkdir(parents=True, exist_ok=True)
 
 
 @dataclass(frozen=True)
@@ -66,6 +78,23 @@ class SecurityConfig:
     ip_allowlist: list[str]
     method_policy: dict[str, list[str]]
     rate_limit_per_minute: int
+
+
+@dataclass(frozen=True)
+class WebhookConfig:
+    """Configuração de webhooks para processamento assíncrono."""
+    github_secret: str | None
+    discord_secret: str | None
+    youtube_secret: str | None
+    stripe_secret: str | None
+    worktree_base_path: str
+    enabled_sources: list[str]
+
+
+@dataclass(frozen=True)
+class AgentConfig:
+    """Configuração de agentes autônomos."""
+    claude_code_path: str  # Caminho para executável do Claude Code CLI
 
 
 
@@ -169,6 +198,7 @@ def load_discovery_config() -> DiscoveryConfig:
         [
             "skybridge.core.shared.queries",
             "skybridge.core.contexts.fileops.application.queries",
+            "skybridge.core.contexts.webhooks.application",  # PRD013
             "skybridge.platform.observability.snapshot",
         ],
     )
@@ -193,6 +223,29 @@ def load_security_config() -> SecurityConfig:
     )
 
 
+def load_webhook_config() -> WebhookConfig:
+    """Carrega configuração de webhooks."""
+    return WebhookConfig(
+        github_secret=os.getenv("WEBHOOK_GITHUB_SECRET"),
+        discord_secret=os.getenv("WEBHOOK_DISCORD_SECRET"),
+        youtube_secret=os.getenv("WEBHOOK_YOUTUBE_SECRET"),
+        stripe_secret=os.getenv("WEBHOOK_STRIPE_SECRET"),
+        # Usa WORKTREES_BASE_PATH definido no módulo (configurável via WORKTREES_BASE_PATH env var)
+        worktree_base_path=str(WORKTREES_BASE_PATH),
+        enabled_sources=_env_list("WEBHOOK_ENABLED_SOURCES", ["github"]),
+    )
+
+
+def load_agent_config() -> AgentConfig:
+    """Carrega configuração de agentes autônomos."""
+    # Detecta automaticamente o caminho correto para o Claude Code CLI
+    # No Windows precisa usar claude.cmd, em outros sistemas apenas "claude"
+    default_path = "claude.cmd" if sys.platform == "win32" else "claude"
+    return AgentConfig(
+        claude_code_path=os.getenv("CLAUDE_CODE_PATH", default_path),
+    )
+
+
 # Config global
 _config: AppConfig | None = None
 _ssl_config: SslConfig | None = None
@@ -200,6 +253,8 @@ _ngrok_config: NgrokConfig | None = None
 _fileops_config: FileOpsConfig | None = None
 _discovery_config: DiscoveryConfig | None = None
 _security_config: SecurityConfig | None = None
+_webhook_config: WebhookConfig | None = None
+_agent_config: AgentConfig | None = None
 
 
 def get_config() -> AppConfig:
@@ -248,3 +303,19 @@ def get_security_config() -> SecurityConfig:
     if _security_config is None:
         _security_config = load_security_config()
     return _security_config
+
+
+def get_webhook_config() -> WebhookConfig:
+    """Retorna configuração de webhooks (singleton)."""
+    global _webhook_config
+    if _webhook_config is None:
+        _webhook_config = load_webhook_config()
+    return _webhook_config
+
+
+def get_agent_config() -> AgentConfig:
+    """Retorna configuração de agentes autônomos (singleton)."""
+    global _agent_config
+    if _agent_config is None:
+        _agent_config = load_agent_config()
+    return _agent_config
