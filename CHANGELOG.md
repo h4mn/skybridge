@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.4.0] - 2026-01-11
+
+### Added
+- feat(webhooks): integração com plataforma Skybridge ([f2727a0])
+- feat(webhooks): sistema de agentes autônomos (PRD013) ([1479b36])
+- feat(snapshot): GitExtractor + scripts + ADR015/017 ([5f2f968])
+- feat(agent-interface): SPEC008 + infra de agentes ([0c183e2])
+
+### Fixed
+- fix(release): corrige line endings do arquivo VERSION ([6542630])
+
+### Changed
+- No changes
+
+### Docs
+- docs(versioning): estudo sobre padrões profissionais de versionamento ([1aeaf77])
+- docs(webhooks): limpeza de documentos duplicados ([f13988c])
+- docs(webhooks): relatórios, PRD014, testes, config, ADR018 ([f2e5688])
+- docs: adiciona PRD e estudo sobre webhook autonomous agents ([a254128])
+
+
+
 ## [0.2.5] - 2026-01-08
 
 ### Added
