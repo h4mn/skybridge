@@ -97,6 +97,7 @@ jobs:
             fi
           else
             echo "docs/spec directory does not exist, skipping"
+          fi
 
       - name: Generate version index
         run: |
