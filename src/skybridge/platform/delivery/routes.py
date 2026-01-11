@@ -742,4 +742,133 @@ def create_rpc_router() -> APIRouter:
             output_schema=handler.output_schema,
         )
 
+    # ========== Webhook Endpoints (PRD013) ==========
+
+    @router.post("/webhooks/{source}")
+    async def receive_webhook(source: str, http_request: Request):
+        """
+        Recebe webhook de fonte externa (GitHub, Discord, etc).
+
+        PRD013: Endpoint para webhooks que acionam agentes autônomos.
+        Fluxo: Verify signature → Parse event → Create job → Return 202
+        """
+        correlation_id = getattr(http_request.state, "correlation_id", str(uuid.uuid4()))
+
+        # Extrai headers relevantes PRIMEIRO (antes de consumir body)
+        signature = http_request.headers.get("x-hub-signature-256", "")
+        event_type_header = http_request.headers.get("x-github-event", "")
+
+        # Lê payload body (só pode ser lido uma vez)
+        try:
+            body_bytes = await http_request.body()
+        except Exception as e:
+            logger.error(
+                f"Failed to read request body: {str(e)}",
+                extra={"correlation_id": correlation_id, "source": source},
+            )
+            return JSONResponse(
+                status_code=400,
+                content={"ok": False, "error": "Failed to read body"},
+            )
+
+        # Verifica assinatura HMAC
+        from skybridge.platform.delivery.middleware import verify_webhook_signature
+
+        error_response = await verify_webhook_signature(body_bytes, signature, source)
+        if error_response:
+            return error_response
+
+        # Parse payload JSON
+        try:
+            payload = __import__("json").loads(body_bytes.decode())
+        except Exception as e:
+            logger.error(
+                f"Failed to parse webhook payload: {str(e)}",
+                extra={"correlation_id": correlation_id, "source": source},
+            )
+            return JSONResponse(
+                status_code=400,
+                content={"ok": False, "error": "Invalid JSON payload"},
+            )
+
+        # Constrói event_type completo combinando header + action do payload
+        # GitHub envia X-GitHub-Event como "issues" e payload tem "action": "opened"
+        # Precisamos combinar para obter "issues.opened"
+        if source == "github" and event_type_header in ("issues", "pull_request", "issue_comment", "discussion", "discussion_comment"):
+            action = payload.get("action", "opened")
+            event_type = f"{event_type_header}.{action}"
+        else:
+            # Para eventos sem action (ping, etc) ou outras fontes, usa o valor do header
+            event_type = event_type_header
+
+        # Busca handler registrado
+        handler_name = f"webhooks.{source}.receive"
+        handler = registry.get(handler_name)
+
+        if not handler:
+            logger.error(
+                f"Handler not found: {handler_name}",
+                extra={"correlation_id": correlation_id, "source": source},
+            )
+            return JSONResponse(
+                status_code=501,
+                content={"ok": False, "error": "Handler not implemented"},
+            )
+
+        # Executa handler
+        try:
+            result = handler.handler({
+                "payload": payload,
+                "signature": signature,
+                "event_type": event_type,
+            })
+        except Exception as e:
+            logger.error(
+                f"Handler execution failed: {str(e)}",
+                extra={"correlation_id": correlation_id, "source": source, "handler": handler_name},
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"ok": False, "error": "Handler execution failed"},
+            )
+
+        if result.is_ok:
+            # Trata ping como caso especial (200 OK)
+            if result.value == "ping":
+                logger.info(
+                    f"Ping event acknowledged",
+                    extra={"correlation_id": correlation_id, "source": source},
+                )
+                return JSONResponse(
+                    status_code=200,  # OK
+                    content={"ok": True, "message": "pong"},
+                )
+
+            logger.info(
+                f"Webhook enqueued successfully",
+                extra={
+                    "correlation_id": correlation_id,
+                    "source": source,
+                    "event_type": event_type,
+                    "job_id": result.value,
+                },
+            )
+            return JSONResponse(
+                status_code=202,  # Accepted
+                content={
+                    "ok": True,
+                    "job_id": result.value,
+                    "status": "queued",
+                },
+            )
+        else:
+            logger.error(
+                f"Handler returned error: {result.error}",
+                extra={"correlation_id": correlation_id, "source": source},
+            )
+            return JSONResponse(
+                status_code=422,
+                content={"ok": False, "error": result.error},
+            )
+
     return router
