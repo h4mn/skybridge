@@ -17,8 +17,10 @@ import subprocess
 from skybridge.platform.observability.snapshot.capture import generate_snapshot_id
 from skybridge.platform.observability.snapshot.extractors.base import StateExtractor
 from skybridge.platform.observability.snapshot.models import (
+    Diff,
     Snapshot,
     SnapshotMetadata,
+    SnapshotStats,
     SnapshotSubject,
 )
 
@@ -128,16 +130,18 @@ class GitExtractor(StateExtractor):
         snapshot_id = generate_snapshot_id(self.subject, f"git:{root_path}")
         timestamp = datetime.utcnow()
 
-        # Stats baseadas no status
-        stats = {
-            "total_files": len(status.staged_files) + len(status.unstaged_files) + len(status.untracked_files),
-            "staged": len(status.staged_files),
-            "unstaged": len(status.unstaged_files),
-            "untracked": len(status.untracked_files),
-            "conflicts": len(status.merge_conflicts),
-            "is_clean": status.is_clean,
-            "can_remove": status.can_safely_remove()[0],
-        }
+        # SnapshotStats exige total_files, total_dirs, total_size
+        stats = SnapshotStats(
+            total_files=len(status.staged_files) + len(status.unstaged_files) + len(status.untracked_files),
+            total_dirs=0,  # Git não conta diretórios
+            total_size=0,  # Git não calcula tamanho sem --index
+            file_types={  # Info adicional preservada
+                "staged": len(status.staged_files),
+                "unstaged": len(status.unstaged_files),
+                "untracked": len(status.untracked_files),
+                "conflicts": len(status.merge_conflicts),
+            },
+        )
 
         metadata = SnapshotMetadata(
             snapshot_id=snapshot_id,
@@ -146,7 +150,11 @@ class GitExtractor(StateExtractor):
             target=str(root_path),
             git_hash=git_hash,
             git_branch=git_branch,
-            tags={"git_worktree": "true"},
+            tags={
+                "git_worktree": "true",
+                "is_clean": str(status.is_clean).lower(),
+                "can_remove": str(status.can_safely_remove()[0]).lower(),
+            },
         )
 
         return Snapshot(
@@ -170,6 +178,68 @@ class GitExtractor(StateExtractor):
         status = self._get_git_status(root_path)
         can_remove, message = status.can_safely_remove()
         return can_remove, message, status
+
+    def compare(self, old: Snapshot, new: Snapshot) -> "Diff":
+        """
+        Compara dois snapshots git.
+
+        Args:
+            old: Snapshot anterior
+            new: Snapshot novo
+
+        Returns:
+            Diff com as diferenças
+        """
+        from skybridge.platform.observability.snapshot.models import DiffSummary
+
+        # Comparação básica baseada nos stats
+        changes = {}
+        for key in old.stats.model_dump():
+            if key in new.stats.model_dump():
+                old_val = old.stats.model_dump()[key]
+                new_val = new.stats.model_dump()[key]
+                if old_val != new_val:
+                    changes[key] = {"old": old_val, "new": new_val}
+
+        # Cria um Diff simples
+        return Diff(
+            diff_id=f"diff-{old.metadata.snapshot_id}-{new.metadata.snapshot_id}",
+            timestamp=new.metadata.timestamp,
+            old_snapshot_id=old.metadata.snapshot_id,
+            new_snapshot_id=new.metadata.snapshot_id,
+            subject=new.metadata.subject,
+            summary=DiffSummary(
+                added_files=new.stats.total_files - old.stats.total_files,
+                removed_files=0,
+                modified_files=0,
+                moved_files=0,
+                added_dirs=0,
+                removed_dirs=0,
+                size_delta=0,
+            ),
+            changes=[],  # TODO: Implementar lista de mudanças detalhada
+        )
+
+    def _generate_diff_summary(self, old: Snapshot, new: Snapshot) -> str:
+        """Gera resumo das diferenças."""
+        # Extrai info dos tags (is_clean, can_remove)
+        old_clean = old.metadata.tags.get("is_clean", "true") == "true"
+        new_clean = new.metadata.tags.get("is_clean", "true") == "true"
+
+        if old_clean == new_clean:
+            return "Sem mudanças no status do worktree"
+
+        if old_clean and not new_clean:
+            unstaged = new.stats.file_types.get("unstaged", 0)
+            untracked = new.stats.file_types.get("untracked", 0)
+            return f"Worktree ficou sujo: {unstaged} unstaged, {untracked} untracked"
+
+        if not old_clean and new_clean:
+            return "Worktree foi limpo"
+
+        staged = new.stats.file_types.get("staged", 0)
+        unstaged = new.stats.file_types.get("unstaged", 0)
+        return f"Mudanças detectadas: {staged} staged, {unstaged} unstaged"
 
     def _get_git_status(self, path: Path) -> GitWorktreeStatus:
         """Obtém status completo do git."""
