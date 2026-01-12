@@ -1,75 +1,75 @@
-# GitHub Issues Plugin
+# Plugin GitHub Issues
 
-Automate GitHub issue resolution via webhook-driven autonomous agents.
+Automatiza resolução de issues do GitHub via agentes autônomos acionados por webhooks.
 
-## Install
+## Instalação
 
 ```bash
-# Copy to Claude plugins folder
+# Copiar para pasta de plugins do Claude
 cp -r github-issues ~/.claude/plugins/
 
 # Windows
 xcopy /E /I github-issues C:\Users\SEU_USUARIO\.claude\plugins\github-issues
 ```
 
-## Usage
+## Uso
 
-### Resolve Issue
+### Resolver Issue
 ```
-/resolve-issue #<issue_number>
+/resolve-issue #<numero_issue>
 
-# Examples
+# Exemplos
 /resolve-issue #225
 /resolve-issue #123
 ```
 
-## Issue Types
+## Tipos de Issue
 
-| Type | Timeout | Description |
+| Tipo | Timeout | Descrição |
 |------|---------|-------------|
-| `hello-world` | 60s | Simple hello world example |
-| `bug-simple` | 300s (5min) | Simple bug fix |
-| `bug-complex` | 600s (10min) | Complex bug fix |
-| `refactor` | 900s (15min) | Code refactoring |
-| `generic` | 600s (10min) | Default issue resolution |
+| `hello-world` | 60s | Exemplo simples de hello world |
+| `bug-simple` | 300s (5min) | Correção de bug simples |
+| `bug-complex` | 600s (10min) | Correção de bug complexo |
+| `refactor` | 900s (15min) | Refatoração de código |
+| `generic` | 600s (10min) | Resolução genérica de issue |
 
-## Workflow
+## Fluxo de Trabalho
 
-1. **Analyze Issue**
-   - Parse issue title, body, and labels
-   - Detect issue type from keywords
-   - Identify affected files/components
+1. **Analisar Issue**
+   - Ler título, corpo e labels da issue
+   - Detectar tipo de issue por palavras-chave
+   - Identificar arquivos/componentes afetados
 
-2. **Create Worktree**
-   - Create isolated worktree: `skybridge-fix-<issue_number>`
-   - Checkout target branch
+2. **Criar Worktree**
+   - Criar worktree isolado: `skybridge-fix-<numero_issue>`
+   - Fazer checkout da branch alvo
 
-3. **Execute Solution**
-   - Read relevant files
-   - Implement fix based on issue type
-   - Create new files if needed
+3. **Executar Solução**
+   - Ler arquivos relevantes
+   - Implementar correção baseada no tipo de issue
+   - Criar novos arquivos se necessário
 
-4. **Commit Changes**
-   - Telegraphic commit: `fix(<component>): <description>`
-   - Include issue reference
+4. **Commitar Mudanças**
+   - Commit telegráfico: `fix(<componente>): <descrição>`
+   - Incluir referência à issue
 
-5. **Create PR**
-   - Generate PR description with issue summary
-   - Reference original issue (#<number>)
+5. **Criar PR**
+   - Gerar descrição da PR com resumo da issue
+   - Referenciar issue original (#<numero>)
 
-6. **Cleanup**
-   - Remove worktree after successful push
+6. **Limpeza**
+   - Remover worktree após push bem-sucedido
 
-## Integration with Skybridge
+## Integração com Skybridge
 
-This plugin integrates with the Skybridge webhook system (PRD013):
+Este plugin integra com o sistema de webhooks da Skybridge (PRD013):
 
 ```python
-# GitHub webhook → Job → Agent Facade → resolve-issue skill
+# GitHub webhook → Job → Agent Facade → skill resolve-issue
 ```
 
-Ref: `docs/prd/PRD013-webhook-autonomous-agents.md`
+Referência: `docs/prd/PRD013-webhook-autonomous-agents.md`
 
 ---
 
-> "Automated resolution = happy maintainers" – made by Sky 🤖
+> "Resolução automatizada = maintainers felizes" – made by Sky 🤖

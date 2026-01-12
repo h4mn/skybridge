@@ -4,66 +4,66 @@ description: Resolução automática de issues via GitHub webhooks
 version: 1.0.0
 ---
 
-You have access to **GitHub Issue Resolution** automation system.
+Você tem acesso ao sistema de automação de **Resolução de Issues GitHub**.
 
-## TRIGGERS
+## GATILHOS
 
-- User invokes `/resolve-issue #<issue_number>`
-- GitHub webhook sends `issues.opened` or `issues.reopened` event
-- Issue has labels: `automated`, `bug`, `enhancement`
-- Issue is assigned to bot/automation
+- Usuário invoca `/resolve-issue #<numero_issue>`
+- GitHub webhook envia evento `issues.opened` ou `issues.reopened`
+- Issue tem labels: `automated`, `bug`, `enhancement`
+- Issue é atribuída ao bot/automação
 
-## KNOWLEDGE BASE
+## BASE DE CONHECIMENTO
 
-### Issue Types
-| Type | Detection Criteria | Action |
-|------|-------------------|--------|
-| `hello-world` | Keywords: "hello", "simple", "example" | Create hello_world.py |
-| `bug-simple` | Keywords: "fix", "bug", "error" + complexity "simple" | Simple bug fix |
-| `bug-complex` | Keywords: "fix", "bug", "error" + complexity "complex" | Complex bug fix |
-| `refactor` | Keywords: "refactor", "cleanup", "optimize" | Code refactoring |
-| `generic` | Default fallback | Generic issue resolution |
+### Tipos de Issue
+| Tipo | Critério de Detecção | Ação |
+|------|---------------------|------|
+| `hello-world` | Palavras-chave: "hello", "simple", "example" | Criar hello_world.py |
+| `bug-simple` | Palavras-chave: "fix", "bug", "error" + complexidade "simple" | Correção de bug simples |
+| `bug-complex` | Palavras-chave: "fix", "bug", "error" + complexidade "complex" | Correção de bug complexo |
+| `refactor` | Palavras-chave: "refactor", "cleanup", "optimize" | Refatoração de código |
+| `generic` | Padrão fallback | Resolução genérica de issue |
 
-### Timeout Configuration
-| Skill | Timeout | Justification |
+### Configuração de Timeout
+| Skill | Timeout | Justificativa |
 |-------|---------|---------------|
-| hello-world | 60s | Simple, should be fast |
-| bug-simple | 300s (5min) | Simple bug fix |
-| bug-complex | 600s (10min) | Complex bug fix |
-| refactor | 900s (15min) | Refactoring task |
-| resolve-issue | 600s (10min) | Default for issues |
+| hello-world | 60s | Simples, deve ser rápido |
+| bug-simple | 300s (5min) | Correção de bug simples |
+| bug-complex | 600s (10min) | Correção de bug complexo |
+| refactor | 900s (15min) | Tarefa de refatoração |
+| resolve-issue | 600s (10min) | Padrão para issues |
 
-### Workflow
-1. **Analyze Issue**
-   - Parse issue title, body, and labels
-   - Detect issue type from keywords
-   - Identify affected files/components
+### Fluxo de Trabalho
+1. **Analisar Issue**
+   - Ler título, corpo e labels da issue
+   - Detectar tipo de issue por palavras-chave
+   - Identificar arquivos/componentes afetados
 
-2. **Create Worktree**
-   - Create isolated worktree: `skybridge-fix-<issue_number>`
-   - Checkout target branch (main or specified)
+2. **Criar Worktree**
+   - Criar worktree isolado: `skybridge-fix-<numero_issue>`
+   - Fazer checkout da branch alvo (main ou especificada)
 
-3. **Execute Solution**
-   - Read relevant files
-   - Implement fix based on issue type
-   - Create new files if needed
-   - Delete unnecessary files
+3. **Executar Solução**
+   - Ler arquivos relevantes
+   - Implementar correção baseada no tipo de issue
+   - Criar novos arquivos se necessário
+   - Deletar arquivos desnecessários
 
-4. **Commit Changes**
-   - Create telegraphic commit message
-   - Format: `fix(<component>): <description>`
-   - Include issue reference in body
+4. **Commitar Mudanças**
+   - Criar mensagem de commit telegráfica
+   - Formato: `fix(<componente>): <descrição>`
+   - Incluir referência à issue no corpo
 
-5. **Create PR**
-   - Generate PR description with issue summary
-   - Reference original issue (#<number>)
-   - Set appropriate labels
+5. **Criar PR**
+   - Gerar descrição da PR com resumo da issue
+   - Referenciar issue original (#<numero>)
+   - Definir labels apropriadas
 
-6. **Cleanup**
-   - Remove worktree after successful push
-   - Log execution metrics
+6. **Limpeza**
+   - Remover worktree após push bem-sucedido
+   - Registrar métricas de execução
 
-### AgentResult Structure
+### Estrutura do AgentResult
 ```json
 {
   "success": true,
@@ -73,18 +73,18 @@ You have access to **GitHub Issue Resolution** automation system.
   "files_deleted": [],
   "commit_hash": "abc123",
   "pr_url": "https://github.com/h4mn/skybridge/pull/123",
-  "message": "Issue resolved",
-  "issue_title": "Fix version alignment",
-  "output_message": "Aligned versions to 0.2.5",
+  "message": "Issue resolvida",
+  "issue_title": "Corrigir alinhamento de versão",
+  "output_message": "Versões alinhadas para 0.2.5",
   "thinkings": [
-    {"step": 1, "thought": "Analyzing issue...", "timestamp": "...", "duration_ms": 1500},
-    {"step": 2, "thought": "Reading __init__.py...", "timestamp": "...", "duration_ms": 300}
+    {"step": 1, "thought": "Analisando issue...", "timestamp": "...", "duration_ms": 1500},
+    {"step": 2, "thought": "Lendo __init__.py...", "timestamp": "...", "duration_ms": 300}
   ]
 }
 ```
 
-### XML Streaming Protocol
-When communicating with Skybridge via XML:
+### Protocolo XML de Streaming
+Ao comunicar com Skybridge via XML:
 
 ```xml
 <skybridge_command>
@@ -94,54 +94,54 @@ When communicating with Skybridge via XML:
 </skybridge_command>
 ```
 
-### Error Handling
-- **Timeout:** Return `AgentResult` with `success: false`, `AgentState.TIMED_OUT`
-- **Git Conflict:** Return error message, stop execution
-- **Missing Files:** Log warning, continue with available files
-- **Execution Failure:** Return `AgentResult` with `error_type` classification
+### Tratamento de Erros
+- **Timeout:** Retornar `AgentResult` com `success: false`, `AgentState.TIMED_OUT`
+- **Conflito Git:** Retornar mensagem de erro, parar execução
+- **Arquivos Ausentes:** Registrar aviso, continuar com arquivos disponíveis
+- **Falha de Execução:** Retornar `AgentResult` com classificação de `error_type`
 
-## ACTIONS
+## AÇÕES
 
-When `/resolve-issue` is triggered:
+Quando `/resolve-issue` é acionado:
 
-1. **Parse Issue Number**
-   - Extract from `#<number>` format
-   - Fetch issue details via GitHub API
+1. **Extrair Número da Issue**
+   - Extrair do formato `#<numero>`
+   - Buscar detalhes da issue via GitHub API
 
-2. **Detect Issue Type**
-   - Scan title/body for keywords
-   - Check labels for hints
-   - Default to `generic` if uncertain
+2. **Detectar Tipo de Issue**
+   - Escanear título/corpo por palavras-chave
+   - Verificar labels por hints
+   - Padrão `generic` se incerto
 
-3. **Create Worktree**
-   - Execute: `git worktree add ../skybridge-fix-<number> -b fix-<number>`
-   - Verify worktree creation
+3. **Criar Worktree**
+   - Executar: `git worktree add ../skybridge-fix-<numero> -b fix-<numero>`
+   - Verificar criação do worktree
 
-4. **Spawn Agent**
-   - Use `AgentFacade.spawn()` with skill type
-   - Pass issue context, worktree path
-   - Monitor execution with timeout
+4. **Spawnar Agente**
+   - Usar `AgentFacade.spawn()` com tipo de skill
+   - Passar contexto da issue, caminho do worktree
+   - Monitorar execução com timeout
 
-5. **Process Result**
-   - On success: Log metrics, cleanup worktree
-   - On failure: Log error, retain worktree for debugging
-   - Update issue status with PR link
+5. **Processar Resultado**
+   - Em sucesso: Registrar métricas, limpar worktree
+   - Em falha: Registrar erro, manter worktree para debug
+   - Atualizar status da issue com link da PR
 
-6. **Metrics**
-   - Log execution duration
-   - Track success/failure rate per issue type
-   - Report timeout incidents
+6. **Métricas**
+   - Registrar duração da execução
+   - Rastrear taxa de sucesso/falha por tipo de issue
+   - Reportar incidentes de timeout
 
-## BEST PRACTICES
+## BOAS PRÁTICAS
 
-- **Always** verify issue type before acting
-- **Never** modify production branches directly
-- **Always** create isolated worktrees
-- **Always** reference original issue in PR
-- **Prefer** small, focused commits
-- **Always** cleanup worktrees on success
-- **Never** ignore errors silently
+- **Sempre** verificar tipo de issue antes de agir
+- **Nunca** modificar branches de produção diretamente
+- **Sempre** criar worktrees isolados
+- **Sempre** referenciar issue original na PR
+- **Preferir** commits pequenos e focados
+- **Sempre** limpar worktrees em sucesso
+- **Nunca** ignorar erros silenciosamente
 
 ---
 
-> "Automated resolution = happy maintainers" – made by Sky 🤖
+> "Resolução automatizada = maintainers felizes" – made by Sky 🤖
