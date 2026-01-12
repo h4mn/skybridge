@@ -55,3 +55,6 @@ yarn-error.log*
 
 # Auto Claude data directory
 .auto-claude/
+
+# Arquivos temporários do opencode
+tmpclaude-*
