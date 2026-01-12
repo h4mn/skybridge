@@ -1,4 +1,4 @@
-﻿# Documentação Skybridge
+# Documentação Skybridge
 
 ## Definição
 
@@ -29,7 +29,12 @@ pessoal → times → ecossistema → SaaS multi-tenant.
 - [ADR010](adr/ADR010-adotar-sky-rpc.md) — Sky-RPC: ticket + envelope
 - [ADR011](adr/ADR011-snapshot-diff-estado-atual.md) — Snapshot/diff do estado atual
 - [ADR012](adr/ADR012-estrategia-versionamento.md) — Estratégia de versionamento
-- [ADR012](adr/ADR012-adotar-yamllint-openapi-validator.md) — Validação de YAML/OpenAPI
+- [ADR013](adr/ADR013-adotar-yamllint-openapi-validator.md) — Validação de YAML/OpenAPI
+- [ADR014](adr/ADR014-evoluir-sky-rpc.md) — Evoluir Sky-RPC
+- [ADR015](adr/ADR015-adotar-snapshot-como-serviço-plataforma.md) — Adotar Snapshot como serviço
+- [ADR016](adr/ADR016-openapi-hibrido-estatico-dinamico.md) — OpenAPI Híbrido
+- [ADR017](adr/ADR017-estrutura-workspace-dados-gerados.md) — Estrutura workspace dados gerados
+- [ADR018](adr/ADR018-linguagem-portugues-brasil-codebase.md) — Português Brasileiro no código
 
 ### PRDs — Product Requirements
 
@@ -41,12 +46,24 @@ pessoal → times → ecossistema → SaaS multi-tenant.
 - [PRD005](prd/PRD005-baseline-seguranca-llm.md) — Baseline de segurança LLM
 - [PRD006](prd/PRD006-rotas-publicas-openrpc-privacy.md) — Rotas públicas (substituído)
 - [PRD007](prd/PRD007-Sky-RPC-ticket-envelope.md) — Sky-RPC Ticket + Envelope
+- [PRD008](prd/PRD008-Sky-RPC-v0.2-envelope-estruturado.md) — Sky-RPC v0.2 Envelope Estruturado
+- [PRD009](prd/PRD009-Sky-RPC-v0.3-RPC-first-Semantico.md) — Sky-RPC v0.3 RPC-first Semântico
+- [PRD010](prd/PRD010-OpenAPI-Hibrido.md) — OpenAPI Híbrido
+- [PRD011](prd/PRD011-Snapshot-Service.md) — Snapshot Service
+- [PRD012](prd/PRD012-Estrategia-Versionamento-Semver-CC.md) — Estratégia de Versionamento Semver CC
+- [PRD013](prd/PRD013-webhook-autonomous-agents.md) — Webhook Autonomous Agents
+- [PRD014](prd/PRD014-webui-dashboard.md) — WebUI Dashboard
 
 ### Specs — Contratos
 
 - [SPEC001](spec/SPEC001-baseline-seguranca-llm.md) — Baseline de segurança LLM
 - [SPEC002](spec/SPEC002-Sky-RPC-v0.1.md) — Sky-RPC v0.1
-- [SPEC003](spec/SPEC003-documentacao-metadados.md) — Metadados de documentação
+- [SPEC003](spec/SPEC003-Sky-RPC-v0.2.md) — Sky-RPC v0.2
+- [SPEC004](spec/SPEC004-Sky-RPC-v0.3.md) — Sky-RPC v0.3
+- [SPEC005](spec/SPEC005-documentacao-metadados.md) — Metadados de documentação
+- [SPEC006](spec/SPEC006-Estrutura-de-Specs.md) — Estrutura de Specs
+- [SPEC007](spec/SPEC007-Snapshot-Service.md) — Snapshot Service
+- [SPEC008](spec/SPEC008-AI-Agent-Interface.md) — AI Agent Interface
 
 ### Playbooks — Guias Operacionais
 
@@ -58,6 +75,9 @@ pessoal → times → ecossistema → SaaS multi-tenant.
 - [PB005](playbook/PB005-api-keys-e-tokens-skybridge.md) — API keys e tokens
 - [PB006](playbook/PB006-gpt-custom-auth.md) — GPT Custom Auth
 - [PB007](playbook/PB007-ajuste-permissoes-skybridge.md) — Ajuste de permissões
+- [PB008](playbook/PB008-envelope-estruturado-sky-rpc-v0.2.md) — Envelope estruturado Sky-RPC v0.2
+- [PB009](playbook/PB009-Gestao-de-Taxa-de-Substituicao-de-ADRs.md) — Gestão de taxa de substituição de ADRs
+- [PB010](playbook/PB010-redocly-cli-openapi.md) — Redocly CLI OpenAPI
 
 ### Tasks — Registro de Execução
 
@@ -70,6 +90,19 @@ pessoal → times → ecossistema → SaaS multi-tenant.
 - [Inspiration Report](report/inspiration-report.md)
 - [OpenAPI patternProperties Fix](report/openapi-patternproperties-fix.md) — Bug de 24h+ resolvido
 - [Metadata Report](report/metadata-report.md)
+- [API Automation Alternatives](report/api-automation-alternatives.md)
+- [Bounded Context Analysis Agents](report/bounded-context-analysis-agents.md)
+- [Claude Code CLI Infra](report/claude-code-cli-infra.md)
+- [Knowledge Layer RAG Research](report/knowledge-layer-rag-research.md)
+- [OpenAPI Modular Refs Research](report/openapi-modular-refs-research.md)
+- [PR Automation Skill Study](report/pr-automation-skill-study.md)
+- [Sky-RPC Evolution Analysis](report/sky-rpc-evolution-analysis.md)
+- [SkyRPC Dependency Analysis](report/skyrpc-dependency-analysis.md)
+- [SkyRPC Post Mortem Arquivamento](report/skyrpc-post-mortem-arquivamento.md)
+- [SkyRPC vs JSONRPC Crossfire](report/skyrpc-vs-jsonrpc-crossfire.md)
+- [Versionamento Profissional Padrões Estratégias](report/versionamento-profissional-padroes-estrategias.md)
+- [Webhook Autonomous Agents Study](report/webhook-autonomous-agents-study.md)
+- [Worktree Validation Example](report/worktree-validation-example.md)
 
 ---
 
