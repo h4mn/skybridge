@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.1] - 2026-01-12
+
+### Added
+- No changes
+
+### Fixed
+- fix(ci/pages): converter index.md para index.html para resolver 404 (#13) ([5a74375])
+
+### Changed
+- No changes
+
+### Docs
+- No changes
+
+
+
 ## [0.5.0] - 2026-01-11
 
 ### Added
