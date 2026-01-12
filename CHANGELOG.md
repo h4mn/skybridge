@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.2] - 2026-01-12
+
+### Added
+- No changes
+
+### Fixed
+- fix: corrigir inconsistências na documentação e criar skill resolve-issue (#18) ([5ef59fe])
+
+### Changed
+- No changes
+
+### Docs
+- No changes
+
+
+
 ## [0.5.1] - 2026-01-12
 
 ### Added
