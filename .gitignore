@@ -6,7 +6,8 @@ workspace/
 nul
 
 # Repositórios embutidos (subrepos de agentes)
-.agents/repos/
+.agents/
+!agents/.gitkeep
 
 # Ambiente virtual
 venv/
@@ -28,6 +29,9 @@ build/
 .env
 .env.local
 
+# Claude Code local settings
+.claude/settings.local.json
+
 # IDE
 .vscode/
 .idea/
@@ -48,3 +52,6 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Auto Claude data directory
+.auto-claude/

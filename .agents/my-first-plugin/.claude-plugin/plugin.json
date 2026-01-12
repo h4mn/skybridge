@@ -1,9 +1,0 @@
-{
-  "name": "my-first-plugin",
-  "version": "1.0.0",
-  "description": "Meu primeiro plugin Claude Code - tutorial prático",
-  "author": {
-    "name": "Skybridge Developer"
-  },
-  "keywords": ["tutorial", "learning", "example"]
-}
