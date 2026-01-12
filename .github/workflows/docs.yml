@@ -146,25 +146,43 @@ jobs:
           # Copy docs
           cp -r docs/* _site/
 
-          # Create index
-          cat > _site/index.md << EOF
-          # Skybridge Documentation
+          # Create index.html (GitHub Pages requires HTML)
+          cat > _site/index.html << EOF
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Skybridge Documentation</title>
+              <style>
+                  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+                  h1 { border-bottom: 2px solid #333; padding-bottom: 10px; }
+                  .version { color: #666; font-size: 0.9em; }
+                  ul { line-height: 2; }
+                  a { color: #0066cc; text-decoration: none; }
+                  a:hover { text-decoration: underline; }
+                  .about { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; }
+              </style>
+          </head>
+          <body>
+              <h1>Skybridge Documentation</h1>
+              <p class="version"><strong>Version:</strong> v${VERSION}</p>
 
-          **Version:** v${VERSION}
+              <h2>Quick Links</h2>
+              <ul>
+                  <li><a href="./adr/">Architecture Decision Records</a></li>
+                  <li><a href="./prd/">Product Requirements</a></li>
+                  <li><a href="./spec/">Specifications</a></li>
+                  <li><a href="./core/">Core Documentation</a></li>
+                  <li><a href="./version-index.md">Version Index</a></li>
+              </ul>
 
-          ## Quick Links
-
-          - [Architecture Decision Records](./adr/)
-          - [Product Requirements](./prd/)
-          - [Specifications](./specs/)
-          - [Core Documentation](./core/)
-          - [Version Index](./version-index.md)
-
-          ## About
-
-          Skybridge is a Microkernel RPC Platform for building distributed systems.
-
-          For more information, visit [https://github.com/h4mn/skybridge](https://github.com/h4mn/skybridge).
+              <div class="about">
+                  <p>Skybridge is a Microkernel RPC Platform for building distributed systems.</p>
+                  <p>For more information, visit <a href="https://github.com/h4mn/skybridge">github.com/h4mn/skybridge</a>.</p>
+              </div>
+          </body>
+          </html>
           EOF
 
       - name: Upload artifact
