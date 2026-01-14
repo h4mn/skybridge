@@ -173,7 +173,7 @@ class JobOrchestrator:
             },
         )
 
-        agent_result = await self._execute_agent(job)
+        agent_result = await self._execute_agent(job, skill)
         if agent_result.is_err:
             await self.job_queue.fail(job_id, agent_result.error)
             return agent_result
@@ -209,12 +209,13 @@ class JobOrchestrator:
             "validation": validation_info,
         })
 
-    async def _execute_agent(self, job) -> Result[dict, str]:
+    async def _execute_agent(self, job, skill: str) -> Result[dict, str]:
         """
         Executa agente no worktree (RF004) usando Agent Facade Pattern.
 
         Args:
             job: Job a ser executado
+            skill: Nome do skill a executar (ex: "resolve-issue")
 
         Returns:
             Result com output do agente ou erro

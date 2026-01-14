@@ -1,0 +1,39 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read(./**)",
+      "Write(./**)",
+      "Edit(./**)",
+      "Glob(./**)",
+      "Grep(./**)",
+      "Read(B:\\_repositorios\\skybridge\\.auto-claude\\worktrees\\tasks\\002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-/**)",
+      "Write(B:\\_repositorios\\skybridge\\.auto-claude\\worktrees\\tasks\\002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-/**)",
+      "Edit(B:\\_repositorios\\skybridge\\.auto-claude\\worktrees\\tasks\\002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-/**)",
+      "Glob(B:\\_repositorios\\skybridge\\.auto-claude\\worktrees\\tasks\\002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-/**)",
+      "Grep(B:\\_repositorios\\skybridge\\.auto-claude\\worktrees\\tasks\\002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-/**)",
+      "Read(B:\\_repositorios\\skybridge\\.auto-claude\\worktrees\\tasks\\002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-\\.auto-claude\\specs\\002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-/**)",
+      "Write(B:\\_repositorios\\skybridge\\.auto-claude\\worktrees\\tasks\\002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-\\.auto-claude\\specs\\002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-/**)",
+      "Edit(B:\\_repositorios\\skybridge\\.auto-claude\\worktrees\\tasks\\002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-\\.auto-claude\\specs\\002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-/**)",
+      "Read(B:\\_repositorios\\skybridge\\.auto-claude/**)",
+      "Write(B:\\_repositorios\\skybridge\\.auto-claude/**)",
+      "Edit(B:\\_repositorios\\skybridge\\.auto-claude/**)",
+      "Glob(B:\\_repositorios\\skybridge\\.auto-claude/**)",
+      "Grep(B:\\_repositorios\\skybridge\\.auto-claude/**)",
+      "Bash(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "mcp__context7__resolve-library-id(*)",
+      "mcp__context7__get-library-docs(*)",
+      "mcp__graphiti-memory__search_nodes(*)",
+      "mcp__graphiti-memory__search_facts(*)",
+      "mcp__graphiti-memory__add_episode(*)",
+      "mcp__graphiti-memory__get_episodes(*)",
+      "mcp__graphiti-memory__get_entity_edge(*)"
+    ]
+  }
+}
