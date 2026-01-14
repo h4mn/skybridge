@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-",
+  "state": "building",
+  "subtasks": {
+    "completed": 0,
+    "total": 1,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "Fix NameError in _execute_agent",
+    "id": 1,
+    "total": 1
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 1,
+    "started_at": "2026-01-13T23:06:49.925859"
+  },
+  "last_update": "2026-01-13T23:06:49.990211"
+}
