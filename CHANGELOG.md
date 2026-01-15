@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.3] - 2026-01-15
+
+### Added
+- No changes
+
+### Fixed
+- No changes
+
+### Changed
+- No changes
+
+### Docs
+- No changes
+
+
+
 ## [0.5.2] - 2026-01-12
 
 ### Added
