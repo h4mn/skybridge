@@ -40,6 +40,7 @@ Não inclui:
 * Implementação interna do agente (black box)
 * Gerenciamento de API keys de LLM providers
 * UI de interação com agente
+* Orquestração de múltiplos agentes (definido em SPEC009)
 
 ## 3) Terminologia
 
@@ -1117,6 +1118,11 @@ Mudanças breaking no bounded context `webhooks/` requerem:
 | **Claude Code** | `claude` | ✅ Principal | Anthropic, inferência via Claude 3.5+ |
 | **Roo Code** | `roocode` | 🔮 Futuro | Open source, autônomo |
 | **GitHub Copilot** | `copilot-cli` | 🔮 Futuro | GitHub, integration pendente |
+| **Criador de Issue** | `claude` | 🔮 Futuro | Skill `/create-issue`, coordena workflow (ver SPEC009) |
+| **Testador de Issue** | `claude` | 🔮 Futuro | Skill `/test-issue`, valida testes (ver SPEC009) |
+| **Desafiador de Qualidade** | `claude` | 🔮 Futuro | Skill `/challenge-quality`, ataques adversariais (ver SPEC009) |
+
+**Nota:** Os agentes Criador, Testador e Desafiador são especializações do Claude Code com skills específicas definidas em SPEC009 — Orquestração de Workflow Multi-Agente.
 
 ## 16) Exemplos
 
