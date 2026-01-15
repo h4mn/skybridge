@@ -1,17 +1,17 @@
 {
   "active": true,
-  "spec": "002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-",
+  "spec": "003-bug-erro-ao-rodar-pytest",
   "state": "building",
   "subtasks": {
     "completed": 0,
-    "total": 1,
+    "total": 3,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Fix NameError in _execute_agent",
-    "id": 1,
-    "total": 1
+    "current": "Rename Manual Test Script",
+    "id": null,
+    "total": 3
   },
   "workers": {
     "active": 0,
@@ -19,7 +19,7 @@
   },
   "session": {
     "number": 1,
-    "started_at": "2026-01-13T23:06:49.925859"
+    "started_at": "2026-01-14T22:41:47.860704"
   },
-  "last_update": "2026-01-13T23:06:49.990211"
+  "last_update": "2026-01-14T22:41:47.948876"
 }

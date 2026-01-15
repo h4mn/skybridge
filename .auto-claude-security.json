@@ -128,10 +128,30 @@
     "zsh"
   ],
   "stack_commands": [
+    "cargo",
+    "cargo-audit",
+    "cargo-clippy",
+    "cargo-deny",
+    "cargo-dist",
+    "cargo-doc",
+    "cargo-edit",
+    "cargo-fmt",
+    "cargo-llvm-cov",
+    "cargo-make",
+    "cargo-miri",
+    "cargo-nextest",
+    "cargo-outdated",
+    "cargo-release",
+    "cargo-tarpaulin",
+    "cargo-update",
+    "cargo-watch",
+    "cargo-xtask",
+    "cross",
     "gunicorn",
     "hypercorn",
     "ipython",
     "jupyter",
+    "mdbook",
     "node",
     "notebook",
     "npm",
@@ -143,7 +163,17 @@
     "pudb",
     "python",
     "python3",
+    "rust-analyzer",
+    "rustc",
+    "rustfmt",
+    "rustup",
+    "trunk",
+    "ts-node",
+    "tsc",
+    "tsx",
     "uvicorn",
+    "wasm-bindgen",
+    "wasm-pack",
     "yamllint"
   ],
   "script_commands": [
@@ -156,7 +186,9 @@
   "detected_stack": {
     "languages": [
       "python",
-      "javascript"
+      "javascript",
+      "typescript",
+      "rust"
     ],
     "package_managers": [
       "npm",
@@ -183,7 +215,8 @@
     "cargo_aliases": [],
     "shell_scripts": []
   },
-  "project_dir": "B:\\_repositorios\\skybridge\\.auto-claude\\worktrees\\tasks\\002-bug-nameerror-em-execute-agent-vari-vel-skill-n-o-",
-  "created_at": "2026-01-13T23:06:59.731083",
-  "project_hash": "3c2d9df006c551a686fe655dc4d24f39"
+  "project_dir": "B:\\_repositorios\\skybridge",
+  "created_at": "2026-01-13T23:02:16.475650",
+  "project_hash": "e9929d66ee7661e775113906b5a6e6d8",
+  "inherited_from": "B:\\_repositorios\\skybridge"
 }
