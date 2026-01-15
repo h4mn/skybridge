@@ -54,7 +54,7 @@ src/skybridge/
 
 - 50 testes para Webhook system (domain, adapters, application, integration)
 - 38 testes para Agent infrastructure (TDD)
-- Scripts de teste: `test_webhook.py`, `test_webhook_helloworld.py`
+- Scripts de teste: `test_webhook.py`, `webhook_helloworld.py`
 
 ## Scripts
 
