@@ -1,0 +1,11 @@
+name: skybridge-workflows
+version: 1.0.0
+description: Conjunto de skills para orquestração de workflow multi-agente na Skybridge. Inclui skills para criação, resolução, teste e desafio de qualidade de issues.
+author: Sky
+skybridge_kernel_min: 1.0.0
+permissions:
+  - fileops:read
+  - fileops:write
+  - tasks:read
+  - tasks:write
+dependencies: []

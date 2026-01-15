@@ -738,6 +738,83 @@ O `system_prompt.json` (fonte da verdade) já contém:
 
 ---
 
+## 4.5. Orquestração Multi-Agente
+
+### RF011: Orquestrar Workflow de Múltiplos Agentes
+- **Descrição:** Sistema deve coordenar múltiplos agentes em sequência para resolver issues
+- **Entrada:** Requisição do usuário
+- **Saída:** Issue resolvida, testada e validada (ou nova issue criada para correção)
+- **Prioridade:** Alta
+- **Referência:** [SPEC009 — Orquestração de Workflow Multi-Agente](../spec/SPEC009-orchestracao-workflow-multi-agente.md)
+
+### 4.5.1 Sequência de Orquestração
+
+Conforme SPEC009, o workflow de orquestração define a seguinte sequência:
+
+```
+[Requisição do Usuário]
+      ↓
+[Criador de Issue] → issue: OPEN
+      ↓ (webhook)
+[Resolvedor de Issue] → issue: IN_PROGRESS
+      ↓ (commit+PR)
+[Testador de Issue] → issue: READY_FOR_TEST
+      ↓ (testes passam)
+[Desafiador de Qualidade] → issue: UNDER_CHALLENGE
+      ↓ (ataca adversarialmente)
+      ├── (encontra bug) → CRIA NOVA ISSUE para correção
+      ├── (docs inconsistentes) → CRIA NOVA ISSUE para correção
+      └── (tudo ok) → issue: AWAITING_HUMAN_APPROVAL
+             ↓
+        [Humano aprova] → issue: VERIFIED → issue: CLOSED
+```
+
+### 4.5.2 Skills de Orquestração
+
+As skills dos agentes de orquestração são definidas em plugins:
+
+```
+.agents/repos/claude-code/plugins/skybridge-workflows/
+└── skills/
+    ├── create-issue/SKILL.md      # Criador de Issue
+    ├── resolve-issue/SKILL.md     # Resolvedor de Issue (✅ implementado)
+    ├── test-issue/SKILL.md        # Testador de Issue
+    └── challenge-quality/SKILL.md # Desafiador de Qualidade
+```
+
+### 4.5.3 Estados da Issue vs Estados do Agente
+
+| Conceito | Definido em | Exemplos |
+|----------|-------------|-----------|
+| **Estados do AGENTE** | SPEC008 | CREATED, RUNNING, COMPLETED, TIMED_OUT, FAILED |
+| **Estados da ISSUE** | SPEC009 | OPEN, IN_PROGRESS, READY_FOR_TEST, UNDER_CHALLENGE, AWAITING_HUMAN_APPROVAL, VERIFIED, CLOSED |
+
+**Nota:** Os dois conjuntos de estados são independentes e servem propósitos diferentes.
+
+### 4.5.4 Métricas de Orquestração
+
+Conforme SPEC009 seção 8, as seguintes métricas devem ser coletadas:
+
+| Métrica | Labels | Descrição |
+|---------|---------|-----------|
+| `agent.handoff.duration` | source, dest | Tempo entre handoffs |
+| `agent.cycle.time` | issue_type | Tempo total create→challenge |
+| `agent.success.rate` | agent_type, skill | Taxa de sucesso |
+| `agent.test.pass.rate` | issue_type | Pass rate dos testes |
+| `agent.challenger.exploits_found` | issue_type, attack_cat | Exploits encontrados |
+| `agent.human.approval.time` | issue_type | Tempo para aprovação humana |
+| `agent.issues.created.by_challenger` | issue_type, reason | Issues criadas por desafiador |
+
+### 4.5.5 Status de Implementação
+
+| Fase | Status | Descrição |
+|------|--------|-----------|
+| Phase 1 | ✅ Completo | SPEC008 (AI Agent Interface) + Skill `/resolve-issue` |
+| Phase 2 | 🔮 Planejado | Skills `/create-issue`, `/test-issue`, `/challenge-quality` |
+| Phase 3 | 🔮 Futuro | Orquestrador de workflow + aprovação humana + dashboard |
+
+---
+
 ## 5. Requisitos Não-Funcionais
 
 ### RNF001: Segurança de Webhooks

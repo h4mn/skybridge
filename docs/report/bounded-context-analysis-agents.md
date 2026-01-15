@@ -121,7 +121,7 @@ src/skybridge/core/contexts/webhooks/
 Benefícios:
 - ✅ Simplicidade preservada
 - ✅ Coesão natural mantida
-- � Comunicação eficiente (mesma linguagem)
+- ✅ Comunicação eficiente (mesma linguagem)
 - ✅ Menos coordenação entre times
 
 > "A divisão correta não é entre tecnologias, mas entre responsabilidades de negócio." – made by Sky 🏗️
