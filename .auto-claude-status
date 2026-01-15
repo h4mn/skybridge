@@ -3,7 +3,7 @@
   "spec": "003-bug-erro-ao-rodar-pytest",
   "state": "building",
   "subtasks": {
-    "completed": 0,
+    "completed": 1,
     "total": 3,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 1,
+    "number": 2,
     "started_at": "2026-01-14T22:41:47.860704"
   },
-  "last_update": "2026-01-14T22:41:47.948876"
+  "last_update": "2026-01-14T22:43:20.641490"
 }
