@@ -508,7 +508,7 @@ class TestClaudeCodeAdapter:
         assert "--output-format" in cmd
         assert "json" in cmd
         assert "--permission-mode" in cmd
-        assert "bypass" in cmd
+        assert "bypassPermissions" in cmd
 
     @patch("skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent.load_system_prompt_config")
     @patch("skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent.render_system_prompt")
