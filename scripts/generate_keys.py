@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Gera API keys e tokens localmente.
 
 Nota: formalizar este fluxo via ADR quando o onboarding de tenant incluir

@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "src"))
 
-from skybridge.platform.observability.snapshot.extractors.fileops_extractor import FileOpsExtractor
+from runtime.observability.snapshot.extractors.fileops_extractor import FileOpsExtractor
 
 
 class SnapshotDiffTests(unittest.TestCase):

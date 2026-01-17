@@ -31,15 +31,15 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from skybridge.platform.observability.snapshot import capture_snapshot
-from skybridge.platform.observability.snapshot.storage import (
+from runtime.observability.snapshot import capture_snapshot
+from runtime.observability.snapshot.storage import (
     save_snapshot,
     load_snapshot,
     list_snapshots,
 )
-from skybridge.platform.observability.snapshot.models import SnapshotSubject
-from skybridge.platform.observability.snapshot.diff import compare_snapshots, render_diff
-from skybridge.platform.observability.snapshot.storage import save_diff
+from runtime.observability.snapshot.models import SnapshotSubject
+from runtime.observability.snapshot.diff import compare_snapshots, render_diff
+from runtime.observability.snapshot.storage import save_diff
 
 
 def capture(target: str, tag: str = "", description: str = "", depth: int = 5) -> None:
@@ -111,7 +111,7 @@ def list_snap(subject: str) -> None:
     for path in snapshot_paths:
         try:
             data = path.read_text(encoding="utf-8")
-            from skybridge.platform.observability.snapshot.models import Snapshot
+            from runtime.observability.snapshot.models import Snapshot
             snapshot_obj = Snapshot.model_validate_json(data)
             snapshots.append({
                 "id": snapshot_obj.metadata.snapshot_id[:8],

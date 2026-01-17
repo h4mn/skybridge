@@ -10,18 +10,18 @@ from unittest.mock import Mock, AsyncMock, patch
 
 import pytest
 
-from skybridge.core.contexts.webhooks.application.webhook_processor import (
+from core.webhooks.application.webhook_processor import (
     WebhookProcessor,
 )
-from skybridge.core.contexts.webhooks.application.worktree_manager import (
+from core.webhooks.application.worktree_manager import (
     WorktreeManager,
 )
-from skybridge.core.contexts.webhooks.domain import (
+from core.webhooks.domain import (
     WebhookEvent,
     WebhookJob,
     WebhookSource,
 )
-from skybridge.kernel.contracts.result import Result
+from kernel.contracts.result import Result
 
 
 class TestWebhookProcessor:
@@ -126,14 +126,14 @@ class TestWorktreeManager:
 
     def test_generate_worktree_name_for_job(self, sample_job):
         """Deve gerar nome correto para worktree."""
-        from skybridge.core.contexts.webhooks.domain import generate_worktree_name
+        from core.webhooks.domain import generate_worktree_name
 
         name = generate_worktree_name(sample_job)
         assert name.startswith("skybridge-github-225-")
 
     def test_generate_branch_name_for_job(self, sample_job):
         """Deve gerar nome correto para branch."""
-        from skybridge.core.contexts.webhooks.domain import generate_branch_name
+        from core.webhooks.domain import generate_branch_name
 
         branch = generate_branch_name(sample_job)
         assert branch.startswith("webhook/github/issue/225/")

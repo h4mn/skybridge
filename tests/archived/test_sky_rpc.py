@@ -8,10 +8,10 @@ from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from skybridge.platform.bootstrap.app import get_app
-from skybridge.platform.config import config as config_module
-from skybridge.platform.delivery import routes as routes_module
-from skybridge.platform.delivery.routes import EnvelopeDetail, _parse_detail
+from runtime.bootstrap.app import get_app
+from runtime.config import config as config_module
+from runtime.delivery import routes as routes_module
+from runtime.delivery.routes import EnvelopeDetail, _parse_detail
 
 
 class SkyRpcTests(unittest.TestCase):

@@ -9,10 +9,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "src"))
 
-from skybridge.platform.observability.snapshot.extractors.fileops_extractor import FileOpsExtractor
-from skybridge.platform.observability.snapshot.extractors.health_extractor import HealthExtractor
-from skybridge.platform.observability.snapshot.extractors.tasks_extractor import TasksExtractor
-from skybridge.platform.observability.snapshot.models import SnapshotSubject
+from runtime.observability.snapshot.extractors.fileops_extractor import FileOpsExtractor
+from runtime.observability.snapshot.extractors.health_extractor import HealthExtractor
+from runtime.observability.snapshot.extractors.tasks_extractor import TasksExtractor
+from runtime.observability.snapshot.models import SnapshotSubject
 
 
 class ExtractorsTests(unittest.TestCase):

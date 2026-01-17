@@ -9,7 +9,7 @@ para integração com sistemas Kanban externos (Trello, GitHub Projects, etc).
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from skybridge.kernel import Result
+from kernel import Result
 from core.kanban.domain import Board, Card, CardStatus, KanbanList
 
 

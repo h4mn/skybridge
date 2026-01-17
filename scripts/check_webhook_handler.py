@@ -16,8 +16,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 def main():
     """Check if webhook handler is registered."""
     from skybridge.kernel import get_query_registry
-    from skybridge.platform.config.config import get_discovery_config
-    from skybridge.kernel.registry.discovery import discover_modules
+    from runtime.config.config import get_discovery_config
+    from kernel.registry.discovery import discover_modules
 
     print("=" * 60)
     print("  Webhook Handler Registration Check")

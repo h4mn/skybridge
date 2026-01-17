@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from skybridge.platform.bootstrap.app import get_app
+from runtime.bootstrap.app import get_app
 
 
 class PublicRoutesTests(unittest.TestCase):
