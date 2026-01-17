@@ -20,7 +20,7 @@ import asyncio
 import os
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Adiciona src ao path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
@@ -50,17 +50,39 @@ load_dotenv()
 class InMemoryJobQueue(JobQueuePort):
     """Implementação simples em memória para demo."""
 
-    def __init__(self):
+    def __init__(self, ttl_hours: int = 24):
         self._jobs = {}
-        self._delivery_ids = set()  # Rastreia delivery_ids processados
+        self._delivery_ids = {}  # delivery_id → timestamp (para TTL)
+        self._ttl = timedelta(hours=ttl_hours)
+
+    def _cleanup_expired_deliveries(self):
+        """Remove delivery IDs expirados."""
+        if not self._delivery_ids:
+            return
+
+        now = datetime.utcnow()
+        expired = [
+            delivery_id
+            for delivery_id, timestamp in self._delivery_ids.items()
+            if now - timestamp > self._ttl
+        ]
+
+        for delivery_id in expired:
+            del self._delivery_ids[delivery_id]
+
+        if expired:
+            logger.debug(f"Cleanup: removidos {len(expired)} delivery IDs expirados")
 
     async def enqueue(self, job):
         """Enfileira job."""
+        # Cleanup antes de processar
+        self._cleanup_expired_deliveries()
+
         self._jobs[job.job_id] = job
 
-        # Registra delivery_id para evitar duplicatas
+        # Registra delivery_id com timestamp atual
         if job.event.delivery_id:
-            self._delivery_ids.add(job.event.delivery_id)
+            self._delivery_ids[job.event.delivery_id] = datetime.utcnow()
 
         logger.info(f"Job enfileirado: {job.job_id}")
 
@@ -91,6 +113,9 @@ class InMemoryJobQueue(JobQueuePort):
 
     async def exists_by_delivery(self, delivery_id: str) -> bool:
         """Verifica se delivery_id já foi processado."""
+        # Cleanup antes de verificar
+        self._cleanup_expired_deliveries()
+
         return delivery_id in self._delivery_ids
 
 
@@ -199,7 +224,11 @@ async def github_webhook(request: Request):
         delivery_id = request.headers.get("X-GitHub-Delivery", "")
         signature = request.headers.get("X-Hub-Signature-256")
 
-        logger.info(f"📨 Webhook recebido: {event_type} | delivery: {delivery_id}")
+        correlation_id = delivery_id or "unknown"
+        logger.info(
+            f"📨 Webhook recebido | correlation_id={correlation_id} | "
+            f"event_type={event_type} | delivery={delivery_id}"
+        )
 
         # Verifica assinatura se secret configurado
         webhook_secret = os.getenv("GITHUB_WEBHOOK_SECRET")
@@ -224,36 +253,46 @@ async def github_webhook(request: Request):
             job_id = result.unwrap()
             if job_id is None:
                 # Webhook duplicado, já processado anteriormente
-                logger.info(f"✅ Webhook duplicado ignorado: delivery={delivery_id}")
+                logger.info(
+                    f"✅ Webhook duplicado ignorado | correlation_id={correlation_id}"
+                )
                 return JSONResponse(
                     status_code=200,
                     content={
                         "status": "ignored",
-                        "message": "Webhook já processado anteriormente"
+                        "message": "Webhook já processado anteriormente",
+                        "correlation_id": correlation_id,
                     }
                 )
 
-            logger.info(f"✅ Webhook processado: job_id={job_id}")
+            logger.info(
+                f"✅ Webhook processado | correlation_id={correlation_id} | job_id={job_id}"
+            )
 
             return JSONResponse(
                 status_code=200,
                 content={
                     "status": "accepted",
                     "job_id": job_id,
+                    "correlation_id": correlation_id,
                     "message": "Webhook processado com sucesso"
                 }
             )
         else:
             error_msg = result.error
-            logger.error(f"❌ Erro ao processar webhook: {error_msg}")
+            logger.error(
+                f"❌ Erro ao processar webhook | correlation_id={correlation_id} | error={error_msg}"
+            )
 
             return JSONResponse(
                 status_code=422,
-                content={"error": error_msg}
+                content={"error": error_msg, "correlation_id": correlation_id}
             )
 
     except Exception as e:
-        logger.exception(f"💥 Erro ao processar webhook: {e}")
+        logger.exception(
+            f"💥 Erro ao processar webhook | correlation_id={correlation_id} | error={e}"
+        )
         return JSONResponse(
             status_code=500,
             content={"error": f"Internal server error: {str(e)}"}

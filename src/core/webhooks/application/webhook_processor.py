@@ -64,7 +64,11 @@ class WebhookProcessor:
             Result com job_id ou mensagem de erro
         """
         try:
-            logger.info(f"Processing GitHub webhook | event_type={event_type} | delivery={delivery_id}")
+            correlation_id = delivery_id or "unknown"
+            logger.info(
+                f"Processing GitHub webhook | correlation_id={correlation_id} | "
+                f"event_type={event_type} | delivery={delivery_id}"
+            )
 
             # Verifica duplicidade por delivery_id
             if delivery_id and await self.job_queue.exists_by_delivery(delivery_id):
@@ -115,15 +119,24 @@ class WebhookProcessor:
             # Armazena card_id do Trello para uso posterior
             if trello_card_id:
                 job.metadata["trello_card_id"] = trello_card_id
-                logger.info(f"Job {job.job_id} vinculado ao card Trello: {trello_card_id}")
+                logger.info(
+                    f"Job {job.job_id} | correlation_id={job.correlation_id} | "
+                    f"vinculado ao card Trello: {trello_card_id}"
+                )
 
             # Enfileira
             await self.job_queue.enqueue(job)
 
+            logger.info(
+                f"Job enfileirado | job_id={job.job_id} | correlation_id={job.correlation_id}"
+            )
+
             return Result.ok(job.job_id)
 
         except Exception as e:
-            logger.error(f"Erro ao processar webhook: {e}")
+            logger.error(
+                f"Erro ao processar webhook | correlation_id={correlation_id} | error={e}"
+            )
             return Result.err(f"Erro ao processar webhook: {str(e)}")
 
     async def _create_trello_card(
