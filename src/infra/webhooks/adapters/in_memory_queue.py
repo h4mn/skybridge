@@ -22,10 +22,10 @@ if TYPE_CHECKING:
     from core.webhooks.domain import WebhookJob
     from core.webhooks.ports.job_queue_port import JobQueuePort
 
-from core.webhooks.ports.job_queue_port import QueueError
+from core.webhooks.ports.job_queue_port import QueueError, JobQueuePort
 
 
-class InMemoryJobQueue:
+class InMemoryJobQueue(JobQueuePort):
     """
     Fila de jobs em memória usando collections.deque.
 

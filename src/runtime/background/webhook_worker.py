@@ -19,8 +19,20 @@ from core.webhooks.application.worktree_manager import (
 from infra.webhooks.adapters.in_memory_queue import (
     InMemoryJobQueue,
 )
-from runtime.config.config import get_webhook_config
+from runtime.config.config import get_webhook_config, get_trello_config
 from runtime.observability.logger import get_logger
+
+# Trello integration (optional)
+try:
+    from core.kanban.application.trello_integration_service import (
+        TrelloIntegrationService,
+    )
+    from infra.kanban.adapters.trello_adapter import TrelloAdapter
+    TRELLO_AVAILABLE = True
+except ImportError:
+    TRELLO_AVAILABLE = False
+    logger = get_logger()
+    logger.warning("TrelloIntegrationService não disponível - cards não serão criados")
 
 logger = get_logger()
 
@@ -133,7 +145,33 @@ async def main() -> None:
     # Inicializa dependências
     job_queue = InMemoryJobQueue()
     worktree_manager = WorktreeManager(config.worktree_base_path)
-    orchestrator = JobOrchestrator(job_queue, worktree_manager)
+
+    # TrelloIntegrationService (opcional)
+    trello_service = None
+    if TRELLO_AVAILABLE:
+        trello_config = get_trello_config()
+        if trello_config.api_key and trello_config.api_token:
+            from os import getenv
+            board_id = getenv("TRELLO_BOARD_ID")
+            if board_id:
+                trello_adapter = TrelloAdapter(
+                    trello_config.api_key,
+                    trello_config.api_token,
+                    board_id
+                )
+                trello_service = TrelloIntegrationService(trello_adapter)
+                logger.info("TrelloIntegrationService inicializado")
+            else:
+                logger.warning("TRELLO_BOARD_ID não configurado")
+        else:
+            logger.warning("TRELLO_API_KEY ou TRELLO_API_TOKEN não configurado")
+
+    # JobOrchestrator com Trello
+    orchestrator = JobOrchestrator(
+        job_queue,
+        worktree_manager,
+        trello_service=trello_service
+    )
 
     # Cria worker
     worker = WebhookWorker(job_queue, orchestrator)

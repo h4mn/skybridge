@@ -8,6 +8,8 @@ executa agente e valida cleanup.
 from __future__ import annotations
 
 import asyncio
+import logging
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -75,6 +77,7 @@ class JobOrchestrator:
         job_queue: "JobQueuePort",
         worktree_manager: WorktreeManager,
         agent_adapter: ClaudeCodeAdapter | None = None,
+        trello_service: "TrelloIntegrationService | None" = None,
     ):
         """
         Inicializa orchestrator.
@@ -83,10 +86,12 @@ class JobOrchestrator:
             job_queue: Fila de jobs
             worktree_manager: Gerenciador de worktrees
             agent_adapter: Adapter de agentes (opcional, cria default se None)
+            trello_service: Serviço de integração com Trello (opcional)
         """
         self.job_queue = job_queue
         self.worktree_manager = worktree_manager
         self.agent_adapter = agent_adapter or ClaudeCodeAdapter()
+        self.trello_service = trello_service
 
     @staticmethod
     def _get_skill_for_event_type(event_type: str) -> str | None:
@@ -100,6 +105,96 @@ class JobOrchestrator:
             Nome do skill ou None se não deve executar agente
         """
         return EVENT_TYPE_TO_SKILL.get(event_type)
+
+    async def _update_trello_progress(
+        self, job: WebhookJob, phase: str, status: str
+    ) -> None:
+        """
+        Atualiza card no Trello com progresso do job.
+
+        Args:
+            job: Job sendo executado
+            phase: Fase atual (ex: "Worktree", "Snapshot", "Agente")
+            status: Status atual
+        """
+        if not self.trello_service:
+            return
+
+        card_id = job.metadata.get("trello_card_id")
+        if not card_id:
+            return
+
+        try:
+            await self.trello_service.update_card_progress(
+                card_id=card_id,
+                phase=phase,
+                status=status,
+            )
+        except Exception as e:
+            # Não falha o job se Trello falhar
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Falha ao atualizar Trello: {e}")
+
+    async def _mark_trello_failed(self, job: WebhookJob, error: str) -> None:
+        """
+        Marca card no Trello como falhou.
+
+        Args:
+            job: Job que falhou
+            error: Mensagem de erro
+        """
+        if not self.trello_service:
+            return
+
+        card_id = job.metadata.get("trello_card_id")
+        if not card_id:
+            return
+
+        try:
+            from infra.kanban.adapters.trello_adapter import TrelloAdapter
+
+            adapter = self.trello_service.adapter
+            await adapter.add_card_comment(
+                card_id=card_id,
+                comment=f"""❌ **Job Falhou**
+
+🕐 {datetime.utcnow().strftime('%H:%M:%S')}
+**Erro:** {error}
+
+---
+O job encontrou um erro durante a execução. Verifique os logs para mais detalhes."""
+            )
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Falha ao marcar erro no Trello: {e}")
+
+    async def _mark_trello_completed(
+        self, job: WebhookJob, summary: str, changes: list[str]
+    ) -> None:
+        """
+        Marca card no Trello como completado.
+
+        Args:
+            job: Job completado
+            summary: Resumo da execução
+            changes: Lista de mudanças realizadas
+        """
+        if not self.trello_service:
+            return
+
+        card_id = job.metadata.get("trello_card_id")
+        if not card_id:
+            return
+
+        try:
+            await self.trello_service.mark_card_complete(
+                card_id=card_id,
+                summary=summary,
+                changes=changes,
+            )
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Falha ao marcar completo no Trello: {e}")
 
     async def execute_job(self, job_id: str) -> Result[None, str]:
         """
@@ -119,6 +214,9 @@ class JobOrchestrator:
         # Marca como em processamento
         job.mark_processing()
 
+        # Atualiza Trello: Job iniciado
+        await self._update_trello_progress(job, "Início", "Job iniciado")
+
         # Determina skill baseado no event_type (alguns eventos não executam agente)
         skill = self._get_skill_for_event_type(job.event.event_type)
         if skill is None:
@@ -133,17 +231,27 @@ class JobOrchestrator:
                 },
             )
             await self.job_queue.complete(job_id, {"skipped": True, "reason": "event_type does not require agent"})
+
+            # Atualiza Trello: Job pulado
+            await self._update_trello_progress(job, "Concluído", "Evento não requer ação")
+
             return Result.ok(None)
 
         # Passo 1: Criar worktree
+        await self._update_trello_progress(job, "Worktree", "Criando ambiente isolado")
+
         worktree_result = self.worktree_manager.create_worktree(job)
         if worktree_result.is_err:
+            # Marca erro no Trello
+            await self._mark_trello_failed(job, worktree_result.error)
             await self.job_queue.fail(job_id, worktree_result.error)
             return worktree_result
 
         worktree_path = worktree_result.value
 
         # Passo 2: Capturar snapshot inicial
+        await self._update_trello_progress(job, "Snapshot", "Capturando estado inicial")
+
         from runtime.observability.snapshot.extractors.git_extractor import (
             GitExtractor,
         )
@@ -157,10 +265,15 @@ class JobOrchestrator:
                 "structure": initial_snapshot.structure,
             }
         except Exception as e:
-            await self.job_queue.fail(job_id, f"Erro ao capturar snapshot: {str(e)}")
-            return Result.err(f"Erro ao capturar snapshot: {str(e)}")
+            error_msg = f"Erro ao capturar snapshot: {str(e)}"
+            # Marca erro no Trello
+            await self._mark_trello_failed(job, error_msg)
+            await self.job_queue.fail(job_id, error_msg)
+            return Result.err(error_msg)
 
         # Passo 3: Executar agente (RF004)
+        await self._update_trello_progress(job, "Agente", "Executando IA")
+
         from runtime.observability.logger import get_logger
         logger = get_logger()
 
@@ -175,6 +288,8 @@ class JobOrchestrator:
 
         agent_result = await self._execute_agent(job, skill)
         if agent_result.is_err:
+            # Marca erro no Trello
+            await self._mark_trello_failed(job, agent_result.error)
             await self.job_queue.fail(job_id, agent_result.error)
             return agent_result
 
@@ -190,10 +305,21 @@ class JobOrchestrator:
         )
 
         # Passo 4: Validar worktree (RF005 - NÃO remove)
+        await self._update_trello_progress(job, "Validação", "Validando mudanças")
+
         validation_result = self._validate_worktree(job)
         if validation_result.is_err:
             # Validação falhou
+            await self._update_trello_progress(job, "Concluído", "Com advertências")
             await self.job_queue.complete(job_id)
+
+            # Marca como completo (mesmo com advertências)
+            await self._mark_trello_completed(
+                job,
+                "Job completado com advertências",
+                [f"Validação: {validation_result.error}"],
+            )
+
             return Result.ok(
                 f"Job completado mas validação falhou: {validation_result.error}"
             )
@@ -202,6 +328,18 @@ class JobOrchestrator:
         await self.job_queue.complete(job_id)
 
         validation_info = validation_result.value
+
+        # Marca sucesso no Trello
+        await self._mark_trello_completed(
+            job,
+            "Issue resolvida com sucesso",
+            [
+                f"Agente: {skill}",
+                f"Changes: {agent_output.get('changes_made', False)}",
+                f"Validação: OK",
+            ],
+        )
+
         return Result.ok({
             "message": "Job completado com sucesso",
             "worktree_path": job.worktree_path,

@@ -54,7 +54,8 @@ def start_webhook_worker_sync():
         WorktreeManager,
     )
     from core.webhooks.application.handlers import get_job_queue
-    from runtime.config.config import get_webhook_config
+    from runtime.config.config import get_webhook_config, get_trello_config
+    from os import getenv
 
     webhook_config = get_webhook_config()
 
@@ -66,7 +67,33 @@ def start_webhook_worker_sync():
 
     job_queue = get_job_queue()
     worktree_manager = WorktreeManager(webhook_config.worktree_base_path)
-    orchestrator = JobOrchestrator(job_queue, worktree_manager)
+
+    # TrelloIntegrationService (opcional)
+    trello_service = None
+    try:
+        trello_config = get_trello_config()
+        if trello_config.api_key and trello_config.api_token:
+            board_id = getenv("TRELLO_BOARD_ID")
+            if board_id:
+                from core.kanban.application.trello_integration_service import (
+                    TrelloIntegrationService,
+                )
+                from infra.kanban.adapters.trello_adapter import TrelloAdapter
+                trello_adapter = TrelloAdapter(
+                    trello_config.api_key,
+                    trello_config.api_token,
+                    board_id
+                )
+                trello_service = TrelloIntegrationService(trello_adapter)
+                logger.info("TrelloIntegrationService inicializado")
+    except Exception as e:
+        logger.warning(f"Trello não disponível: {e}")
+
+    orchestrator = JobOrchestrator(
+        job_queue,
+        worktree_manager,
+        trello_service=trello_service
+    )
     worker = WebhookWorker(job_queue, orchestrator)
 
     # Create new event loop for this thread

@@ -114,6 +114,7 @@ class WebhookJob:
         issue_number: Número da issue (se aplicável)
         initial_snapshot: Snapshot inicial do worktree (antes do trabalho)
         final_snapshot: Snapshot final do worktree (após o trabalho)
+        metadata: Metadados adicionais (ex: trello_card_id)
         created_at: Timestamp de criação do job
         started_at: Timestamp de início do processamento
         completed_at: Timestamp de conclusão
@@ -128,6 +129,7 @@ class WebhookJob:
     issue_number: int | None = None
     initial_snapshot: dict[str, Any] | None = None
     final_snapshot: dict[str, Any] | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.utcnow)
     started_at: datetime | None = None
     completed_at: datetime | None = None

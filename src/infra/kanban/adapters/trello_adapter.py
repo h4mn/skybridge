@@ -35,13 +35,14 @@ class TrelloAdapter(KanbanPort):
     Requer TRELLO_API_KEY e TRELLO_API_TOKEN nas environment variables.
     """
 
-    def __init__(self, api_key: str, api_token: str):
+    def __init__(self, api_key: str, api_token: str, board_id: str | None = None):
         """
         Inicializa adapter com credenciais do Trello.
 
         Args:
             api_key: API Key do Trello (https://trello.com/app-key)
             api_token: Token de autenticação do usuário
+            board_id: ID do board padrão (opcional, para buscar listas por nome)
         """
         if not api_key or not api_token:
             raise TrelloConfigError(
@@ -51,6 +52,8 @@ class TrelloAdapter(KanbanPort):
 
         self.api_key = api_key
         self.api_token = api_token
+        self.board_id = board_id
+        self._lists_cache: dict[str, str] = {}  # Cache de nome -> idList
         self._client = httpx.AsyncClient(
             base_url=TRELLO_API_BASE,
             params={
@@ -63,6 +66,78 @@ class TrelloAdapter(KanbanPort):
     async def _close(self):
         """Fecha o cliente HTTP."""
         await self._client.aclose()
+
+    async def _get_list_id(self, list_name: str, board_id: str | None = None) -> Result[str, str]:
+        """
+        Busca o ID de uma lista pelo nome no board.
+
+        Usa cache para evitar múltiplas chamadas à API.
+
+        Args:
+            list_name: Nome da lista (ex: "To Do", "In Progress", "Done")
+            board_id: ID do board (opcional, usa self.board_id se não fornecido)
+
+        Returns:
+            Result com o ID da lista ou mensagem de erro.
+        """
+        # Verifica cache primeiro
+        if list_name in self._lists_cache:
+            return Result.ok(self._lists_cache[list_name])
+
+        # Usa board_id fornecido ou o padrão
+        target_board = board_id or self.board_id
+        if not target_board:
+            return Result.err(
+                "board_id não fornecido. Configure no adapter ou passe como parâmetro."
+            )
+
+        try:
+            # Busca listas do board
+            response = await self._client.get(f"/boards/{target_board}/lists")
+            response.raise_for_status()
+            lists_data = response.json()
+
+            # Procura lista pelo nome
+            for lst in lists_data:
+                if lst.get("name", "").lower() == list_name.lower():
+                    list_id = lst["id"]
+                    # Salva no cache
+                    self._lists_cache[list_name] = list_id
+                    logger.info(f"Lista encontrada: {list_name} -> {list_id}")
+                    return Result.ok(list_id)
+
+            # Lista não encontrada
+            available = [lst.get("name", "") for lst in lists_data]
+            return Result.err(
+                f"Lista '{list_name}' não encontrada. Disponíveis: {available}"
+            )
+
+        except httpx.HTTPStatusError as e:
+            return Result.err(f"Erro HTTP {e.response.status_code}: {e.response.text}")
+        except Exception as e:
+            logger.error(f"Erro ao buscar lista {list_name}: {e}")
+            return Result.err(f"Erro ao buscar lista: {str(e)}")
+
+    async def list_boards(self) -> Result[list[dict], str]:
+        """
+        Lista todos os boards acessíveis pelo usuário.
+
+        Returns:
+            Result com lista de boards (cada board é um dict com id, name, url)
+        """
+        try:
+            response = await self._client.get("/members/me/boards")
+            response.raise_for_status()
+            boards = response.json()
+
+            logger.info(f"Encontrados {len(boards)} boards")
+            return Result.ok(boards)
+
+        except httpx.HTTPStatusError as e:
+            return Result.err(f"Erro HTTP {e.response.status_code}: {e.response.text}")
+        except Exception as e:
+            logger.error(f"Erro ao listar boards: {e}")
+            return Result.err(f"Erro ao listar boards: {str(e)}")
 
     async def get_card(self, card_id: str) -> Result[Card, str]:
         """
@@ -93,30 +168,47 @@ class TrelloAdapter(KanbanPort):
         list_name: str = "To Do",
         labels: Optional[list[str]] = None,
         due_date: Optional[str] = None,
+        board_id: str | None = None,
     ) -> Result[Card, str]:
         """
         Cria um novo card.
 
         POST /1/cards
+
+        Args:
+            title: Título do card
+            description: Descrição do card (opcional)
+            list_name: Nome da lista onde criar (padrão: "To Do")
+            labels: Labels do card (opcional)
+            due_date: Data de vencimento (opcional)
+            board_id: ID do board (opcional, usa self.board_id se não fornecido)
         """
         try:
-            # Primeiro, encontrar a lista pelo nome (requires board_id)
-            # Por simplicidade, vamos usar idList diretamente se fornecido
-            # TODO: Implementar busca de lista por nome em um board
+            # Busca o ID da lista pelo nome
+            list_id_result = await self._get_list_id(list_name, board_id)
+            if list_id_result.is_err:
+                return Result.err(list_id_result.error)
 
+            list_id = list_id_result.unwrap()
+
+            # Cria o card com o idList correto
             payload = {
                 "name": title,
                 "desc": description or "",
+                "idList": list_id,
             }
 
             if due_date:
                 payload["due"] = due_date
 
+            if labels:
+                payload["labels"] = ",".join(labels)
+
             response = await self._client.post("/cards", json=payload)
             response.raise_for_status()
             data = response.json()
 
-            logger.info(f"Card criado: {data['id']} - {title}")
+            logger.info(f"Card criado: {data['id']} - {title} (lista: {list_name})")
 
             return Result.ok(self._parse_card(data))
 

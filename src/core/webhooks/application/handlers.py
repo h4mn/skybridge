@@ -18,6 +18,36 @@ from infra.webhooks.adapters.in_memory_queue import (
 # Singleton global do job queue (compartilhado entre handler e worker)
 _job_queue: InMemoryJobQueue | None = None
 
+# TrelloIntegrationService (opcional, singleton)
+_trello_service = None
+
+
+def get_trello_service():
+    """Retorna instância singleton do TrelloIntegrationService."""
+    global _trello_service
+    if _trello_service is None:
+        try:
+            from runtime.config.config import get_trello_config
+            from core.kanban.application.trello_integration_service import (
+                TrelloIntegrationService,
+            )
+            from infra.kanban.adapters.trello_adapter import TrelloAdapter
+            from os import getenv
+
+            trello_config = get_trello_config()
+            if trello_config.api_key and trello_config.api_token:
+                board_id = getenv("TRELLO_BOARD_ID")
+                if board_id:
+                    trello_adapter = TrelloAdapter(
+                        trello_config.api_key,
+                        trello_config.api_token,
+                        board_id
+                    )
+                    _trello_service = TrelloIntegrationService(trello_adapter)
+        except Exception:
+            pass
+    return _trello_service
+
 
 def get_job_queue() -> InMemoryJobQueue:
     """Retorna instância singleton do job queue."""
@@ -71,7 +101,8 @@ def receive_github_webhook(args: dict) -> Result:
     """
     # Obtém processor com fila compartilhada
     job_queue = get_job_queue()
-    processor = WebhookProcessor(job_queue)
+    trello_service = get_trello_service()
+    processor = WebhookProcessor(job_queue, trello_service=trello_service)
 
     # Processa webhook (detecta se já existe event loop)
     import asyncio
