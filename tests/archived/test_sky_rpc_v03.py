@@ -16,10 +16,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from skybridge.platform.bootstrap.app import get_app
-from skybridge.platform.config import config as config_module
-from skybridge.platform.delivery import routes as routes_module
-from skybridge.kernel.schemas.schemas import (
+from runtime.bootstrap.app import get_app
+from runtime.config import config as config_module
+from runtime.delivery import routes as routes_module
+from kernel.schemas.schemas import (
     Kind,
     EnvelopeDetailStruct,
     EnvelopeRequest,
@@ -29,12 +29,12 @@ from skybridge.kernel.schemas.schemas import (
     HealthStatus,
     CheckStatus,
 )
-from skybridge.kernel.registry.skyrpc_registry import (
+from kernel.registry.skyrpc_registry import (
     SkyRpcRegistry,
     ReloadSnapshot,
     get_skyrpc_registry,
 )
-from skybridge.kernel.registry.query_registry import QueryRegistry, QueryHandler
+from kernel.registry.query_registry import QueryRegistry, QueryHandler
 
 
 # ============ Schemas v0.3 Tests ============

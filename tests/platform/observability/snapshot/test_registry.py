@@ -8,9 +8,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "src"))
 
-from skybridge.platform.observability.snapshot.extractors.fileops_extractor import FileOpsExtractor
-from skybridge.platform.observability.snapshot.models import SnapshotSubject
-from skybridge.platform.observability.snapshot.registry import ExtractorRegistry
+from runtime.observability.snapshot.extractors.fileops_extractor import FileOpsExtractor
+from runtime.observability.snapshot.models import SnapshotSubject
+from runtime.observability.snapshot.registry import ExtractorRegistry
 
 
 class ExtractorRegistryTests(unittest.TestCase):
