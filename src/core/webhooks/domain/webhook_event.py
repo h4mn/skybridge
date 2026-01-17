@@ -58,6 +58,7 @@ class WebhookEvent:
         payload: Payload completo do evento (JSON)
         received_at: Timestamp de recebimento
         signature: Assinatura HMAC para verificação (se aplicável)
+        delivery_id: ID único da entrega (para evitar duplicação)
     """
 
     source: WebhookSource
@@ -66,6 +67,7 @@ class WebhookEvent:
     payload: dict[str, Any]
     received_at: datetime
     signature: str | None = None
+    delivery_id: str | None = None
 
     def get_issue_number(self) -> int | None:
         """

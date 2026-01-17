@@ -52,10 +52,16 @@ class InMemoryJobQueue(JobQueuePort):
 
     def __init__(self):
         self._jobs = {}
+        self._delivery_ids = set()  # Rastreia delivery_ids processados
 
     async def enqueue(self, job):
         """Enfileira job."""
         self._jobs[job.job_id] = job
+
+        # Registra delivery_id para evitar duplicatas
+        if job.event.delivery_id:
+            self._delivery_ids.add(job.event.delivery_id)
+
         logger.info(f"Job enfileirado: {job.job_id}")
 
     async def get_job(self, job_id: str):
@@ -82,6 +88,10 @@ class InMemoryJobQueue(JobQueuePort):
     def size(self) -> int:
         """Retorna tamanho da fila."""
         return len(self._jobs)
+
+    async def exists_by_delivery(self, delivery_id: str) -> bool:
+        """Verifica se delivery_id já foi processado."""
+        return delivery_id in self._delivery_ids
 
 
 # Inicializa app
@@ -207,10 +217,22 @@ async def github_webhook(request: Request):
             event_type=event_type,
             payload=payload,
             signature=signature,
+            delivery_id=delivery_id,
         )
 
         if result.is_ok:
             job_id = result.unwrap()
+            if job_id is None:
+                # Webhook duplicado, já processado anteriormente
+                logger.info(f"✅ Webhook duplicado ignorado: delivery={delivery_id}")
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "status": "ignored",
+                        "message": "Webhook já processado anteriormente"
+                    }
+                )
+
             logger.info(f"✅ Webhook processado: job_id={job_id}")
 
             return JSONResponse(

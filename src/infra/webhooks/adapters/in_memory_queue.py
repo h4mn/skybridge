@@ -42,6 +42,7 @@ class InMemoryJobQueue(JobQueuePort):
         self._queue: deque[WebhookJob] = deque()
         self._jobs: dict[str, WebhookJob] = {}
         self._queue_event = asyncio.Event()
+        self._delivery_ids: set[str] = set()  # Rastreia delivery_ids processados
 
     async def enqueue(self, job: "WebhookJob") -> str:
         """
@@ -61,6 +62,11 @@ class InMemoryJobQueue(JobQueuePort):
 
         self._queue.append(job)
         self._jobs[job.job_id] = job
+
+        # Registra delivery_id para evitar duplicatas
+        if job.event.delivery_id:
+            self._delivery_ids.add(job.event.delivery_id)
+
         self._queue_event.set()  # Sinaliza que há jobs
         self._queue_event.clear()
 
@@ -157,3 +163,16 @@ class InMemoryJobQueue(JobQueuePort):
         """Remove todos os jobs da fila (útil para testes)."""
         self._queue.clear()
         self._jobs.clear()
+        self._delivery_ids.clear()
+
+    async def exists_by_delivery(self, delivery_id: str) -> bool:
+        """
+        Verifica se já existe job com este delivery ID.
+
+        Args:
+            delivery_id: ID único da entrega do webhook
+
+        Returns:
+            True se job com este delivery_id já existe, False caso contrário
+        """
+        return delivery_id in self._delivery_ids
