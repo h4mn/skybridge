@@ -16,16 +16,16 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from skybridge.core.contexts.webhooks.domain import WebhookEvent, WebhookJob, WebhookSource
-from skybridge.core.contexts.webhooks.infrastructure.agents.domain import (
+from core.webhooks.domain import WebhookEvent, WebhookJob, WebhookSource
+from core.webhooks.infrastructure.agents.domain import (
     AgentState,
     AgentExecution,
     AgentResult,
     ThinkingStep,
 )
-from skybridge.core.contexts.webhooks.infrastructure.agents.agent_facade import AgentFacade
-from skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent import ClaudeCodeAdapter
-from skybridge.core.contexts.webhooks.infrastructure.agents.protocol import (
+from core.webhooks.infrastructure.agents.agent_facade import AgentFacade
+from core.webhooks.infrastructure.agents.claude_agent import ClaudeCodeAdapter
+from core.webhooks.infrastructure.agents.protocol import (
     XMLStreamingProtocol,
     SkybridgeCommand,
 )
@@ -658,7 +658,7 @@ class TestClaudeCodePathConfig:
     def test_adapter_uses_path_from_config(self, mock_get_agent_config):
         """Adapter usa o path da configuração por padrão."""
         # Mock config retornando path específico
-        from skybridge.platform.config.config import AgentConfig
+        from runtime.config.config import AgentConfig
         mock_get_agent_config.return_value = AgentConfig(claude_code_path="custom-claude-path")
 
         adapter = ClaudeCodeAdapter()
@@ -669,7 +669,7 @@ class TestClaudeCodePathConfig:
     @patch("skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent.get_agent_config")
     def test_adapter_can_override_config_path(self, mock_get_agent_config):
         """Adapter pode sobrescrever o path da configuração explicitamente."""
-        from skybridge.platform.config.config import AgentConfig
+        from runtime.config.config import AgentConfig
         mock_get_agent_config.return_value = AgentConfig(claude_code_path="config-path")
 
         # Path explícito sobrescreve config
@@ -683,10 +683,10 @@ class TestClaudeCodePathConfig:
     @patch("sys.platform", "win32")
     def test_agent_config_detects_windows(self):
         """AgentConfig detecta Windows e usa claude.cmd."""
-        from skybridge.platform.config.config import load_agent_config
+        from runtime.config.config import load_agent_config
 
         # Remove cache para testar fresh load
-        import skybridge.platform.config.config as config_module
+        import platform.config.config as config_module
         config_module._agent_config = None
 
         agent_config = load_agent_config()
@@ -697,10 +697,10 @@ class TestClaudeCodePathConfig:
     @patch("sys.platform", "win32")
     def test_agent_config_windows_default(self):
         """AgentConfig usa claude.cmd por padrão no Windows."""
-        from skybridge.platform.config.config import load_agent_config
+        from runtime.config.config import load_agent_config
 
         # Remove cache e ENV var para testar detecção padrão
-        import skybridge.platform.config.config as config_module
+        import platform.config.config as config_module
         config_module._agent_config = None
         import os
         original_env = os.environ.get("CLAUDE_CODE_PATH")
@@ -718,10 +718,10 @@ class TestClaudeCodePathConfig:
     @patch("sys.platform", "linux")
     def test_agent_config_linux_default(self):
         """AgentConfig usa claude por padrão no Linux."""
-        from skybridge.platform.config.config import load_agent_config
+        from runtime.config.config import load_agent_config
 
         # Remove cache e ENV var para testar detecção padrão
-        import skybridge.platform.config.config as config_module
+        import platform.config.config as config_module
         config_module._agent_config = None
         import os
         original_env = os.environ.get("CLAUDE_CODE_PATH")
@@ -742,7 +742,7 @@ class TestJSONValidation:
 
     def test_get_json_validation_prompt(self):
         """Retorna prompt de validação JSON."""
-        from skybridge.platform.config.agent_prompts import get_json_validation_prompt
+        from runtime.config.agent_prompts import get_json_validation_prompt
 
         prompt = get_json_validation_prompt()
 
@@ -752,7 +752,7 @@ class TestJSONValidation:
 
     def test_try_recover_json_from_clean_output(self):
         """Recupera JSON de saída limpa."""
-        from skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent import ClaudeCodeAdapter
+        from core.webhooks.infrastructure.agents.claude_agent import ClaudeCodeAdapter
 
         adapter = ClaudeCodeAdapter()
 
@@ -764,7 +764,7 @@ class TestJSONValidation:
 
     def test_try_recover_json_from_markdown_block(self):
         """Recupera JSON de bloco markdown."""
-        from skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent import ClaudeCodeAdapter
+        from core.webhooks.infrastructure.agents.claude_agent import ClaudeCodeAdapter
 
         adapter = ClaudeCodeAdapter()
 
@@ -784,7 +784,7 @@ Some text after.
 
     def test_try_recover_json_from_mixed_text(self):
         """Recupera JSON de texto misturado."""
-        from skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent import ClaudeCodeAdapter
+        from core.webhooks.infrastructure.agents.claude_agent import ClaudeCodeAdapter
 
         adapter = ClaudeCodeAdapter()
 
@@ -802,7 +802,7 @@ Done!
 
     def test_try_recover_json_returns_none_for_invalid(self):
         """Retorna None quando não há JSON válido."""
-        from skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent import ClaudeCodeAdapter
+        from core.webhooks.infrastructure.agents.claude_agent import ClaudeCodeAdapter
 
         adapter = ClaudeCodeAdapter()
 
@@ -813,7 +813,7 @@ Done!
 
     def test_try_recover_json_handles_empty_stdout(self):
         """Lida com stdout vazio."""
-        from skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent import ClaudeCodeAdapter
+        from core.webhooks.infrastructure.agents.claude_agent import ClaudeCodeAdapter
 
         adapter = ClaudeCodeAdapter()
 
@@ -879,7 +879,7 @@ class TestRealTimeStreaming:
         agente terminar.
         """
         from datetime import datetime
-        from skybridge.core.contexts.webhooks.domain import WebhookEvent, WebhookJob, WebhookSource
+        from core.webhooks.domain import WebhookEvent, WebhookJob, WebhookSource
 
         # Mock system prompt
         mock_config.return_value = {"template": {"role": "test"}}
@@ -1006,7 +1006,7 @@ class TestEventTypeToSkillMapping:
 
     def test_issues_opened_returns_resolve_issue_skill(self):
         """issues.opened retorna resolve-issue."""
-        from skybridge.core.contexts.webhooks.application.job_orchestrator import (
+        from core.webhooks.application.job_orchestrator import (
             JobOrchestrator,
         )
 
@@ -1015,7 +1015,7 @@ class TestEventTypeToSkillMapping:
 
     def test_issues_closed_returns_none(self):
         """issues.closed retorna None (não executa agente)."""
-        from skybridge.core.contexts.webhooks.application.job_orchestrator import (
+        from core.webhooks.application.job_orchestrator import (
             JobOrchestrator,
         )
 
@@ -1024,7 +1024,7 @@ class TestEventTypeToSkillMapping:
 
     def test_issues_deleted_returns_none(self):
         """issues.deleted retorna None (não executa agente)."""
-        from skybridge.core.contexts.webhooks.application.job_orchestrator import (
+        from core.webhooks.application.job_orchestrator import (
             JobOrchestrator,
         )
 
@@ -1033,7 +1033,7 @@ class TestEventTypeToSkillMapping:
 
     def test_issues_reopened_returns_resolve_issue_skill(self):
         """issues.reopened retorna resolve-issue."""
-        from skybridge.core.contexts.webhooks.application.job_orchestrator import (
+        from core.webhooks.application.job_orchestrator import (
             JobOrchestrator,
         )
 
@@ -1042,7 +1042,7 @@ class TestEventTypeToSkillMapping:
 
     def test_issue_comment_created_returns_respond_discord_skill(self):
         """issue_comment.created retorna respond-discord."""
-        from skybridge.core.contexts.webhooks.application.job_orchestrator import (
+        from core.webhooks.application.job_orchestrator import (
             JobOrchestrator,
         )
 
@@ -1051,7 +1051,7 @@ class TestEventTypeToSkillMapping:
 
     def test_unknown_event_type_returns_none(self):
         """Event type desconhecido retorna None."""
-        from skybridge.core.contexts.webhooks.application.job_orchestrator import (
+        from core.webhooks.application.job_orchestrator import (
             JobOrchestrator,
         )
 

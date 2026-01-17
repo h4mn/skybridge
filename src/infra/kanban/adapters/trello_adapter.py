@@ -13,7 +13,7 @@ import httpx
 
 from core.kanban.domain import Board, Card, CardStatus, CardPriority, KanbanList
 from core.kanban.ports import KanbanPort
-from skybridge.kernel import Result
+from kernel import Result
 
 
 logger = logging.getLogger(__name__)

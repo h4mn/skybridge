@@ -15,22 +15,22 @@ from unittest.mock import Mock, patch
 import pytest
 from datetime import datetime
 
-from skybridge.core.contexts.webhooks.domain import WebhookEvent, WebhookJob, WebhookSource
-from skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent import (
+from core.webhooks.domain import WebhookEvent, WebhookJob, WebhookSource
+from core.webhooks.infrastructure.agents.claude_agent import (
     ClaudeCodeAdapter,
 )
-from skybridge.core.contexts.webhooks.infrastructure.agents.domain import (
+from core.webhooks.infrastructure.agents.domain import (
     AgentState,
     AgentExecution,
     AgentResult,
 )
-from skybridge.core.contexts.webhooks.application.job_orchestrator import (
+from core.webhooks.application.job_orchestrator import (
     JobOrchestrator,
 )
-from skybridge.infra.contexts.webhooks.adapters.in_memory_queue import (
+from infra.webhooks.adapters.in_memory_queue import (
     InMemoryJobQueue,
 )
-from skybridge.kernel.contracts.result import Result
+from kernel.contracts.result import Result
 
 
 class TestJobOrchestratorAgentIntegration:

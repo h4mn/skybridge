@@ -6,13 +6,13 @@ Testa InMemoryJobQueue e GitHubSignatureVerifier.
 """
 import pytest
 
-from skybridge.infra.contexts.webhooks.adapters.in_memory_queue import (
+from infra.webhooks.adapters.in_memory_queue import (
     InMemoryJobQueue,
 )
-from skybridge.infra.contexts.webhooks.adapters.github_signature_verifier import (
+from infra.webhooks.adapters.github_signature_verifier import (
     GitHubSignatureVerifier,
 )
-from skybridge.core.contexts.webhooks.domain import (
+from core.webhooks.domain import (
     WebhookEvent,
     WebhookJob,
     WebhookSource,
@@ -106,7 +106,7 @@ class TestInMemoryJobQueue:
         """Deve retornar número de jobs na fila."""
         # enqueue é síncrono internamente, mas retorna awaitable
         # Cria dois jobs diferentes para evitar duplicação de job_id
-        from skybridge.core.contexts.webhooks.domain import WebhookEvent
+        from core.webhooks.domain import WebhookEvent
 
         event1 = WebhookEvent(
             source=WebhookSource.GITHUB,
@@ -122,7 +122,7 @@ class TestInMemoryJobQueue:
             payload={"issue": {"number": 2}},
             received_at=datetime.utcnow(),
         )
-        from skybridge.core.contexts.webhooks.domain import WebhookJob
+        from core.webhooks.domain import WebhookJob
         job1 = WebhookJob.create(event1)
         job2 = WebhookJob.create(event2)
 

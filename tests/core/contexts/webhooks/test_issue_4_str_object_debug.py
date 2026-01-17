@@ -14,17 +14,17 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from skybridge.core.contexts.webhooks.domain import WebhookEvent, WebhookJob, WebhookSource
-from skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent import (
+from core.webhooks.domain import WebhookEvent, WebhookJob, WebhookSource
+from core.webhooks.infrastructure.agents.claude_agent import (
     ClaudeCodeAdapter,
 )
-from skybridge.core.contexts.webhooks.application.job_orchestrator import (
+from core.webhooks.application.job_orchestrator import (
     JobOrchestrator,
 )
-from skybridge.infra.contexts.webhooks.adapters.in_memory_queue import (
+from infra.webhooks.adapters.in_memory_queue import (
     InMemoryJobQueue,
 )
-from skybridge.kernel.contracts.result import Result
+from kernel.contracts.result import Result
 
 
 class TestIssue4StrObjectDebug:
@@ -173,7 +173,7 @@ class TestIssue4StrObjectDebug:
 
             # Passo 1: load_system_prompt_config
             print("[DEBUG] 1. load_system_prompt_config()...")
-            from skybridge.platform.config.agent_prompts import load_system_prompt_config
+            from runtime.config.agent_prompts import load_system_prompt_config
 
             template = load_system_prompt_config()
             print(f"[DEBUG]    template type: {type(template)}")
@@ -199,7 +199,7 @@ class TestIssue4StrObjectDebug:
 
             # Passo 3: render_system_prompt
             print("[DEBUG] 3. render_system_prompt()...")
-            from skybridge.platform.config.agent_prompts import render_system_prompt
+            from runtime.config.agent_prompts import render_system_prompt
 
             try:
                 system_prompt = render_system_prompt(template, context)

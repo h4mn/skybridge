@@ -290,7 +290,7 @@ class OpenAPIHybridRuntimeTests(unittest.TestCase):
         Este teste requer que o app Skybridge esteja inicializado.
         """
         try:
-            from skybridge.platform.bootstrap.app import get_app
+            from runtime.bootstrap.app import get_app
         except ImportError:
             self.skipTest("Skybridge app não disponível")
 
@@ -319,8 +319,8 @@ class OpenAPIHybridRuntimeTests(unittest.TestCase):
                dos handlers no registry.
         """
         try:
-            from skybridge.platform.bootstrap.app import get_app
-            from skybridge.kernel.registry.skyrpc_registry import get_skyrpc_registry
+            from runtime.bootstrap.app import get_app
+            from kernel.registry.skyrpc_registry import get_skyrpc_registry
         except ImportError:
             self.skipTest("Skybridge app não disponível")
 
@@ -366,7 +366,7 @@ class OpenAPIHybridRuntimeTests(unittest.TestCase):
         ao invés de apenas {"type": "object"}.
         """
         try:
-            from skybridge.platform.bootstrap.app import get_app
+            from runtime.bootstrap.app import get_app
         except ImportError:
             self.skipTest("Skybridge app não disponível")
 

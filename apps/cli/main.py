@@ -20,7 +20,7 @@ from rich.json import JSON
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from skybridge.platform.config.config import get_config
+from runtime.config.config import get_config
 from skybridge import __version__
 
 app = typer.Typer(

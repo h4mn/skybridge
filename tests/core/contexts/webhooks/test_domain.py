@@ -8,7 +8,7 @@ from datetime import datetime
 
 import pytest
 
-from skybridge.core.contexts.webhooks.domain import (
+from core.webhooks.domain import (
     WebhookEvent,
     WebhookJob,
     WebhookSource,
