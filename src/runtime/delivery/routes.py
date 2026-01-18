@@ -742,6 +742,40 @@ def create_rpc_router() -> APIRouter:
             output_schema=handler.output_schema,
         )
 
+    @router.get("/search")
+    async def search_handlers(
+        http_request: Request,
+        q: str = Query(..., description="Query de busca fuzzy"),
+        limit: int = Query(5, description="Número máximo de resultados", ge=1, le=20),
+        min_score: int = Query(60, description="Score mínimo (0-100)", ge=0, le=100)
+    ):
+        """
+        Busca handlers usando fuzzy matching.
+
+        Issue #42: Busca fuzzy para encontrar handlers mesmo com erros de digitação.
+
+        Exemplos:
+            GET /search?q=fileop
+            GET /search?q=webook&limit=3&min_score=70
+        """
+        correlation_id = getattr(http_request.state, "correlation_id", str(uuid.uuid4()))
+        logger.debug(
+            f"GET /search chamado",
+            extra={"correlation_id": correlation_id, "query": q, "limit": limit, "min_score": min_score},
+        )
+
+        results = skyrpc_registry.fuzzy_search(q, limit=limit, min_score=min_score)
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "ok": True,
+                "query": q,
+                "total": len(results),
+                "results": results,
+            }
+        )
+
     # ========== Metrics Endpoint (Observabilidade Nível 1) ==========
 
     @router.get("/metrics")

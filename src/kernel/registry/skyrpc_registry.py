@@ -91,6 +91,46 @@ class SkyRpcRegistry:
         """Lista todos os handlers registrados."""
         return self._base.list_all()
 
+    def fuzzy_search(
+        self,
+        query: str,
+        *,
+        limit: int = 5,
+        min_score: int = 60
+    ) -> list[dict[str, Any]]:
+        """
+        Busca handlers usando fuzzy matching e retorna metadados enriquecidos.
+
+        Args:
+            query: String de busca (pode conter erros de digitação)
+            limit: Número máximo de resultados a retornar
+            min_score: Score mínimo (0-100) para considerar um match
+
+        Returns:
+            Lista de dicionários com metadados dos handlers encontrados
+
+        Examples:
+            >>> results = skyrpc_registry.fuzzy_search("fileop")
+            >>> [r["method"] for r in results]
+            ["file_ops.read", "file_ops.write"]
+        """
+        from typing import Callable
+        raw_results = self._base.fuzzy_search(query, limit=limit, min_score=min_score)
+
+        # Enriquece com metadados adicionais
+        enriched_results = []
+        for name, handler, score in raw_results:
+            enriched_results.append({
+                "method": name,
+                "score": score,
+                "kind": handler.kind,
+                "description": handler.description,
+                "module": getattr(handler, "module", "unknown"),
+                "auth_required": getattr(handler, "auth_required", True),
+            })
+
+        return enriched_results
+
     def get_discovery(self) -> SkyRpcDiscovery:
         """
         Retorna catálogo de handlers para introspecção.

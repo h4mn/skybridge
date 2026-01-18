@@ -15,6 +15,9 @@ rich>=13.7.0
 # Ngrok (opcional)
 pyngrok>=7.0.0
 
+# Fuzzy search for query handlers
+thefuzz>=0.3.0
+
 # Logging (futuro)
 # structlog>=23.2.0
 # colorlog>=6.8.0

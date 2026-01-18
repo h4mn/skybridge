@@ -127,6 +127,63 @@ def rpc_discover(
         console.print(Panel(JSON(data), title="Discovery Completo", expand=False))
 
 
+@rpc_app.command("search")
+def rpc_search(
+    query: str = typer.Argument(..., help="Query de busca fuzzy"),
+    url: Optional[str] = typer.Option(None, "--url", "-u", help="URL base da API"),
+    limit: int = typer.Option(5, "--limit", "-l", help="Número máximo de resultados", min=1, max=20),
+    min_score: int = typer.Option(60, "--min-score", "-s", help="Score mínimo (0-100)", min=0, max=100),
+    output: str = typer.Option("table", "--output", "-o", help="Formato: table, json"),
+):
+    """
+    Busca handlers usando fuzzy matching.
+
+    Issue #42: Encontra handlers mesmo com erros de digitação.
+
+    Examples:
+        sb rpc search fileop
+        sb rpc search webook --limit 3
+        sb rpc search webhook --min-score 70
+    """
+    base_url = get_base_url(url)
+    params = {"q": query, "limit": limit, "min_score": min_score}
+    response = requests.get(f"{base_url}/search", params=params)
+
+    if response.status_code != 200:
+        console.print(f"[red]Erro:[/red] {response.status_code} - {response.text}")
+        raise typer.Exit(1)
+
+    data = response.json()
+
+    if output == "json":
+        console.print_json(data=data)
+        return
+
+    if not data.get("results") or len(data["results"]) == 0:
+        console.print(f"[yellow]Nenhum handler encontrado para:[/yellow] '{query}'")
+        console.print(f"[dim]Tente reduzir o --min-score ou usar um termo mais genérico[/dim]")
+        return
+
+    # Formato tabela
+    table = Table(title=f"Busca Fuzzy: '{query}'")
+    table.add_column("Method", style="cyan", no_wrap=False)
+    table.add_column("Score", style="green", width=8)
+    table.add_column("Kind", style="magenta", width=10)
+    table.add_column("Description", style="dim", no_wrap=False)
+
+    for result in data["results"]:
+        score_color = "green" if result["score"] >= 80 else "yellow" if result["score"] >= 60 else "red"
+        table.add_row(
+            result["method"],
+            f"[{score_color}]{result['score']}[/{score_color}]",
+            result.get("kind", "query"),
+            result.get("description", "")[:50] + "..." if result.get("description") and len(result.get("description", "")) > 50 else result.get("description", ""),
+        )
+
+    console.print(table)
+    console.print(f"\n[dim]Total: {data['total']} handlers encontrados[/dim]")
+
+
 @rpc_app.command("call")
 def rpc_call(
     method: str = typer.Argument(..., help="Método RPC a executar"),
