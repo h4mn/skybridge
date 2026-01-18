@@ -510,8 +510,8 @@ class TestClaudeCodeAdapter:
         assert "--permission-mode" in cmd
         assert "bypassPermissions" in cmd
 
-    @patch("skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent.load_system_prompt_config")
-    @patch("skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent.render_system_prompt")
+    @patch("core.webhooks.infrastructure.agents.claude_agent.load_system_prompt_config")
+    @patch("core.webhooks.infrastructure.agents.claude_agent.render_system_prompt")
     def test_build_system_prompt(self, mock_render, mock_config):
         """Constrói system prompt com contexto."""
         mock_config.return_value = {"template": {"role": "test"}}
@@ -654,7 +654,7 @@ class TestClaudeCodePathConfig:
     Solução: Centralizar configuração em AgentConfig com detecção automática de plataforma
     """
 
-    @patch("skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent.get_agent_config")
+    @patch("core.webhooks.infrastructure.agents.claude_agent.get_agent_config")
     def test_adapter_uses_path_from_config(self, mock_get_agent_config):
         """Adapter usa o path da configuração por padrão."""
         # Mock config retornando path específico
@@ -666,7 +666,7 @@ class TestClaudeCodePathConfig:
         assert adapter.claude_code_path == "custom-claude-path"
         mock_get_agent_config.assert_called_once()
 
-    @patch("skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent.get_agent_config")
+    @patch("core.webhooks.infrastructure.agents.claude_agent.get_agent_config")
     def test_adapter_can_override_config_path(self, mock_get_agent_config):
         """Adapter pode sobrescrever o path da configuração explicitamente."""
         from runtime.config.config import AgentConfig
@@ -686,7 +686,7 @@ class TestClaudeCodePathConfig:
         from runtime.config.config import load_agent_config
 
         # Remove cache para testar fresh load
-        import platform.config.config as config_module
+        import runtime.config.config as config_module
         config_module._agent_config = None
 
         agent_config = load_agent_config()
@@ -700,7 +700,7 @@ class TestClaudeCodePathConfig:
         from runtime.config.config import load_agent_config
 
         # Remove cache e ENV var para testar detecção padrão
-        import platform.config.config as config_module
+        import runtime.config.config as config_module
         config_module._agent_config = None
         import os
         original_env = os.environ.get("CLAUDE_CODE_PATH")
@@ -721,7 +721,7 @@ class TestClaudeCodePathConfig:
         from runtime.config.config import load_agent_config
 
         # Remove cache e ENV var para testar detecção padrão
-        import platform.config.config as config_module
+        import runtime.config.config as config_module
         config_module._agent_config = None
         import os
         original_env = os.environ.get("CLAUDE_CODE_PATH")
@@ -865,8 +865,8 @@ class TestRealTimeStreaming:
     """
 
     @patch("subprocess.Popen")
-    @patch("skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent.load_system_prompt_config")
-    @patch("skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent.render_system_prompt")
+    @patch("core.webhooks.infrastructure.agents.claude_agent.load_system_prompt_config")
+    @patch("core.webhooks.infrastructure.agents.claude_agent.render_system_prompt")
     def test_processes_xml_commands_in_real_time(self, mock_render, mock_config, mock_popen):
         """
         Processa comandos XML durante a execução do agente.
