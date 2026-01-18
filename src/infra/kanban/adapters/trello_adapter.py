@@ -377,6 +377,387 @@ class TrelloAdapter(KanbanPort):
         # Mapeamento simplificado - TODO: fazer lookup real de listas
         return CardStatus.TODO
 
+    async def auto_configure_lists(
+        self,
+        list_names: list[str],
+        list_colors: dict[str, str] | None = None,
+        board_id: str | None = None,
+    ) -> Result[dict[str, dict], str]:
+        """
+        Verifica e cria listas no board se não existirem.
+
+        Args:
+            list_names: Lista de nomes das listas Kanban em ordem
+            list_colors: Mapeamento opcional de nome da lista → cor (hex)
+            board_id: ID do board (usa self.board_id se não fornecido)
+
+        Returns:
+            Result com dict contendo infos das listas criadas/verificadas:
+            {
+                "list_name": {"id": "list_id", "color": "#hex", "created": bool}
+            }
+        """
+        target_board = board_id or self.board_id
+        if not target_board:
+            return Result.err("board_id não fornecido")
+
+        # Busca listas existentes
+        try:
+            response = await self._client.get(f"/boards/{target_board}/lists")
+            response.raise_for_status()
+            existing_lists = response.json()
+
+            # Mapeia nome → id das listas existentes
+            existing_by_name = {
+                lst["name"]: lst["id"]
+                for lst in existing_lists
+                if not lst.get("closed")  # Ignora listas arquivadas
+            }
+
+            logger.info(f"Listas existentes: {list(existing_by_name.keys())}")
+
+            results: dict[str, dict] = {}
+
+            # Verifica/cria cada lista
+            for list_name in list_names:
+                if list_name in existing_by_name:
+                    # Lista já existe
+                    results[list_name] = {
+                        "id": existing_by_name[list_name],
+                        "color": list_colors.get(list_name) if list_colors else None,
+                        "created": False,
+                    }
+                    logger.info(f"✓ Lista já existe: {list_name}")
+                else:
+                    # Cria lista
+                    color = list_colors.get(list_name) if list_colors else None
+                    create_result = await self.create_list_with_color(
+                        list_name=list_name,
+                        color=color,
+                        board_id=target_board,
+                    )
+
+                    if create_result.is_err:
+                        return Result.err(
+                            f"Erro ao criar lista '{list_name}': {create_result.error}"
+                        )
+
+                    list_data = create_result.unwrap()
+                    results[list_name] = {
+                        "id": list_data["id"],
+                        "color": color,
+                        "created": True,
+                    }
+                    logger.info(f"✓ Lista criada: {list_name}")
+
+            return Result.ok(results)
+
+        except httpx.HTTPStatusError as e:
+            return Result.err(f"Erro HTTP {e.response.status_code}: {e.response.text}")
+        except Exception as e:
+            logger.error(f"Erro ao configurar listas: {e}")
+            return Result.err(f"Erro ao configurar listas: {str(e)}")
+
+    async def create_list_with_color(
+        self,
+        list_name: str,
+        color: str | None = None,
+        board_id: str | None = None,
+        pos: str | None = None,
+    ) -> Result[dict, str]:
+        """
+        Cria uma lista com cor específica (via subscribed).
+
+        Nota: Trello API não suporta cores de lista diretamente.
+        A cor é aplicada via subscrição à lista (muda a cor de fundo no UI).
+
+        Args:
+            list_name: Nome da lista
+            color: Cor em hex (ex: "#0077BE") - usada para subscrição
+            board_id: ID do board (usa self.board_id se não fornecido)
+            pos: Posição da lista ("bottom", "top", ou número)
+
+        Returns:
+            Result com dict contendo id e name da lista criada
+        """
+        target_board = board_id or self.board_id
+        if not target_board:
+            return Result.err("board_id não fornecido")
+
+        try:
+            payload = {"name": list_name, "idBoard": target_board}
+
+            if pos:
+                payload["pos"] = pos
+            else:
+                # Coloca no final por padrão
+                payload["pos"] = "bottom"
+
+            # Cria a lista
+            response = await self._client.post("/lists", json=payload)
+            response.raise_for_status()
+            list_data = response.json()
+
+            list_id = list_data["id"]
+
+            # Se cor fornecida, tenta aplicar via subscrição
+            # (muda cor de fundo da lista no UI)
+            if color:
+                await self._client.put(
+                    f"/lists/{list_id}",
+                    json={"subscribed": True},
+                )
+                logger.info(f"Lista '{list_name}' criada com cor {color}")
+
+            return Result.ok({"id": list_id, "name": list_name})
+
+        except httpx.HTTPStatusError as e:
+            return Result.err(f"Erro HTTP {e.response.status_code}: {e.response.text}")
+        except Exception as e:
+            logger.error(f"Erro ao criar lista '{list_name}': {e}")
+            return Result.err(f"Erro ao criar lista: {str(e)}")
+
+    async def move_card_to_list(
+        self,
+        card_id: str,
+        target_list_name: str,
+        board_id: str | None = None,
+    ) -> Result[None, str]:
+        """
+        Move um card para outra lista.
+
+        Args:
+            card_id: ID do card a mover
+            target_list_name: Nome da lista de destino
+            board_id: ID do board (usa self.board_id se não fornecido)
+
+        Returns:
+            Result OK se sucesso, erro se falhar
+        """
+        try:
+            # Busca ID da lista de destino
+            list_id_result = await self._get_list_id(target_list_name, board_id)
+            if list_id_result.is_err:
+                return Result.err(list_id_result.error)
+
+            target_list_id = list_id_result.unwrap()
+
+            # Move o card atualizando idList
+            response = await self._client.put(
+                f"/cards/{card_id}",
+                json={"idList": target_list_id},
+            )
+            response.raise_for_status()
+
+            logger.info(f"Card {card_id} movido para '{target_list_name}'")
+            return Result.ok(None)
+
+        except httpx.HTTPStatusError as e:
+            return Result.err(f"Erro HTTP {e.response.status_code}: {e.response.text}")
+        except Exception as e:
+            logger.error(f"Erro ao mover card {card_id}: {e}")
+            return Result.err(f"Erro ao mover card: {str(e)}")
+
+    async def get_or_create_label(
+        self,
+        label_name: str,
+        color: str,
+        board_id: str | None = None,
+    ) -> Result[str, str]:
+        """
+        Busca ou cria um label no board.
+
+        Args:
+            label_name: Nome do label
+            color: Cor do label (red, orange, yellow, green, blue, purple, pink, black, sky, lime)
+            board_id: ID do board (usa self.board_id se não fornecido)
+
+        Returns:
+            Result com ID do label
+        """
+        target_board = board_id or self.board_id
+        if not target_board:
+            return Result.err("board_id não fornecido")
+
+        try:
+            # Busca labels existentes
+            response = await self._client.get(f"/boards/{target_board}/labels")
+            response.raise_for_status()
+            labels = response.json()
+
+            # Procura label com mesmo nome
+            for label in labels:
+                if label.get("name", "").lower() == label_name.lower():
+                    logger.info(f"Label já existe: {label_name}")
+                    return Result.ok(label["id"])
+
+            # Cria novo label
+            response = await self._client.post(
+                f"/boards/{target_board}/labels",
+                json={
+                    "name": label_name,
+                    "color": color,
+                },
+            )
+            response.raise_for_status()
+            label_data = response.json()
+
+            logger.info(f"Label criado: {label_name} ({color})")
+            return Result.ok(label_data["id"])
+
+        except httpx.HTTPStatusError as e:
+            return Result.err(f"Erro HTTP {e.response.status_code}: {e.response.text}")
+        except Exception as e:
+            logger.error(f"Erro ao buscar/criar label '{label_name}': {e}")
+            return Result.err(f"Erro ao buscar/criar label: {str(e)}")
+
+    async def add_label_to_card(
+        self,
+        card_id: str,
+        label_id: str,
+    ) -> Result[None, str]:
+        """
+        Adiciona um label a um card.
+
+        Args:
+            card_id: ID do card
+            label_id: ID do label a adicionar
+
+        Returns:
+            Result OK se sucesso, erro se falhar
+        """
+        try:
+            # Primeiro busca os labels atuais do card
+            response = await self._client.get(f"/cards/{card_id}")
+            response.raise_for_status()
+            card_data = response.json()
+
+            # Obtém lista atual de labels (idLabels)
+            current_labels = card_data.get("idLabels", [])
+
+            # Adiciona o novo label se ainda não estiver presente
+            if label_id not in current_labels:
+                current_labels.append(label_id)
+
+                # Atualiza o card com a nova lista de labels
+                response = await self._client.put(
+                    f"/cards/{card_id}",
+                    json={"idLabels": current_labels},
+                )
+                response.raise_for_status()
+
+                logger.info(f"Label {label_id} adicionado ao card {card_id}")
+            else:
+                logger.debug(f"Label {label_id} já está no card {card_id}")
+
+            return Result.ok(None)
+
+        except httpx.HTTPStatusError as e:
+            return Result.err(f"Erro HTTP {e.response.status_code}: {e.response.text}")
+        except Exception as e:
+            logger.error(f"Erro ao adicionar label {label_id} ao card {card_id}: {e}")
+            return Result.err(f"Erro ao adicionar label: {str(e)}")
+
+    async def create_webhook(
+        self,
+        callback_url: str,
+        description: str = "Skybridge Trello Webhook",
+        id_model: str | None = None,
+    ) -> Result[dict, str]:
+        """
+        Cria um webhook no Trello para monitorar mudanças em um model.
+
+        Args:
+            callback_url: URL pública que receberá os webhooks (ex: Ngrok URL)
+            description: Descrição do webhook
+            id_model: ID do model a monitorar (board, card, etc.) - usa self.board_id se não fornecido
+
+        Returns:
+            Result com dados do webhook criado (id, description, callbackURL, etc.)
+
+        Example:
+            >>> result = await adapter.create_webhook(
+            ...     callback_url="https://seu-ngrok-url.webhooks/trello",
+            ...     id_model="board123"
+            ... )
+        """
+        target_model = id_model or self.board_id
+        if not target_model:
+            return Result.err("id_model não fornecido e board_id não configurado")
+
+        try:
+            # Verifica se callback URL está acessível (Trello faz HEAD request)
+            # NOTA: Em dev com Ngrok, isso deve funcionar
+            logger.info(f"Criando webhook para model {target_model} → {callback_url}")
+
+            # POST /1/tokens/{token}/webhooks
+            webhook_url = f"/tokens/{self.api_token}/webhooks"
+            payload = {
+                "description": description,
+                "callbackURL": callback_url,
+                "idModel": target_model,
+            }
+
+            response = await self._client.post(webhook_url, json=payload)
+            response.raise_for_status()
+            webhook_data = response.json()
+
+            logger.info(f"Webhook criado: {webhook_data['id']}")
+            return Result.ok(webhook_data)
+
+        except httpx.HTTPStatusError as e:
+            error_detail = e.response.json() if e.response.content else str(e)
+            return Result.err(
+                f"Erro HTTP {e.response.status_code} ao criar webhook: {error_detail}"
+            )
+        except Exception as e:
+            logger.error(f"Erro ao criar webhook: {e}")
+            return Result.err(f"Erro ao criar webhook: {str(e)}")
+
+    async def list_webhooks(self) -> Result[list[dict], str]:
+        """
+        Lista todos os webhooks criados pelo token atual.
+
+        Returns:
+            Result com lista de webhooks
+        """
+        try:
+            response = await self._client.get(f"/tokens/{self.api_token}/webhooks")
+            response.raise_for_status()
+            webhooks = response.json()
+
+            logger.info(f"{len(webhooks)} webhook(s) encontrado(s)")
+            return Result.ok(webhooks)
+
+        except httpx.HTTPStatusError as e:
+            return Result.err(f"Erro HTTP {e.response.status_code}: {e.response.text}")
+        except Exception as e:
+            logger.error(f"Erro ao listar webhooks: {e}")
+            return Result.err(f"Erro ao listar webhooks: {str(e)}")
+
+    async def delete_webhook(self, webhook_id: str) -> Result[None, str]:
+        """
+        Deleta um webhook existente.
+
+        Args:
+            webhook_id: ID do webhook a deletar
+
+        Returns:
+            Result OK se deletado com sucesso
+        """
+        try:
+            response = await self._client.delete(f"/webhooks/{webhook_id}")
+            response.raise_for_status()
+
+            logger.info(f"Webhook {webhook_id} deletado")
+            return Result.ok(None)
+
+        except httpx.HTTPStatusError as e:
+            return Result.err(f"Erro HTTP {e.response.status_code}: {e.response.text}")
+        except Exception as e:
+            logger.error(f"Erro ao deletar webhook {webhook_id}: {e}")
+            return Result.err(f"Erro ao deletar webhook: {str(e)}")
+
 
 def create_trello_adapter(api_key: str, api_token: str) -> TrelloAdapter:
     """
