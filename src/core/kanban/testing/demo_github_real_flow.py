@@ -3,20 +3,20 @@
 DEMO FLUXO COMPLETO - GitHub REAL + Webhook Server + Trello REAL
 
 Estratégia Inteligente da Dupla:
-1. MockGitHubAgent cria issues REAIS no GitHub (realed source)
+1. FakeGitHubAgent cria issues REAIS no GitHub (realed source)
 2. GitHub dispara webhook REAL para nosso servidor
 3. WebhookProcessor processa e cria card no Trello REAL
 4. JobOrchestrator executa e atualiza Trello em tempo real
 
 Status Taxonomy:
 - realed: Componente 100% real, dados reais (GitHub, Trello, WebhookProcessor)
-- mocked: Componente mockado (MockGitHubAgent, MockAgent)
+- mocked: Componente mockado (FakeGitHubAgent, MockAgent)
 - paused: Componente real mas desativado temporariamente
 
 Fluxo:
     ┌─────────────────────────────────────────────────────────────┐
     │                                                              │
-    │  MockGitHubAgent ──► Issue REAL no GitHub ──► Webhook REAL  │
+    │  FakeGitHubAgent ──► Issue REAL no GitHub ──► Webhook REAL  │
     │       (realed source)         (realed source)    (realed)    │
     │                                                              │
     │           ▼                                                  │
@@ -44,7 +44,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from core.agents.mock.mock_github_agent import (
-    MockGitHubAgent,
+    FakeGitHubAgent,
     RealisticIssueTemplates,
     ComponentStatus,
 )
@@ -56,7 +56,7 @@ class FlowOrchestrator:
     Orquestra o fluxo completo de testes.
 
     Responsabilidades:
-    - Criar issues reais via MockGitHubAgent
+    - Criar issues reais via FakeGitHubAgent
     - Aguardar webhooks serem processados
     - Verificar cards no Trello
     - Cleanup (fechar issues de teste)
@@ -81,7 +81,7 @@ class FlowOrchestrator:
             trello_board_id: ID do board Trello
         """
         owner, name = github_repo.split("/", 1)
-        self.github_agent = MockGitHubAgent(owner, name, github_token)
+        self.github_agent = FakeGitHubAgent(owner, name, github_token)
         self.github_repo = github_repo
 
         # Trello integration (opcional para demo, apenas verificação)
@@ -95,12 +95,12 @@ class FlowOrchestrator:
         print("🚀 FLUXO COMPLETO - Dupla Inteligente Sky + Você")
         print("=" * 80)
         print("\n💡 Estratégia:")
-        print("   1. MockGitHubAgent cria issues REAIS no GitHub")
+        print("   1. FakeGitHubAgent cria issues REAIS no GitHub")
         print("   2. GitHub dispara webhook REAL para ngrok → localhost")
         print("   3. WebhookProcessor processa e cria card no Trello")
         print("   4. JobOrchestrator executa e atualiza Trello")
         print("\n📊 Status Taxonomy:")
-        print(f"   • MockGitHubAgent: {ComponentStatus.MOCKED.value} (cria issues reais)")
+        print(f"   • FakeGitHubAgent: {ComponentStatus.MOCKED.value} (cria issues reais)")
         print(f"   • GitHub source: {ComponentStatus.REALED.value} (issues de verdade)")
         print(f"   • Webhook Server: {ComponentStatus.REALED.value} (FastAPI real)")
         print(f"   • WebhookProcessor: {ComponentStatus.REALED.value} (pronto)")

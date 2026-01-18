@@ -49,7 +49,7 @@ class WebhookProcessor:
         self.trello_service = trello_service
 
     async def process_github_issue(
-        self, payload: dict, event_type: str, signature: str | None = None
+        self, payload: dict, event_type: str, signature: str | None = None, delivery_id: str | None = None
     ) -> Result[str, str]:
         """
         Processa evento de issue do GitHub.
@@ -58,17 +58,22 @@ class WebhookProcessor:
             payload: Payload do webhook (JSON)
             event_type: Tipo do evento (ex: "issues.opened")
             signature: Assinatura HMAC (se disponível)
+            delivery_id: ID único da entrega (para evitar duplicação)
 
         Returns:
             Result com job_id ou mensagem de erro
         """
         try:
-            logger.info(f"Processing GitHub webhook | event_type={event_type}")
+            correlation_id = delivery_id or "unknown"
+            logger.info(
+                f"Processing GitHub webhook | correlation_id={correlation_id} | "
+                f"event_type={event_type} | delivery={delivery_id}"
+            )
 
-            # Trata evento ping (teste de webhook)
-            if event_type == "ping":
-                logger.info("Ping event received - webhook is working!")
-                return Result.ok("ping")
+            # Verifica duplicidade por delivery_id
+            if delivery_id and await self.job_queue.exists_by_delivery(delivery_id):
+                logger.info(f"Webhook já processado anteriormente | delivery_id={delivery_id}")
+                return Result.ok(None)  # Retorna ok mas sem job_id (já processado)
 
             # Só processa eventos de issues
             if not event_type.startswith("issues."):
@@ -105,6 +110,7 @@ class WebhookProcessor:
                 payload=payload,
                 received_at=datetime.utcnow(),
                 signature=signature,
+                delivery_id=delivery_id,
             )
 
             # Cria job
@@ -113,15 +119,24 @@ class WebhookProcessor:
             # Armazena card_id do Trello para uso posterior
             if trello_card_id:
                 job.metadata["trello_card_id"] = trello_card_id
-                logger.info(f"Job {job.job_id} vinculado ao card Trello: {trello_card_id}")
+                logger.info(
+                    f"Job {job.job_id} | correlation_id={job.correlation_id} | "
+                    f"vinculado ao card Trello: {trello_card_id}"
+                )
 
             # Enfileira
             await self.job_queue.enqueue(job)
 
+            logger.info(
+                f"Job enfileirado | job_id={job.job_id} | correlation_id={job.correlation_id}"
+            )
+
             return Result.ok(job.job_id)
 
         except Exception as e:
-            logger.error(f"Erro ao processar webhook: {e}")
+            logger.error(
+                f"Erro ao processar webhook | correlation_id={correlation_id} | error={e}"
+            )
             return Result.err(f"Erro ao processar webhook: {str(e)}")
 
     async def _create_trello_card(
@@ -184,6 +199,7 @@ class WebhookProcessor:
         event_type: str,
         payload: dict,
         signature: str | None = None,
+        delivery_id: str | None = None,
     ) -> Result[str, str]:
         """
         Processa webhook genérico de qualquer fonte.
@@ -193,6 +209,7 @@ class WebhookProcessor:
             event_type: Tipo do evento
             payload: Payload do webhook
             signature: Assinatura HMAC (se disponível)
+            delivery_id: ID único da entrega (para evitar duplicação)
 
         Returns:
             Result com job_id ou mensagem de erro
@@ -210,7 +227,7 @@ class WebhookProcessor:
 
             # Delega para método específico
             if event_type.startswith("issues."):
-                return await self.process_github_issue(payload, event_type, signature)
+                return await self.process_github_issue(payload, event_type, signature, delivery_id)
 
             return Result.err(f"Tipo de evento não suportado: {event_type}")
 

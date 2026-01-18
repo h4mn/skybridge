@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -35,13 +35,21 @@ class InMemoryJobQueue(JobQueuePort):
         _queue: Fila de jobs aguardando processamento
         _jobs: Dicionário de todos os jobs por ID
         _queue_event: Evento para sinalizar novos jobs
+        _delivery_ids: Dict de delivery_id → timestamp (para TTL)
     """
 
-    def __init__(self) -> None:
-        """Inicializa fila vazia."""
+    def __init__(self, ttl_hours: int = 24) -> None:
+        """
+        Inicializa fila vazia.
+
+        Args:
+            ttl_hours: Tempo de vida dos delivery IDs em horas (padrão: 24h)
+        """
         self._queue: deque[WebhookJob] = deque()
         self._jobs: dict[str, WebhookJob] = {}
         self._queue_event = asyncio.Event()
+        self._delivery_ids: dict[str, datetime] = {}  # delivery_id → timestamp
+        self._ttl = timedelta(hours=ttl_hours)
 
     async def enqueue(self, job: "WebhookJob") -> str:
         """
@@ -59,8 +67,16 @@ class InMemoryJobQueue(JobQueuePort):
         if job.job_id in self._jobs:
             raise QueueError(f"Job {job.job_id} já existe na fila")
 
+        # Cleanup de deliveries expirados antes de processar
+        self._cleanup_expired_deliveries()
+
         self._queue.append(job)
         self._jobs[job.job_id] = job
+
+        # Registra delivery_id com timestamp atual
+        if job.event.delivery_id:
+            self._delivery_ids[job.event.delivery_id] = datetime.utcnow()
+
         self._queue_event.set()  # Sinaliza que há jobs
         self._queue_event.clear()
 
@@ -157,3 +173,43 @@ class InMemoryJobQueue(JobQueuePort):
         """Remove todos os jobs da fila (útil para testes)."""
         self._queue.clear()
         self._jobs.clear()
+        self._delivery_ids.clear()
+
+    def _cleanup_expired_deliveries(self) -> None:
+        """
+        Remove delivery IDs expirados para evitar memory leak.
+
+        Deliveries mais antigos que o TTL são removidos automaticamente.
+        Isso é chamado automaticamente no enqueue().
+        """
+        if not self._delivery_ids:
+            return
+
+        now = datetime.utcnow()
+        expired = [
+            delivery_id
+            for delivery_id, timestamp in self._delivery_ids.items()
+            if now - timestamp > self._ttl
+        ]
+
+        for delivery_id in expired:
+            del self._delivery_ids[delivery_id]
+
+        if expired:
+            from core.webhooks.application.webhook_processor import logger
+            logger.debug(f"Cleanup: removidos {len(expired)} delivery IDs expirados")
+
+    async def exists_by_delivery(self, delivery_id: str) -> bool:
+        """
+        Verifica se já existe job com este delivery ID.
+
+        Args:
+            delivery_id: ID único da entrega do webhook
+
+        Returns:
+            True se job com este delivery_id já existe, False caso contrário
+        """
+        # Cleanup antes de verificar
+        self._cleanup_expired_deliveries()
+
+        return delivery_id in self._delivery_ids

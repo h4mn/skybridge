@@ -101,6 +101,19 @@ class JobQueuePort(ABC):
         """
         pass
 
+    @abstractmethod
+    async def exists_by_delivery(self, delivery_id: str) -> bool:
+        """
+        Verifica se já existe job com este delivery ID.
+
+        Args:
+            delivery_id: ID único da entrega do webhook
+
+        Returns:
+            True se job com este delivery_id já existe, False caso contrário
+        """
+        pass
+
 
 class QueueError(Exception):
     """Erro na operação da fila."""

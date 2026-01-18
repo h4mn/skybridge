@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from core.agents.mock.mock_github_agent import (
-    MockGitHubAgent,
+    FakeGitHubAgent,
     RealisticIssueTemplates,
 )
 from dotenv import load_dotenv
@@ -79,7 +79,7 @@ async def main():
     issue = issues_map.get(choice, templates.fuzzy_search_feature())
 
     # Cria issue
-    async with MockGitHubAgent(owner, name, github_token) as agent:
+    async with FakeGitHubAgent(owner, name, github_token) as agent:
         print(f"\n📝 Criando issue: {issue.title[:60]}...")
         print(f"🏷️  Labels: {', '.join(issue.labels)}")
 
