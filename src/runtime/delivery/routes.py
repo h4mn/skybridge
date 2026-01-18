@@ -742,6 +742,54 @@ def create_rpc_router() -> APIRouter:
             output_schema=handler.output_schema,
         )
 
+    # ========== Metrics Endpoint (Observabilidade Nível 1) ==========
+
+    @router.get("/metrics")
+    async def queue_metrics():
+        """
+        Retorna métricas da fila para observabilidade.
+
+        Endpoint público para monitoring e tomada de decisão sobre quando migrar para Redis.
+
+        Métricas incluem:
+        - queue_size: Tamanho atual da fila
+        - enqueue_count: Total de jobs enfileirados
+        - jobs_per_hour: Throughput médio (últimas 24h)
+        - enqueue_latency_p95_ms: Latência p95 de enqueue
+        - backlog_age_seconds: Idade do job mais antigo
+        - disk_usage_mb: Uso de disco em MB
+        """
+        try:
+            from pathlib import Path
+            import os
+            from infra.webhooks.adapters.file_based_job_queue import FileBasedJobQueue
+
+            queue_dir = os.getenv("SKYBRIDGE_QUEUE_DIR", "workspace/skybridge/fila")
+            queue = FileBasedJobQueue(queue_dir=queue_dir)
+            metrics = queue.get_metrics()
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "ok": True,
+                    "metrics": metrics,
+                    "queue_type": "FileBasedJobQueue",
+                    "queue_dir": queue_dir,
+                }
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to get metrics: {str(e)}",
+                extra={"error": str(e)},
+            )
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "ok": False,
+                    "error": f"Failed to get metrics: {str(e)}",
+                },
+            )
+
     # ========== Webhook Endpoints (PRD013) ==========
 
     @router.post("/webhooks/{source}")

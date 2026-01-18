@@ -36,6 +36,7 @@ from core.webhooks.application.webhook_processor import WebhookProcessor
 from core.webhooks.ports.job_queue_port import JobQueuePort
 from core.kanban.application.trello_integration_service import TrelloIntegrationService
 from infra.kanban.adapters.trello_adapter import TrelloAdapter
+from infra.webhooks.adapters.file_based_job_queue import FileBasedJobQueue
 
 # Configura logging
 logging.basicConfig(
@@ -47,48 +48,19 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 
-class InMemoryJobQueue(JobQueuePort):
-    """Implementação simples em memória para demo."""
-
-    def __init__(self):
-        self._jobs = {}
-
-    async def enqueue(self, job):
-        """Enfileira job."""
-        self._jobs[job.job_id] = job
-        logger.info(f"Job enfileirado: {job.job_id}")
-
-    async def get_job(self, job_id: str):
-        """Busca job por ID."""
-        return self._jobs.get(job_id)
-
-    async def complete(self, job_id: str, result: dict | None = None):
-        """Marca job como completado."""
-        if job_id in self._jobs:
-            self._jobs[job_id].mark_completed()
-            logger.info(f"Job completado: {job_id}")
-
-    async def fail(self, job_id: str, error: str):
-        """Marca job como falhou."""
-        if job_id in self._jobs:
-            self._jobs[job_id].mark_failed(error)
-            logger.error(f"Job falhou: {job_id} - {error}")
-
-    async def dequeue(self):
-        """Remove próximo job da fila."""
-        # Implementação simples: retorna None (não usado neste servidor)
-        return None
-
-    def size(self) -> int:
-        """Retorna tamanho da fila."""
-        return len(self._jobs)
+# InMemoryJobQueue agora é FileBasedJobQueue (drop-in replacement)
+# Resolve o Problema #1: filas separadas entre processos
 
 
 # Inicializa app
 app = FastAPI(title="Skybridge Webhook Server")
 
 # Inicializa dependências
-job_queue = InMemoryJobQueue()
+# FileBasedJobQueue: persiste em workspace/skybridge/fila/
+# Resolve Problema #1: server e worker compartilham a mesma fila
+queue_dir = os.getenv("SKYBRIDGE_QUEUE_DIR", "workspace/skybridge/fila")
+job_queue = FileBasedJobQueue(queue_dir=queue_dir)
+logger.info(f"✅ FileBasedJobQueue inicializado em: {queue_dir}")
 
 # Inicializa TrelloIntegrationService se configurado
 trello_service = None
@@ -163,8 +135,19 @@ async def health():
     return {
         "status": "healthy",
         "trello": trello_service is not None,
-        "jobs_processed": len(job_queue._jobs),
+        "queue_size": job_queue.size(),
+        "queue_type": "FileBasedJobQueue",
     }
+
+
+@app.get("/metrics")
+async def metrics():
+    """
+    Retorna métricas da fila para observabilidade.
+
+    Endpoint para monitoring e tomada de decisão sobre quando migrar para Redis.
+    """
+    return job_queue.get_metrics()
 
 
 @app.post("/webhook/github")
