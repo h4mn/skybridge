@@ -34,16 +34,19 @@ class WorktreeManager:
 
     Attributes:
         base_path: Caminho base onde worktrees são criados
+        base_branch: Branch base para criar worktrees (configurável)
     """
 
-    def __init__(self, base_path: str | Path):
+    def __init__(self, base_path: str | Path, base_branch: str = "dev"):
         """
         Inicializa manager.
 
         Args:
             base_path: Caminho base para worktrees (ex: "../skybridge-worktrees")
+            base_branch: Branch base para criar worktrees (padrão: "dev")
         """
         self.base_path = Path(base_path)
+        self.base_branch = base_branch
 
     def create_worktree(self, job: "WebhookJob") -> Result[str, str]:
         """
@@ -70,7 +73,8 @@ class WorktreeManager:
             # Cria diretório base se não existe
             self.base_path.mkdir(parents=True, exist_ok=True)
 
-            # Executa git worktree add
+            # Executa git worktree add com branch base configurada
+            # Isso garante que worktrees sejam criadas a partir da branch correta
             result = subprocess.run(
                 [
                     "git",
@@ -79,6 +83,7 @@ class WorktreeManager:
                     str(worktree_path),
                     "-b",
                     branch_name,
+                    self.base_branch,  # Branch base configurada (ex: "dev")
                 ],
                 capture_output=True,
                 text=True,

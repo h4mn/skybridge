@@ -66,7 +66,7 @@ def start_webhook_worker_sync():
     logger.info(f"Iniciando worker de {Colors.WHITE}Webhook{Colors.RESET}")
 
     job_queue = get_job_queue()
-    worktree_manager = WorktreeManager(webhook_config.worktree_base_path)
+    worktree_manager = WorktreeManager(webhook_config.worktree_base_path, webhook_config.base_branch)
 
     # TrelloIntegrationService (opcional)
     trello_service = None

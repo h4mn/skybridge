@@ -43,7 +43,7 @@ from datetime import datetime
 # Adiciona src ao path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from core.agents.mock.mock_github_agent import (
+from core.agents.mock.fake_github_agent import (
     FakeGitHubAgent,
     RealisticIssueTemplates,
     ComponentStatus,

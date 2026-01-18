@@ -89,6 +89,7 @@ class WebhookConfig:
     stripe_secret: str | None
     worktree_base_path: str
     enabled_sources: list[str]
+    base_branch: str = "dev"  # Branch base para criar worktrees de agentes
 
 
 @dataclass(frozen=True)
@@ -254,14 +255,15 @@ def load_webhook_config() -> WebhookConfig:
         # Usa WORKTREES_BASE_PATH definido no módulo (configurável via WORKTREES_BASE_PATH env var)
         worktree_base_path=str(WORKTREES_BASE_PATH),
         enabled_sources=_env_list("WEBHOOK_ENABLED_SOURCES", ["github"]),
+        base_branch=os.getenv("WEBHOOK_BASE_BRANCH", "dev"),  # Branch base para worktrees
     )
 
 
 def load_agent_config() -> AgentConfig:
     """Carrega configuração de agentes autônomos."""
     # Detecta automaticamente o caminho correto para o Claude Code CLI
-    # No Windows precisa usar claude.cmd, em outros sistemas apenas "claude"
-    default_path = "claude.cmd" if sys.platform == "win32" else "claude"
+    # Usa "claude" que funciona em todos os sistemas (no Windows busca claude.exe)
+    default_path = "claude"
     return AgentConfig(
         claude_code_path=os.getenv("CLAUDE_CODE_PATH", default_path),
     )

@@ -466,11 +466,15 @@ class TestClaudeCodeAdapter:
 
     def test_adapter_creation(self):
         """Cria adapter com valores padrão."""
+        # Remove cache para garantir config fresh
+        import runtime.config.config as config_module
+        config_module._agent_config = None
+
         adapter = ClaudeCodeAdapter()
 
-        # Path deve vir da configuração (detecta OS automaticamente)
-        import sys
-        expected_path = "claude.cmd" if sys.platform == "win32" else "claude"
+        # Path deve vir da configuração centralizada
+        from runtime.config.config import load_agent_config
+        expected_path = load_agent_config().claude_code_path
         assert adapter.claude_code_path == expected_path
         assert adapter.get_agent_type() == "claude-code"
 
@@ -493,13 +497,17 @@ class TestClaudeCodeAdapter:
 
     def test_build_command(self):
         """Constrói comando Claude Code corretamente."""
+        # Remove cache para garantir config fresh
+        import runtime.config.config as config_module
+        config_module._agent_config = None
+
         adapter = ClaudeCodeAdapter()
 
         cmd = adapter._build_command("/tmp/worktree", "system prompt here")
 
-        # Path deve vir da configuração (detecta OS automaticamente)
-        import sys
-        expected_path = "claude.cmd" if sys.platform == "win32" else "claude"
+        # Path deve vir da configuração centralizada
+        from runtime.config.config import load_agent_config
+        expected_path = load_agent_config().claude_code_path
         assert cmd[0] == expected_path
         assert "--print" in cmd
         # Nota: --cwd não é suportado pelo Claude Code CLI, o worktree_path é usado via cwd do Popen
@@ -650,8 +658,8 @@ class TestClaudeCodePathConfig:
     """
     Testes para garantir que o path do Claude Code CLI não quebra.
 
-    Issue: Claude Code path quebrava no Windows porque usava "claude" em vez de "claude.cmd"
-    Solução: Centralizar configuração em AgentConfig com detecção automática de plataforma
+    Issue: Claude Code path quebrava no Windows porque usava "claude.cmd" que não existe
+    Solução: Usar "claude" que funciona em todas as plataformas (Windows busca claude.exe automaticamente)
     """
 
     @patch("core.webhooks.infrastructure.agents.claude_agent.get_agent_config")
@@ -681,8 +689,8 @@ class TestClaudeCodePathConfig:
 
     @patch.dict("os.environ", {"CLAUDE_CODE_PATH": "env-custom-path"})
     @patch("sys.platform", "win32")
-    def test_agent_config_detects_windows(self):
-        """AgentConfig detecta Windows e usa claude.cmd."""
+    def test_agent_config_env_var_takes_precedence(self):
+        """AgentConfig usa ENV var se definida, independente da plataforma."""
         from runtime.config.config import load_agent_config
 
         # Remove cache para testar fresh load
@@ -691,12 +699,12 @@ class TestClaudeCodePathConfig:
 
         agent_config = load_agent_config()
 
-        # ENV var tem precedência sobre detecção de plataforma
+        # ENV var tem precedência
         assert agent_config.claude_code_path == "env-custom-path"
 
     @patch("sys.platform", "win32")
-    def test_agent_config_windows_default(self):
-        """AgentConfig usa claude.cmd por padrão no Windows."""
+    def test_agent_config_default_is_same_for_all_platforms(self):
+        """AgentConfig usa 'claude' por padrão em todas as plataformas."""
         from runtime.config.config import load_agent_config
 
         # Remove cache e ENV var para testar detecção padrão
@@ -709,27 +717,7 @@ class TestClaudeCodePathConfig:
 
         try:
             agent_config = load_agent_config()
-            assert agent_config.claude_code_path == "claude.cmd"
-        finally:
-            # Restaura ENV var
-            if original_env is not None:
-                os.environ["CLAUDE_CODE_PATH"] = original_env
-
-    @patch("sys.platform", "linux")
-    def test_agent_config_linux_default(self):
-        """AgentConfig usa claude por padrão no Linux."""
-        from runtime.config.config import load_agent_config
-
-        # Remove cache e ENV var para testar detecção padrão
-        import runtime.config.config as config_module
-        config_module._agent_config = None
-        import os
-        original_env = os.environ.get("CLAUDE_CODE_PATH")
-        if "CLAUDE_CODE_PATH" in os.environ:
-            del os.environ["CLAUDE_CODE_PATH"]
-
-        try:
-            agent_config = load_agent_config()
+            # Usa "claude" em todas as plataformas (Windows busca claude.exe automaticamente)
             assert agent_config.claude_code_path == "claude"
         finally:
             # Restaura ENV var
