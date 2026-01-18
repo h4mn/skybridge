@@ -17,6 +17,7 @@ class SnapshotSubject(str, Enum):
     FILEOPS = "fileops"
     TASKS = "tasks"
     HEALTH = "health"
+    TRELLO = "trello"
     CUSTOM = "custom"
 
 
