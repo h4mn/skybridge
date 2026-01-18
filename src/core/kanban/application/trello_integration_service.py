@@ -25,13 +25,17 @@ class TrelloIntegrationService:
     - Retornar card_id para rastreamento futuro
     """
 
-    def __init__(self, trello_adapter: TrelloAdapter, default_list_name: str = "🎯 Foco Janeiro - Março"):
+    def __init__(
+        self,
+        trello_adapter: TrelloAdapter,
+        default_list_name: str = "📥 Issues",
+    ):
         """
         Inicializa serviço de integração.
 
         Args:
             trello_adapter: Adapter para comunicação com Trello
-            default_list_name: Nome da lista onde criar cards (padrão)
+            default_list_name: Nome da lista onde criar cards (padrão: "📥 Issues")
         """
         self.adapter = trello_adapter
         self.default_list_name = default_list_name
@@ -76,15 +80,12 @@ class TrelloIntegrationService:
             # Adiciona prefixo ao título
             card_title = f"#{issue_number} {issue_title}"
 
-            # Adiciona labels como tags
-            trello_labels = self._prepare_labels(labels)
-
-            # Cria o card
+            # Cria o card (sem labels inicialmente)
             result = await self.adapter.create_card(
                 title=card_title,
                 description=card_description,
                 list_name=list_name or self.default_list_name,
-                labels=trello_labels if trello_labels else None,
+                labels=None,  # Labels serão adicionados depois
             )
 
             if result.is_err:
@@ -94,6 +95,17 @@ class TrelloIntegrationService:
             logger.info(
                 f"Card criado no Trello: {card_id} para issue #{issue_number}"
             )
+
+            # Sincroniza labels do GitHub para o Trello
+            if labels:
+                sync_result = await self._sync_github_labels(
+                    card_id=card_id,
+                    github_labels=labels,
+                )
+                if sync_result.is_err:
+                    logger.warning(
+                        f"Erro ao sincronizar labels: {sync_result.error}"
+                    )
 
             # Adiciona comentário inicial
             await self.adapter.add_card_comment(
@@ -107,6 +119,88 @@ class TrelloIntegrationService:
         except Exception as e:
             logger.error(f"Erro ao criar card para issue #{issue_number}: {e}")
             return Result.err(f"Erro ao criar card: {str(e)}")
+
+    async def _sync_github_labels(
+        self,
+        card_id: str,
+        github_labels: list[str],
+    ) -> Result[None, str]:
+        """
+        Sincroniza labels do GitHub como tags coloridas no Trello.
+
+        Usa o mesmo mapeamento definido no PRD18:
+        - bug → bug (red)
+        - feature → feature (green)
+        - enhancement → melhoria (blue)
+        - documentation → docs (orange)
+        - good-first-issue → bom-para-iniciar (yellow)
+
+        Args:
+            card_id: ID do card no Trello
+            github_labels: Labels da issue do GitHub
+
+        Returns:
+            Result OK se sincronizado com sucesso, erro se falhar
+        """
+        try:
+            # Mapeamento de labels (igual ao definido no PRD18)
+            label_mapping = {
+                "bug": ("bug", "red"),
+                "feature": ("feature", "green"),
+                "enhancement": ("melhoria", "blue"),
+                "documentation": ("docs", "orange"),
+                "good-first-issue": ("bom-para-iniciar", "yellow"),
+            }
+
+            for github_label in github_labels:
+                # Filtra labels técnicas
+                if github_label.startswith("status:") or github_label.startswith("triage:"):
+                    continue
+
+                # Verifica se há mapeamento para este label
+                if github_label not in label_mapping:
+                    continue
+
+                trello_label_name, trello_label_color = label_mapping[github_label]
+
+                # Busca ou cria o label no Trello
+                label_result = await self.adapter.get_or_create_label(
+                    label_name=trello_label_name,
+                    color=trello_label_color,
+                )
+
+                if label_result.is_err:
+                    logger.warning(
+                        f"Erro ao criar label '{trello_label_name}': "
+                        f"{label_result.error}"
+                    )
+                    continue
+
+                label_id = label_result.unwrap()
+
+                # Adiciona label ao card
+                add_result = await self.adapter.add_label_to_card(
+                    card_id=card_id,
+                    label_id=label_id,
+                )
+
+                if add_result.is_err:
+                    logger.warning(
+                        f"Erro ao adicionar label '{trello_label_name}' ao card: "
+                        f"{add_result.error}"
+                    )
+                    continue
+
+                logger.info(
+                    f"Label '{trello_label_name}' ({trello_label_color}) "
+                    f"adicionado ao card {card_id}"
+                )
+
+            return Result.ok(None)
+
+        except Exception as e:
+            logger.error(f"Erro ao sincronizar labels: {e}")
+            return Result.err(f"Erro ao sincronizar labels: {str(e)}")
 
     def _format_card_description(
         self,
