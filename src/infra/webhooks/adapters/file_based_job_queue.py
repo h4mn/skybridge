@@ -322,6 +322,33 @@ class FileBasedJobQueue(JobQueuePort):
         """
         return len(self._load_queue())
 
+    async def exists_by_delivery(self, delivery_id: str) -> bool:
+        """
+        Verifica se já existe job com este delivery ID.
+
+        Busca em todos os diretórios (jobs, processing, completed, failed)
+        para garantir idempotência de webhooks do GitHub.
+
+        Args:
+            delivery_id: ID único da entrega do webhook
+
+        Returns:
+            True se job com este delivery_id já existe, False caso contrário
+        """
+        # Buscar em todos os diretórios
+        for dir_path in [self.jobs_dir, self.processing_dir, self.completed_dir, self.failed_dir]:
+            if not dir_path.exists():
+                continue
+            for job_file in dir_path.glob("*.json"):
+                try:
+                    job_data = json.loads(job_file.read_text(encoding="utf-8"))
+                    event_data = job_data.get("event", {})
+                    if event_data.get("event_id") == delivery_id:
+                        return True
+                except Exception:
+                    continue
+        return False
+
     def get_metrics(self) -> dict[str, Any]:
         """
         Retorna métricas da fila para tomada de decisão.
