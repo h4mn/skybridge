@@ -203,3 +203,130 @@ class TestGitHubSignatureVerifier:
         """Deve validar formato de assinatura."""
         assert verifier.is_valid_format("sha256=abc123") is True
         assert verifier.is_valid_format("abc123") is False
+
+
+class TestInMemoryJobQueueDeduplication:
+    """Testa funcionalidade de deduplicação usando delivery_id."""
+
+    @pytest.fixture
+    def job_queue(self):
+        """Retorna instância da fila."""
+        return InMemoryJobQueue()
+
+    @pytest.fixture
+    def sample_job(self):
+        """Retorna job de exemplo com delivery_id."""
+        event = WebhookEvent(
+            source=WebhookSource.GITHUB,
+            event_type="issues.opened",
+            event_id="12345",
+            payload={"issue": {"number": 225}},
+            received_at=datetime.utcnow(),
+            delivery_id="test-delivery-123",  # Importante para deduplicação
+        )
+        return WebhookJob.create(event)
+
+    @pytest.mark.asyncio
+    async def test_exists_by_delivery_id(self, job_queue, sample_job):
+        """Deve verificar se delivery_id já foi processado."""
+        # Inicialmente não existe
+        assert await job_queue.exists_by_delivery("test-delivery-123") is False
+
+        # Enfileira job com delivery_id
+        await job_queue.enqueue(sample_job)
+
+        # Agora existe
+        assert await job_queue.exists_by_delivery("test-delivery-123") is True
+
+    @pytest.mark.asyncio
+    async def test_clear_removes_delivery_ids(self, job_queue, sample_job):
+        """Deve limpar delivery IDs ao chamar clear()."""
+        # Enfileira job com delivery_id
+        await job_queue.enqueue(sample_job)
+        assert await job_queue.exists_by_delivery("test-delivery-123") is True
+
+        # Limpa tudo
+        job_queue.clear()
+
+        # Delivery ID foi removido
+        assert await job_queue.exists_by_delivery("test-delivery-123") is False
+
+    @pytest.mark.asyncio
+    async def test_duplicate_webhook_same_delivery_id(self, job_queue):
+        """Deve identificar webhooks duplicados pelo delivery_id."""
+        # Cria dois jobs com o MESMO delivery_id
+        event1 = WebhookEvent(
+            source=WebhookSource.GITHUB,
+            event_type="issues.opened",
+            event_id="1",
+            payload={"issue": {"number": 1}},
+            received_at=datetime.utcnow(),
+            delivery_id="same-delivery-abc",  # MESMO delivery_id
+        )
+        event2 = WebhookEvent(
+            source=WebhookSource.GITHUB,
+            event_type="issues.opened",
+            event_id="2",
+            payload={"issue": {"number": 1}},
+            received_at=datetime.utcnow(),
+            delivery_id="same-delivery-abc",  # MESMO delivery_id
+        )
+        job1 = WebhookJob.create(event1)
+        job2 = WebhookJob.create(event2)
+
+        # Enfileira primeiro
+        await job_queue.enqueue(job1)
+        assert await job_queue.exists_by_delivery("same-delivery-abc") is True
+
+        # Segundo job tem mesmo delivery_id - seria detectado como duplicata
+        assert await job_queue.exists_by_delivery("same-delivery-abc") is True
+
+    @pytest.mark.asyncio
+    async def test_different_webhooks_different_delivery_ids(self, job_queue):
+        """Deve tratar webhooks diferentes com delivery_ids diferentes."""
+        event1 = WebhookEvent(
+            source=WebhookSource.GITHUB,
+            event_type="issues.opened",
+            event_id="1",
+            payload={"issue": {"number": 1}},
+            received_at=datetime.utcnow(),
+            delivery_id="delivery-1",  # Delivery_id diferente
+        )
+        event2 = WebhookEvent(
+            source=WebhookSource.GITHUB,
+            event_type="issues.opened",
+            event_id="2",
+            payload={"issue": {"number": 2}},
+            received_at=datetime.utcnow(),
+            delivery_id="delivery-2",  # Delivery_id diferente
+        )
+        job1 = WebhookJob.create(event1)
+        job2 = WebhookJob.create(event2)
+
+        # Enfileira ambos
+        await job_queue.enqueue(job1)
+        await job_queue.enqueue(job2)
+
+        # Ambos delivery_ids foram registrados
+        assert await job_queue.exists_by_delivery("delivery-1") is True
+        assert await job_queue.exists_by_delivery("delivery-2") is True
+
+    @pytest.mark.asyncio
+    async def test_webhook_without_delivery_id(self, job_queue):
+        """Deve tratar webhooks sem delivery_id (legado)."""
+        event = WebhookEvent(
+            source=WebhookSource.GITHUB,
+            event_type="issues.opened",
+            event_id="1",
+            payload={"issue": {"number": 1}},
+            received_at=datetime.utcnow(),
+            delivery_id=None,  # Sem delivery_id
+        )
+        job = WebhookJob.create(event)
+
+        # Enfileira sem erro
+        await job_queue.enqueue(job)
+
+        # Não existe em delivery_ids
+        assert await job_queue.exists_by_delivery("any-delivery") is False
+

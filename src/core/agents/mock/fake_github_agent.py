@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-MockGitHubAgent - Agente que cria issues REAIS no GitHub para testes.
+FakeGitHubAgent - Agente que cria issues REAIS no GitHub para testes.
 
 Estratégia inteligente:
 - Cria issues reais no GitHub (realed source)
-- Usa PyGitHub ou httpx para API calls
+- Usa httpx para API calls
 - Baseado em casos de uso realistas do Skybridge
 - Permite testar fluxo completo: GitHub → Webhook → Trello
 
@@ -12,6 +12,11 @@ Status Taxonomy:
 - realed: Componente 100% real, dados reais
 - mocked: Componente mockado, dados simulados
 - paused: Componente real mas temporariamente desativado
+
+Por que "Fake" e não "Mock"?
+- "Mock" tradicionalmente retorna dados pré-programados (stubbing)
+- Este agente cria dados REAIS no GitHub
+- "Fake" é mais preciso: implementa a interface mas com comportamento simplificado
 """
 
 from __future__ import annotations
@@ -230,12 +235,17 @@ class RateLimiter:
         )
 
 
-class MockGitHubAgent:
+class FakeGitHubAgent:
     """
-    Agente Mock que cria issues REAIS no GitHub.
+    Agente Fake que cria issues REAIS no GitHub.
 
     Status: realed (cria issues de verdade no GitHub)
     Source: GitHub API (realed)
+
+    Por que "Fake"?
+    - Implementa a interface de um agente GitHub
+    - Mas com comportamento simplificado
+    - Cria dados REAIS (não stubbed)
     """
 
     def __init__(
@@ -246,7 +256,7 @@ class MockGitHubAgent:
         base_url: str = "https://api.github.com",
     ):
         """
-        Inicializa MockGitHubAgent.
+        Inicializa FakeGitHubAgent.
 
         Args:
             repo_owner: Dono do repositório (ex: "skybridge")
@@ -417,7 +427,7 @@ async def demo_create_test_issues(
 
         python -c "
         import asyncio
-        from core.agents.mock.mock_github_agent import demo_create_test_issues
+        from core.agents.mock.fake_github_agent import demo_create_test_issues
         asyncio.run(demo_create_test_issues('skybridge', 'skybridge', 'ghp_xxx'))
         "
         ```
@@ -432,7 +442,7 @@ async def demo_create_test_issues(
         templates.rate_limiting_feature(),
     ]
 
-    async with MockGitHubAgent(repo_owner, repo_name, github_token) as agent:
+    async with FakeGitHubAgent(repo_owner, repo_name, github_token) as agent:
         print(f"\n🚀 Criando {len(issues_to_create)} issues de teste no GitHub")
         print(f"📦 Repositório: {agent.repo_full_name}")
         print(f"📊 Status: {agent.status.value}\n")
@@ -449,7 +459,7 @@ if __name__ == "__main__":
     import os
 
     async def main():
-        """Teste local do MockGitHubAgent."""
+        """Teste local do FakeGitHubAgent."""
         github_token = os.getenv("GITHUB_TOKEN")
         repo = os.getenv("GITHUB_REPO", "skybridge/skybridge")
 

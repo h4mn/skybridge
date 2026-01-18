@@ -117,6 +117,73 @@ Vá ao board do Trello configurado e veja:
 - Descrição com metadados (issue URL, autor, etc)
 - Comentário inicial "Aguardando processamento..."
 
+## 📊 Idempotência e Rastreamento
+
+### X-GitHub-Delivery Header
+
+Cada webhook enviado pelo GitHub inclui um header `X-GitHub-Delivery` com um UUID único:
+
+```
+X-GitHub-Delivery: 12345678-1234-1234-1234-123456789abc
+```
+
+Este ID **é único por entrega** - se o GitHub reenviar o mesmo webhook (retry), o `delivery_id` será o mesmo.
+
+### Idempotência Automática
+
+O sistema Skybridge implementa **idempotência automática** usando o `X-GitHub-Delivery`:
+
+1. **Primeira recepção**: Webhook é processado normalmente, job criado, card no Trello criado
+2. **Reenvios**: Webhooks duplicados são detectados e ignorados (HTTP 200 com status "ignored")
+
+```python
+# Exemplo de resposta para webhook duplicado:
+{
+  "status": "ignored",
+  "message": "Webhook já processado anteriormente",
+  "correlation_id": "12345678-1234-1234-1234-123456789abc"
+}
+```
+
+### Correlation ID
+
+O `correlation_id` é usado para **rastreamento distribuído** ponta-a-ponta:
+
+- **Fonte**: Derivado do `X-GitHub-Delivery` header
+- **Propagação**: Presente em todos os logs da pipeline
+- **Formato de log**: `correlation_id={id} | ...`
+
+**Exemplo de logs com correlation_id:**
+
+```log
+📨 Webhook recebido | correlation_id=12345678-1234-1234-1234-123456789abc | event_type=issues.opened | delivery=12345678-1234-1234-1234-123456789abc
+Processing GitHub webhook | correlation_id=12345678-1234-1234-1234-123456789abc | event_type=issues.opened | delivery=12345678-1234-1234-1234-123456789abc
+Card Trello criado: 696bxxxx para issue #42 | correlation_id=12345678-1234-1234-1234-123456789abc
+Job enfileirado | job_id=github-issues.opened-abc12345 | correlation_id=12345678-1234-1234-1234-123456789abc
+✅ Webhook processado | correlation_id=12345678-1234-1234-1234-123456789abc | job_id=github-issues.opened-abc12345
+```
+
+### TTL de Delivery IDs
+
+Delivery IDs são armazenados com **TTL (Time To Live) de 24 horas** para evitar memory leaks:
+
+- **Armazenamento**: `dict[str, datetime]` (delivery_id → timestamp)
+- **Cleanup**: Automático antes de enqueue/check operations
+- **Configuração**: `ttl_hours` parameter em `InMemoryJobQueue`
+
+**Comportamento:**
+- Delivery IDs expirados após 24h são removidos automaticamente
+- Se o GitHub reenviar um webhook após 24h+, será processado novamente
+- Este tradeoff é aceitável dado que retries do GitHub ocorrem em minutos/horas
+
+### Webhooks Legados (sem delivery_id)
+
+Webhooks que não incluem `X-GitHub-Delivery` ainda são suportados:
+
+- **Fallback**: `correlation_id` usa `job_id` gerado internamente
+- **Limitação**: Sem proteção contra duplicação
+- **Log**: `correlation_id=unknown` nestes casos
+
 ## 🔧 Troubleshooting
 
 ### ngrok não funciona

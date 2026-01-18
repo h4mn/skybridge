@@ -16,11 +16,12 @@ from core.webhooks.application.job_orchestrator import (
 from core.webhooks.application.worktree_manager import (
     WorktreeManager,
 )
-from infra.webhooks.adapters.in_memory_queue import (
-    InMemoryJobQueue,
+from infra.webhooks.adapters.file_based_job_queue import (
+    FileBasedJobQueue,
 )
 from runtime.config.config import get_webhook_config, get_trello_config
 from runtime.observability.logger import get_logger
+import os
 
 # Trello integration (optional)
 try:
@@ -55,7 +56,7 @@ class WebhookWorker:
 
     def __init__(
         self,
-        job_queue: InMemoryJobQueue,
+        job_queue: FileBasedJobQueue,
         orchestrator: JobOrchestrator,
         poll_interval: float = 1.0,
     ):
@@ -143,7 +144,11 @@ async def main() -> None:
     config = get_webhook_config()
 
     # Inicializa dependências
-    job_queue = InMemoryJobQueue()
+    # FileBasedJobQueue: compartilha fila com webhook server (resolve Problema #1)
+    queue_dir = os.getenv("SKYBRIDGE_QUEUE_DIR", "workspace/skybridge/fila")
+    job_queue = FileBasedJobQueue(queue_dir=queue_dir)
+    logger.info(f"✅ FileBasedJobQueue inicializado em: {queue_dir}")
+
     worktree_manager = WorktreeManager(config.worktree_base_path)
 
     # TrelloIntegrationService (opcional)

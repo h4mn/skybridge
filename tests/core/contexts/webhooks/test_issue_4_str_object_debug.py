@@ -124,7 +124,7 @@ class TestIssue4StrObjectDebug:
 
         # Mock GitExtractor
         with patch(
-            "skybridge.platform.observability.snapshot.extractors.git_extractor.GitExtractor"
+            "runtime.observability.snapshot.extractors.git_extractor.GitExtractor"
         ) as mock_extractor_class:
             mock_extractor = Mock()
             mock_extractor.capture.return_value = Mock(

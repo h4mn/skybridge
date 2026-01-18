@@ -58,6 +58,7 @@ class WebhookEvent:
         payload: Payload completo do evento (JSON)
         received_at: Timestamp de recebimento
         signature: Assinatura HMAC para verificação (se aplicável)
+        delivery_id: ID único da entrega (para evitar duplicação)
     """
 
     source: WebhookSource
@@ -66,6 +67,7 @@ class WebhookEvent:
     payload: dict[str, Any]
     received_at: datetime
     signature: str | None = None
+    delivery_id: str | None = None
 
     def get_issue_number(self) -> int | None:
         """
@@ -109,6 +111,7 @@ class WebhookJob:
         job_id: ID único do job (UUID)
         event: Evento de webhook original
         status: Estado atual do job
+        correlation_id: ID de correlação para rastreamento distribuído (derivado de delivery_id)
         worktree_path: Caminho para o worktree isolado (se criado)
         branch_name: Nome da branch criada (se aplicável)
         issue_number: Número da issue (se aplicável)
@@ -124,6 +127,7 @@ class WebhookJob:
     job_id: str
     event: WebhookEvent
     status: JobStatus
+    correlation_id: str | None = None
     worktree_path: str | None = None
     branch_name: str | None = None
     issue_number: int | None = None
@@ -146,10 +150,16 @@ class WebhookJob:
         Returns:
             Nova instância de WebhookJob com ID único
         """
+        # Usa delivery_id como correlation_id para rastreamento distribuído
+        # Se não tiver delivery_id, usa o job_id como fallback
+        job_id = f"{event.source.value}-{event.event_type}-{uuid4().hex[:8]}"
+        correlation_id = event.delivery_id or job_id
+
         return cls(
-            job_id=f"{event.source.value}-{event.event_type}-{uuid4().hex[:8]}",
+            job_id=job_id,
             event=event,
             status=JobStatus.PENDING,
+            correlation_id=correlation_id,
             issue_number=event.get_issue_number(),
         )
 
