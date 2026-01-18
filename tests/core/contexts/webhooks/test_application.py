@@ -109,7 +109,7 @@ class TestWorktreeManager:
     def manager(self, temp_path):
         """Retorna manager com path temporário."""
         temp_path.mkdir(exist_ok=True)
-        return WorktreeManager(str(temp_path))
+        return WorktreeManager(str(temp_path), base_branch="main")  # Test usa main por padrão
 
     @pytest.fixture
     def sample_job(self):

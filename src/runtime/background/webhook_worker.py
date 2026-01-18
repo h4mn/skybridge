@@ -149,7 +149,7 @@ async def main() -> None:
     job_queue = FileBasedJobQueue(queue_dir=queue_dir)
     logger.info(f"✅ FileBasedJobQueue inicializado em: {queue_dir}")
 
-    worktree_manager = WorktreeManager(config.worktree_base_path)
+    worktree_manager = WorktreeManager(config.worktree_base_path, config.base_branch)
 
     # TrelloIntegrationService (opcional)
     trello_service = None
