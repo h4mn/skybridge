@@ -8,14 +8,14 @@ from datetime import datetime
 
 import pytest
 
-from skybridge.core.contexts.webhooks.domain import (
+from core.webhooks.domain import (
     WebhookEvent,
     WebhookJob,
     WebhookSource,
     JobStatus,
 )
-from skybridge.core.contexts.webhooks.application.handlers import get_job_queue
-from skybridge.core.contexts.webhooks.application.webhook_processor import (
+from core.webhooks.application.handlers import get_job_queue
+from core.webhooks.application.webhook_processor import (
     WebhookProcessor,
 )
 

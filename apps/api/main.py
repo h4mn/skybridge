@@ -14,10 +14,10 @@ load_dotenv()
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from skybridge.platform.bootstrap.app import get_app
-from skybridge.platform.config.config import get_config, load_ngrok_config
-from skybridge.platform.observability.logger import get_logger, print_banner, print_ngrok_urls, print_local_urls, print_separator
-from skybridge import __version__
+from runtime.bootstrap.app import get_app
+from runtime.config.config import get_config, load_ngrok_config
+from runtime.observability.logger import get_logger, print_banner, print_ngrok_urls, print_local_urls, print_separator
+from version import __version__
 
 
 def main():

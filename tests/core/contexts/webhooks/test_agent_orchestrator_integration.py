@@ -15,22 +15,22 @@ from unittest.mock import Mock, patch
 import pytest
 from datetime import datetime
 
-from skybridge.core.contexts.webhooks.domain import WebhookEvent, WebhookJob, WebhookSource
-from skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent import (
+from core.webhooks.domain import WebhookEvent, WebhookJob, WebhookSource
+from core.webhooks.infrastructure.agents.claude_agent import (
     ClaudeCodeAdapter,
 )
-from skybridge.core.contexts.webhooks.infrastructure.agents.domain import (
+from core.webhooks.infrastructure.agents.domain import (
     AgentState,
     AgentExecution,
     AgentResult,
 )
-from skybridge.core.contexts.webhooks.application.job_orchestrator import (
+from core.webhooks.application.job_orchestrator import (
     JobOrchestrator,
 )
-from skybridge.infra.contexts.webhooks.adapters.in_memory_queue import (
+from infra.webhooks.adapters.in_memory_queue import (
     InMemoryJobQueue,
 )
-from skybridge.kernel.contracts.result import Result
+from kernel.contracts.result import Result
 
 
 class TestJobOrchestratorAgentIntegration:
@@ -127,7 +127,7 @@ class TestJobOrchestratorAgentIntegration:
             await job_queue.enqueue(sample_webhook_job)
 
             # Mock GitExtractor para evitar acesso ao filesystem
-            with patch("skybridge.platform.observability.snapshot.extractors.git_extractor.GitExtractor") as mock_extractor_class:
+            with patch("runtime.observability.snapshot.extractors.git_extractor.GitExtractor") as mock_extractor_class:
                 mock_extractor = Mock()
                 mock_extractor.capture.return_value = Mock(
                     metadata=Mock(model_dump=lambda: {}),
@@ -158,9 +158,9 @@ class TestJobOrchestratorAgentIntegration:
         asyncio.run(test())
 
     @patch("subprocess.Popen")
-    @patch("skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent.load_system_prompt_config")
-    @patch("skybridge.core.contexts.webhooks.infrastructure.agents.claude_agent.render_system_prompt")
-    @patch("skybridge.platform.observability.snapshot.extractors.git_extractor.GitExtractor")
+    @patch("core.webhooks.infrastructure.agents.claude_agent.load_system_prompt_config")
+    @patch("core.webhooks.infrastructure.agents.claude_agent.render_system_prompt")
+    @patch("runtime.observability.snapshot.extractors.git_extractor.GitExtractor")
     def test_orchestrator_processes_xml_commands_in_real_time(
         self, mock_git_extractor_class, mock_render, mock_config, mock_popen, job_queue, mock_worktree_manager
     ):
@@ -303,7 +303,7 @@ class TestJobOrchestratorAgentIntegration:
             await job_queue.enqueue(sample_webhook_job)
 
             # Mock GitExtractor
-            with patch("skybridge.platform.observability.snapshot.extractors.git_extractor.GitExtractor") as mock_extractor_class:
+            with patch("runtime.observability.snapshot.extractors.git_extractor.GitExtractor") as mock_extractor_class:
                 mock_extractor = Mock()
                 mock_extractor.capture.return_value = Mock(
                     metadata=Mock(model_dump=lambda: {}),
@@ -353,7 +353,7 @@ class TestJobOrchestratorAgentIntegration:
             await job_queue.enqueue(sample_webhook_job)
 
             # Mock GitExtractor
-            with patch("skybridge.platform.observability.snapshot.extractors.git_extractor.GitExtractor") as mock_extractor_class:
+            with patch("runtime.observability.snapshot.extractors.git_extractor.GitExtractor") as mock_extractor_class:
                 mock_extractor = Mock()
                 mock_extractor.capture.return_value = Mock(
                     metadata=Mock(model_dump=lambda: {}),
