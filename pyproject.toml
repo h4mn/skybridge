@@ -1,56 +1,22 @@
 # pyproject.toml - Configuração do Skybridge
-# Inclui python-semantic-release para changelog automatizado em PT-BR
-
-[tool.poetry]
-name = "skybridge"
-version = "0.5.4-dev"
-description = "Skybridge - Microkernel RPC Platform"
-authors = ["Skybridge Team"]
-readme = "README.md"
-packages = [{include = "skybridge", from = "src"}]
+# Apenas para ferramentas (linters, formatters, etc.)
+# Build system usa setup.py
 
 [tool.poetry.dependencies]
 python = "^3.11"
-fastapi = "^0.104.0"
-uvicorn = {extras = ["standard"], version = "^0.24.0"}
-pydantic = "^2.5.0"
-python-dotenv = "^1.0.0"
-typer = "^0.9.0"
-requests = "^2.31.0"
-rich = "^13.7.0"
-pyngrok = "^7.0.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.0"
-pytest-asyncio = "^0.21.0"
-httpx = "^0.25.0"
 python-semantic-release = "^9.0.0"
 
-[tool.poetry.scripts]
-skybridge-api = "skybridge.platform.bootstrap.app:main"
-sb = "apps.cli.main:main"
-
-# ============================================================================
-# PYTHON-SEMANTIC-RELEASE (PSR) v10 - Configuração para Skybridge
-# Baseado em ADR012 - Estratégia de Versionamento
-# ============================================================================
 [tool.semantic_release]
-# Versionamento
 version_source = "tag"
 tag_format = "v{version}"
 major_on_zero = false
-
-# Branches
 branch = "main"
 
-# Commit (não vamos commitar automaticamente, apenas gerar changelog)
-commit = false
-commit_author = "Sky <noreply@github.com>"
-
-# Changelog - PT-BR com Emojis
 [tool.semantic_release.changelog]
-mode = "update"  # 'update' mantém histórico, 'init' cria do zero
-template_dir = "templates"  # Diretório com templates customizados
+mode = "update"
+template_dir = "templates"
 exclude_commit_patterns = [
     "^Initial commit",
     "^chore\\(release\\):",
@@ -61,23 +27,22 @@ exclude_commit_patterns = [
 changelog_file = "CHANGELOG.md"
 output_format = "md"
 
-# Parser de Commits (Conventional Commits)
 [tool.semantic_release.commit_parser_options]
 minor_tags = ["feat"]
 patch_tags = ["fix", "perf"]
 allowed_tags = ["feat", "fix", "perf", "build", "chore", "ci", "docs", "style", "refactor", "test", "revert"]
 default_bump_level = 0
 
-# Configuração Remota (GitHub)
 [tool.semantic_release.remote]
 type = "github"
 token = { env = "GH_TOKEN" }
 
-# Publicação
 [tool.semantic_release.publish]
 dist_glob_patterns = ["dist/*"]
-upload_to_vcs_release = false  # Vamos fazer manualmente por enquanto
+upload_to_vcs_release = false
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=40.8.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+> "A disciplina dos changelogs é o respeito ao tempo de quem os lê" – made by Sky 📚
