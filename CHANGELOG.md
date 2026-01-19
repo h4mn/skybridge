@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.4] - 2026-01-19
+
+### Added
+- No changes
+
+### Fixed
+- fix(build): remover configuração Poetry do pyproject.toml ([c7bc2d0])
+
+### Changed
+- No changes
+
+### Docs
+- docs(release): report - análise comparativa de agentes e correções (#23) ([814e3c0])
+- docs: adicionar relatório de comparação de execução de agentes ([387396b])
+
+
+
 Todas as alterações notáveis do Skybridge serão documentadas neste arquivo.
 
 O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
