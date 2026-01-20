@@ -21,6 +21,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   release:
@@ -43,6 +44,11 @@ jobs:
         run: |
           npm install -g conventional-commits-parser
           npm install -g git-raw-commits
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Parse commits and determine version bump
         id: parse_commits
@@ -147,79 +153,27 @@ jobs:
           # Push commit
           git push
 
-      - name: Generate changelog
+      - name: Generate changelog (Sky format)
         if: steps.parse_commits.outputs.bump != 'none'
-        id: changelog
         run: |
           NEW_VERSION=${{ steps.bump_version.outputs.new_version }}
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
-          # Generate changelog from commits
-          echo "# Changelog" > CHANGELOG.new
-          echo "" >> CHANGELOG.new
-          echo "## [${NEW_VERSION}] - $(date -u +"%Y-%m-%d")" >> CHANGELOG.new
-          echo "" >> CHANGELOG.new
+          echo "🔍 Generating changelog for ${NEW_VERSION} (from ${LATEST_TAG:-initial})..."
 
-          # Determine log range based on whether we have a tag
-          if [ -z "$LATEST_TAG" ]; then
-            LOG_RANGE="--all"
-          else
-            LOG_RANGE="${LATEST_TAG}..HEAD"
-          fi
+          # Generate changelog using Sky Python script
+          python -m runtime.changelog "${NEW_VERSION}" "${LATEST_TAG}" --from-gh --apply
 
-          # Categorize commits
-          echo "### Added" >> CHANGELOG.new
-          FEAT_COMMITS=$(git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep "feat" || true)
-          if [ -n "$FEAT_COMMITS" ]; then
-            echo "$FEAT_COMMITS" >> CHANGELOG.new
-          else
-            echo "- No changes" >> CHANGELOG.new
-          fi
-          echo "" >> CHANGELOG.new
-
-          echo "### Fixed" >> CHANGELOG.new
-          FIX_COMMITS=$(git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep "fix" || true)
-          if [ -n "$FIX_COMMITS" ]; then
-            echo "$FIX_COMMITS" >> CHANGELOG.new
-          else
-            echo "- No changes" >> CHANGELOG.new
-          fi
-          echo "" >> CHANGELOG.new
-
-          echo "### Changed" >> CHANGELOG.new
-            REFACTOR_COMMITS=$(git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep -E "refactor|perf" || true)
-          if [ -n "$REFACTOR_COMMITS" ]; then
-            echo "$REFACTOR_COMMITS" >> CHANGELOG.new
-          else
-            echo "- No changes" >> CHANGELOG.new
-          fi
-          echo "" >> CHANGELOG.new
-
-          echo "### Docs" >> CHANGELOG.new
-          DOCS_COMMITS=$(git log ${LOG_RANGE} --pretty=format:"- %s ([%h])" | grep "docs" || true)
-          if [ -n "$DOCS_COMMITS" ]; then
-            echo "$DOCS_COMMITS" >> CHANGELOG.new
-          else
-            echo "- No changes" >> CHANGELOG.new
-          fi
-          echo "" >> CHANGELOG.new
-
-          # Append existing changelog if it exists
-          if [ -f CHANGELOG.md ]; then
-            echo "" >> CHANGELOG.new
-            tail -n +2 CHANGELOG.md >> CHANGELOG.new
-          fi
-
-          # Replace changelog
-          mv CHANGELOG.new CHANGELOG.md
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Commit changelog
           git add CHANGELOG.md
           git commit -m "docs(release): update changelog for ${NEW_VERSION}"
           git push
 
-          # Set output for release notes
-          # Get the new section for release notes
+          # Extract new section for GitHub Release notes
           sed -n "/## \[${NEW_VERSION}\]/,/## \[/p" CHANGELOG.md | head -n -1 > release_notes.md
 
       - name: Create Git tag
