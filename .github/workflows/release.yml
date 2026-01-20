@@ -21,6 +21,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   release:
@@ -161,7 +162,7 @@ jobs:
           echo "🔍 Generating changelog for ${NEW_VERSION} (from ${LATEST_TAG:-initial})..."
 
           # Generate changelog using Sky Python script
-          python -m runtime.changelog "${NEW_VERSION}" "${LATEST_TAG}"
+          python -m runtime.changelog "${NEW_VERSION}" "${LATEST_TAG}" --from-gh --apply
 
           # Configure git
           git config user.name "github-actions[bot]"
