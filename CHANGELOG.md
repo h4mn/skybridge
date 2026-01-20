@@ -7,6 +7,18 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 
 
+
+## [0.9.0] - 2026-01-20
+
+
+### ✨ Novidades
+
+
+[**#54**](https://github.com/h4mn/skybridge/pull/54) - habilitar modo detalhado no changelog do release
+
+* [`e86a8fa`](https://github.com/h4mn/skybridge/commit/e86a8fa59ab37f219b77876960f313cc08ecb73a) **ci:** habilitar modo detalhado no changelog do release ([#54](https://github.com/h4mn/skybridge/pull/54)) [`@h4mn`](https://github.com/h4mn)
+
+
 ## [0.8.0] - 2026-01-20
 
 
