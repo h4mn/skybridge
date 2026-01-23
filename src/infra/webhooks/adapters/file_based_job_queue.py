@@ -343,7 +343,7 @@ class FileBasedJobQueue(JobQueuePort):
                 try:
                     job_data = json.loads(job_file.read_text(encoding="utf-8"))
                     event_data = job_data.get("event", {})
-                    if event_data.get("event_id") == delivery_id:
+                    if event_data.get("delivery_id") == delivery_id:
                         return True
                 except Exception:
                     continue
@@ -421,6 +421,7 @@ class FileBasedJobQueue(JobQueuePort):
                 "payload": job.event.payload,
                 "received_at": job.event.received_at.isoformat(),
                 "signature": job.event.signature,
+                "delivery_id": job.event.delivery_id,
             },
             "status": job.status.value,
             "worktree_path": job.worktree_path,
@@ -448,6 +449,7 @@ class FileBasedJobQueue(JobQueuePort):
             payload=event_data["payload"],
             received_at=datetime.fromisoformat(event_data["received_at"]),
             signature=event_data.get("signature"),
+            delivery_id=event_data.get("delivery_id"),
         )
 
         return WebhookJob(
