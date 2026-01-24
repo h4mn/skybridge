@@ -374,7 +374,7 @@ This PR implements the necessary changes to resolve the issue.
 
 ---
 
-> \"Autonomy with quality is sustainable autonomy\" – made by Sky
+> \"Autonomy with quality is sustainable autonomy\" – made with Sky
 """
 
         return pr_body

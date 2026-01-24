@@ -271,4 +271,4 @@ Keep it under 500 characters total. Be concise and clear.
         if len(title_clean) > 72:
             title_clean = title_clean[:69] + "..."
 
-        return f"{commit_type}: {title_clean}\n\nFixes #{issue_number}\n\n> \"Autonomy with quality is sustainable autonomy\" – made by Sky"
+        return f"{commit_type}: {title_clean}\n\nFixes #{issue_number}\n\n> \"Autonomy with quality is sustainable autonomy\" – made with Sky"
