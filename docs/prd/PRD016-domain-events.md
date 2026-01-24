@@ -1,11 +1,54 @@
 # PRD016: Domain Events para Skybridge
 
-**Status:** 📋 Proposta
+**Status:** 🔄 Em Implementação
 **Data:** 2026-01-17
+**Última atualização:** 2026-01-21
 **Autor:** Sky
-**Versão:** 1.0
+**Versão:** 1.1
 **Relacionado:** Problema #6 (ANALISE_PROBLEMAS_ATUAIS.md)
 **Padrão:** Domain-Driven Design (Evans)
+**Implementação:** PRD018 Fase 0 (Completa)
+
+---
+
+## Status de Implementação
+
+✅ **Fase 0 do PRD018 COMPLETA** (2026-01-21)
+
+### Componentes Implementados
+
+| Componente | Arquivo | Status |
+|------------|---------|--------|
+| DomainEvent base class | `src/core/domain_events/domain_event.py` | ✅ |
+| EventBus interface | `src/core/domain_events/event_bus.py` | ✅ |
+| InMemoryEventBus | `src/infra/domain_events/in_memory_event_bus.py` | ✅ |
+| Job Events (7 eventos) | `src/core/domain_events/job_events.py` | ✅ |
+| Issue Events (5 eventos) | `src/core/domain_events/issue_events.py` | ✅ |
+| Trello Events (5 eventos) | `src/core/domain_events/trello_events.py` | ✅ |
+| TrelloEventListener | `src/core/webhooks/infrastructure/listeners/trello_event_listener.py` | ✅ |
+| NotificationEventListener | `src/core/webhooks/infrastructure/listeners/notification_event_listener.py` | ✅ |
+| MetricsEventListener | `src/core/webhooks/infrastructure/listeners/metrics_event_listener.py` | ✅ |
+
+### Componentes Migrados
+
+| Componente | Alteração | Status |
+|------------|-----------|--------|
+| WebhookProcessor | Emite `IssueReceivedEvent` | ✅ |
+| JobOrchestrator | Emite `JobStartedEvent`, `JobCompletedEvent`, `JobFailedEvent` | ✅ |
+
+### Arquitetura Atual
+
+```
+WebhookProcessor → emit(IssueReceivedEvent) → EventBus
+                                                        ↓
+JobOrchestrator → emit(JobStartedEvent) ─────────→ [TrelloEventListener]
+                                                        ↓
+                                              [NotificationEventListener]
+                                                        ↓
+                                               [MetricsEventListener]
+```
+
+---
 
 ---
 

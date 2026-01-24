@@ -1,7 +1,8 @@
 # Análise de Problemas Atuais - Skybridge
 
 **Data:** 2026-01-17
-**Branch:** `webhook/github/issue/32/a3a2d70e`
+**Última atualização:** 2026-01-21
+**Branch:** `refactor/events`
 **Autor:** Sky
 
 ---
@@ -184,22 +185,45 @@ trello_card_id = await self.trello_service.create_card_from_github_issue(...)
 - ❌ Difícil testar isoladamente
 
 **Solução:**
-Implementar Domain Events (ver **PRD016**)
+✅ **RESOLVIDO** - Implementar Domain Events (ver **PRD016**)
 
-**Prioridade:** 🟢 RECOMENDADO - Melhora arquitetura
+**Status de Implementação (2026-01-21):**
+- ✅ Fase 0 do PRD018 completa
+- ✅ DomainEvent base class criado
+- ✅ EventBus interface definido
+- ✅ InMemoryEventBus implementado
+- ✅ 17 eventos de domínio definidos (Job, Issue, Trello)
+- ✅ WebhookProcessor migrado (emite IssueReceivedEvent)
+- ✅ JobOrchestrator migrado (emite JobStarted/Completed/Failed)
+- ✅ TrelloEventListener criado
+- ✅ NotificationEventListener criado
+- ✅ MetricsEventListener criado
+
+**Arquitetura Pós-Implementação:**
+```
+WebhookProcessor → emit(IssueReceivedEvent) → EventBus
+                                                        ↓
+JobOrchestrator → emit(JobStartedEvent) ─────────→ [TrelloEventListener]
+                                                        ↓
+                                              [NotificationEventListener]
+                                                        ↓
+                                               [MetricsEventListener]
+```
+
+**Prioridade:** 🟢 RECOMENDADO - Melhora arquitetura **✅ RESOLVIDO**
 
 ---
 
 ## 📊 Matriz de Priorização
 
-| Problema | Severidade | Impacto | Esforço | Prioridade | ROI |
-|----------|------------|---------|---------|------------|-----|
-| 1. Filas separadas | 🔴 CRÍTICA | Sistema não funciona | 2-4h | P0 | 🔥🔥🔥 |
-| 2. Issue #32 aberta | 🟡 ALTA | Compleção bureaucratic | 0.5h | P1 | 🔥🔥 |
-| 3. Event loop closed | 🟡 MÉDIA | Logs poluídos | 2h | P2 | 🔥 |
-| 4. Issues duplicadas | 🟢 BAIXA | Limpeza | 0.5h | P3 | |
-| 5. Sem métricas | 🟢 MÉDIA | Decisões cegas | 2-3d | P1 | 🔥🔥 |
-| 6. Sem domain events | 🟢 BAIXA | Acoplamento | 5-7d | P2 | 🔥 |
+| Problema | Severidade | Impacto | Esforço | Prioridade | ROI | Status |
+|----------|------------|---------|---------|------------|-----|--------|
+| 1. Filas separadas | 🔴 CRÍTICA | Sistema não funciona | 2-4h | P0 | 🔥🔥🔥 | ⚠️ Pendente |
+| 2. Issue #32 aberta | 🟡 ALTA | Compleção bureaucratic | 0.5h | P1 | 🔥🔥 | ⚠️ Pendente |
+| 3. Event loop closed | 🟡 MÉDIA | Logs poluídos | 2h | P2 | 🔥 | ⚠️ Pendente |
+| 4. Issues duplicadas | 🟢 BAIXA | Limpeza | 0.5h | P3 | | ⚠️ Pendente |
+| 5. Sem métricas | 🟢 MÉDIA | Decisões cegas | 2-3d | P1 | 🔥🔥 | ⚠️ Pendente |
+| 6. Sem domain events | 🟢 BAIXA | Acoplamento | 5-7d | P2 | 🔥 | ✅ **RESOLVIDO** |
 
 ---
 
@@ -233,15 +257,17 @@ Semana 4: Analisar dados
   → Decidir próximo passo
 ```
 
-### Fase 3: Evoluir (Mensal)
+### Fase 3: Evoluir (Mensal) ✅ **Domain Events COMPLETO**
 ```
-Mês 2: Domain Events (PRD016)
-  → Event bus em memória
-  → Migrar WebhookProcessor
-  → Adicionar listeners
+✅ Mês 2: Domain Events (PRD016) - COMPLETADO 2026-01-21
+  ✅ Event bus em memória (InMemoryEventBus)
+  ✅ Migrar WebhookProcessor (emite IssueReceivedEvent)
+  ✅ Migrar JobOrchestrator (emite JobStarted/Completed/Failed)
+  ✅ Adicionar listeners (Trello, Notification, Metrics)
+  → Ver PRD018 Fase 0 para detalhes
 
 Mês 3+: Escalar
-  → Redis como fila
+  → Redis como fila (PRD018 Fase 2)
   → Múltiplos workers
   → Prometheus + Grafana
 ```
@@ -253,6 +279,7 @@ Mês 3+: Escalar
 - **Problema #1 é o mais crítico** - sem isso, sistema não funciona
 - **Métricas vêm antes de Domain Events** - precisa medir antes de otimizar
 - **Domain Events facilitam teste** - mas não bloqueiam funcionamento
+- **✅ Problema #6 RESOLVIDO** - Domain Events implementados em 2026-01-21 (PRD018 Fase 0)
 
 ---
 

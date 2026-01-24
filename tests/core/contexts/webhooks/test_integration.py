@@ -5,6 +5,7 @@ Integration tests for Webhook flow.
 Testa o fluxo completo: webhook → job → queue → handler.
 """
 from datetime import datetime
+import asyncio
 
 import pytest
 
@@ -18,18 +19,16 @@ from core.webhooks.application.handlers import get_job_queue
 from core.webhooks.application.webhook_processor import (
     WebhookProcessor,
 )
+from infra.domain_events.in_memory_event_bus import InMemoryEventBus
 
 
 class TestWebhookIntegration:
     """Testa integração do fluxo de webhook."""
 
-    @pytest.fixture(autouse=True)
-    def clear_queue(self):
-        """Limpa a fila antes de cada teste."""
-        queue = get_job_queue()
-        queue.clear()
-        yield
-        queue.clear()
+    @pytest.fixture
+    def event_bus(self):
+        """Event bus para testes."""
+        return InMemoryEventBus()
 
     @pytest.fixture
     def job_queue(self):
@@ -37,9 +36,17 @@ class TestWebhookIntegration:
         return get_job_queue()
 
     @pytest.fixture
-    def processor(self, job_queue):
+    def processor(self, job_queue, event_bus):
         """Retorna processor."""
-        return WebhookProcessor(job_queue)
+        return WebhookProcessor(job_queue, event_bus)
+
+    @pytest.fixture(autouse=True)
+    def clear_queue(self):
+        """Limpa a fila antes de cada teste (wrapper síncrono para fixture async)."""
+        queue = get_job_queue()
+        asyncio.run(queue.clear())
+        yield
+        asyncio.run(queue.clear())
 
     @pytest.mark.asyncio
     async def test_full_github_issue_flow(self, processor):
@@ -138,11 +145,16 @@ class TestJobQueuePersistence:
 
     @pytest.fixture(autouse=True)
     def clear_queue(self):
-        """Limpa a fila antes de cada teste."""
+        """Limpa a fila antes de cada teste (wrapper síncrono para fixture async)."""
         queue = get_job_queue()
-        queue.clear()
+        asyncio.run(queue.clear())
         yield
-        queue.clear()
+        asyncio.run(queue.clear())
+
+    @pytest.fixture
+    def event_bus(self):
+        """Event bus para testes."""
+        return InMemoryEventBus()
 
     def test_singleton_returns_same_instance(self):
         """Deve retornar mesma instância (singleton)."""
@@ -152,11 +164,11 @@ class TestJobQueuePersistence:
         assert queue1 is queue2
 
     @pytest.mark.asyncio
-    async def test_job_persists_across_processors(self):
+    async def test_job_persists_across_processors(self, event_bus):
         """Job deve persistir entre diferentes processadores."""
         queue = get_job_queue()
-        processor1 = WebhookProcessor(queue)
-        processor2 = WebhookProcessor(queue)
+        processor1 = WebhookProcessor(queue, event_bus)
+        processor2 = WebhookProcessor(queue, event_bus)
 
         payload = {"issue": {"number": 77, "title": "Persistence test"}}
 
@@ -173,3 +185,4 @@ class TestJobQueuePersistence:
         job = await processor2.job_queue.get_job(job_id)
         assert job is not None
         assert job.issue_number == 77
+

@@ -10,7 +10,7 @@ com o novo ClaudeCodeAdapter (SPEC008), incluindo:
 """
 from __future__ import annotations
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, AsyncMock, patch
 
 import pytest
 from datetime import datetime
@@ -47,6 +47,12 @@ class TestJobOrchestratorAgentIntegration:
         return InMemoryJobQueue()
 
     @pytest.fixture
+    def event_bus(self):
+        """Event bus para testes."""
+        from infra.domain_events.in_memory_event_bus import InMemoryEventBus
+        return InMemoryEventBus()
+
+    @pytest.fixture
     def mock_worktree_manager(self):
         """Mock do WorktreeManager."""
         manager = Mock()
@@ -79,7 +85,7 @@ class TestJobOrchestratorAgentIntegration:
         return job
 
     def test_orchestrator_uses_claude_code_adapter(
-        self, job_queue, mock_worktree_manager, sample_webhook_job
+        self, job_queue, event_bus, mock_worktree_manager, sample_webhook_job
     ):
         """
         Verifica que JobOrchestrator usa ClaudeCodeAdapter.
@@ -94,6 +100,7 @@ class TestJobOrchestratorAgentIntegration:
         orchestrator = JobOrchestrator(
             job_queue=job_queue,
             worktree_manager=mock_worktree_manager,
+            event_bus=event_bus,
             agent_adapter=mock_adapter,
         )
 
@@ -157,12 +164,13 @@ class TestJobOrchestratorAgentIntegration:
 
         asyncio.run(test())
 
-    @patch("subprocess.Popen")
+    @patch("core.webhooks.application.guardrails.JobGuardrails.validate_all")
+    @patch("core.webhooks.infrastructure.agents.claude_agent.ClaudeCodeAdapter.spawn")
     @patch("core.webhooks.infrastructure.agents.claude_agent.load_system_prompt_config")
     @patch("core.webhooks.infrastructure.agents.claude_agent.render_system_prompt")
     @patch("runtime.observability.snapshot.extractors.git_extractor.GitExtractor")
     def test_orchestrator_processes_xml_commands_in_real_time(
-        self, mock_git_extractor_class, mock_render, mock_config, mock_popen, job_queue, mock_worktree_manager
+        self, mock_git_extractor_class, mock_render, mock_config, mock_spawn, mock_guardrails_validate, job_queue, event_bus, mock_worktree_manager
     ):
         """
         Teste E2E: JobOrchestrator processa skybridge_command em tempo real.
@@ -174,6 +182,8 @@ class TestJobOrchestratorAgentIntegration:
         4. ClaudeCodeAdapter spawna agente com streaming
         5. skybridge_command são processados em tempo real
         """
+        from core.webhooks.application.guardrails import GuardrailsResult
+
         # Mock GitExtractor
         mock_git_extractor = Mock()
         mock_git_extractor.capture.return_value = Mock(
@@ -187,22 +197,41 @@ class TestJobOrchestratorAgentIntegration:
         mock_config.return_value = {"template": {"role": "test"}}
         mock_render.return_value = "rendered prompt"
 
-        # Mock do processo Popen com comandos XML em tempo real
-        mock_agent_output_lines = [
-            "Starting analysis...\n",
-            '<skybridge_command><command>log</command><parametro name="mensagem">Analisando issue #225</parametro></skybridge_command>\n',
-            "Reading files...\n",
-            '<skybridge_command><command>progress</command><parametro name="porcentagem">50</parametro></skybridge_command>\n',
-            '{"success": true, "changes_made": true, "files_created": [], "files_modified": ["test.py"], "files_deleted": [], "commit_hash": "abc123", "pr_url": null, "message": "Done", "issue_title": "Test", "output_message": "Fixed", "thinkings": []}\n',
-        ]
+        # Mock guardrails para retornar que há mudanças
+        mock_guardrails_result = GuardrailsResult(
+            passed=["diff_check", "syntax_check"],
+            warnings=[],
+            failed=[],
+            metadata={"modified_count": 1}
+        )
+        mock_guardrails_validate.return_value = Result.ok(mock_guardrails_result)
 
-        mock_process = Mock()
-        mock_process.stdout.__iter__ = Mock(return_value=iter(mock_agent_output_lines))
-        mock_process.wait = Mock(return_value=0)
-        mock_process.stdin.write = Mock()
-        mock_process.stdin.close = Mock()
-        mock_process.stderr.read = Mock(return_value="")
-        mock_popen.return_value = mock_process
+        # Mock adapter.spawn() para retornar execução bem-sucedida com comandos XML
+        from core.webhooks.infrastructure.agents.domain import (
+            AgentExecution, AgentState, AgentResult,
+        )
+
+        mock_execution = AgentExecution(
+            agent_type="claude-code",
+            job_id="test-job-id",
+            worktree_path="/tmp/worktree-test",
+            skill="resolve-issue",
+            state=AgentState.COMPLETED,
+            result=AgentResult(
+                success=True,
+                changes_made=True,
+                files_created=[],
+                files_modified=["test.py"],
+                files_deleted=[],
+                commit_hash="abc123",
+                pr_url=None,
+                message="Done",
+                issue_title="Test",
+                output_message="Fixed",
+                thinkings=[],
+            ),
+        )
+        mock_spawn.return_value = Result.ok(mock_execution)
 
         # Cria job
         event = WebhookEvent(
@@ -226,12 +255,16 @@ class TestJobOrchestratorAgentIntegration:
         job.worktree_path = "/tmp/worktree-test"
         job.branch_name = "test-branch"
 
-        # Cria orchestrator com adapter real (não mockado)
-        adapter = ClaudeCodeAdapter()
+        # Cria adapter mockado (async)
+        mock_adapter = AsyncMock(spec=ClaudeCodeAdapter)
+        mock_adapter.spawn.return_value = Result.ok(mock_execution)
+
+        # Cria orchestrator com adapter mockado (não chama subprocess real)
         orchestrator = JobOrchestrator(
             job_queue=job_queue,
             worktree_manager=mock_worktree_manager,
-            agent_adapter=adapter,
+            event_bus=event_bus,
+            agent_adapter=mock_adapter,
         )
 
         import asyncio
@@ -255,7 +288,7 @@ class TestJobOrchestratorAgentIntegration:
         asyncio.run(test())
 
     def test_orchestrator_includes_skybridge_context(
-        self, job_queue, mock_worktree_manager, sample_webhook_job
+        self, job_queue, event_bus, mock_worktree_manager, sample_webhook_job
     ):
         """
         Verifica que JobOrchestrator passa skybridge_context correto.
@@ -271,6 +304,7 @@ class TestJobOrchestratorAgentIntegration:
         orchestrator = JobOrchestrator(
             job_queue=job_queue,
             worktree_manager=mock_worktree_manager,
+            event_bus=event_bus,
             agent_adapter=mock_adapter,
         )
 
@@ -328,7 +362,7 @@ class TestJobOrchestratorAgentIntegration:
         asyncio.run(test())
 
     def test_orchestrator_handles_agent_errors_gracefully(
-        self, job_queue, mock_worktree_manager, sample_webhook_job
+        self, job_queue, event_bus, mock_worktree_manager, sample_webhook_job
     ):
         """
         Verifica que JobOrchestrator lida com erros do agente gracefulmente.
@@ -339,6 +373,7 @@ class TestJobOrchestratorAgentIntegration:
         orchestrator = JobOrchestrator(
             job_queue=job_queue,
             worktree_manager=mock_worktree_manager,
+            event_bus=event_bus,
             agent_adapter=mock_adapter,
         )
 

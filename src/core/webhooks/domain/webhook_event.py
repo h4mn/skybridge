@@ -77,10 +77,12 @@ class WebhookEvent:
             Número da issue ou None se não aplicável
         """
         if self.source == WebhookSource.GITHUB and self.event_type.startswith("issues."):
-            try:
-                return int(self.payload.get("issue", {}).get("number"))
-            except (TypeError, ValueError, AttributeError):
-                return None
+            issue = self.payload.get("issue")
+            if issue and isinstance(issue, dict):
+                try:
+                    return int(issue.get("number"))
+                except (TypeError, ValueError):
+                    return None
         return None
 
     def get_repository(self) -> tuple[str, str] | None:
