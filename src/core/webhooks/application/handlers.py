@@ -6,22 +6,25 @@ Handlers registrados para processamento de webhooks via Sky-RPC.
 """
 from __future__ import annotations
 
+import logging
+
 from kernel.registry.decorators import command
 from kernel.contracts.result import Result
 from core.webhooks.application.webhook_processor import (
     WebhookProcessor,
 )
-from infra.webhooks.adapters.in_memory_queue import (
-    InMemoryJobQueue,
-)
+from core.webhooks.ports.job_queue_port import JobQueuePort
+
+logger = logging.getLogger(__name__)
 
 # Singleton global do job queue (compartilhado entre handler e worker)
-_job_queue: InMemoryJobQueue | None = None
+_job_queue: JobQueuePort | None = None
 
-# TrelloIntegrationService (opcional, singleton)
-_trello_service = None
-# TrelloService (opcional, singleton)
-_trello_kanban_service = None
+# EventBus (singleton para Domain Events)
+_event_bus = None
+
+# TrelloIntegrationService (opcional, singleton - REMOVIDO PRD018 ARCH-07)
+# TrelloService (opcional, singleton - REMOVIDO PRD018 ARCH-07)
 
 
 def get_trello_service():
@@ -83,12 +86,47 @@ def get_trello_kanban_service():
     return _trello_kanban_service
 
 
-def get_job_queue() -> InMemoryJobQueue:
-    """Retorna instância singleton do job queue."""
+def get_job_queue() -> JobQueuePort:
+    """
+    Retorna instância singleton do job queue.
+
+    Usa JobQueueFactory para criar a fila apropriada baseado em
+    JOB_QUEUE_PROVIDER do ambiente:
+    - sqlite: SQLiteJobQueue (padrão, zero dependências)
+    - redis: RedisJobQueue (tradicional)
+    - dragonfly: RedisJobQueue (DragonflyDB)
+    - file: FileBasedJobQueue (fallback local)
+
+    Returns:
+        Instância de JobQueuePort
+    """
     global _job_queue
     if _job_queue is None:
-        _job_queue = InMemoryJobQueue()
+        from infra.webhooks.adapters.job_queue_factory import (
+            JobQueueFactory,
+        )
+
+        _job_queue = JobQueueFactory.create_from_env()
+        logger.info(f"JobQueue inicializado: {type(_job_queue).__name__}")
     return _job_queue
+
+
+def get_event_bus():
+    """
+    Retorna instância singleton do event bus.
+
+    PRD018 ARCH-07/09: EventBus para Domain Events desacoplando componentes.
+
+    Returns:
+        Instância de EventBus
+    """
+    global _event_bus
+    if _event_bus is None:
+        from infra.domain_events.in_memory_event_bus import InMemoryEventBus
+
+        _event_bus = InMemoryEventBus()
+        logger.info("EventBus inicializado: InMemoryEventBus")
+    return _event_bus
 
 
 @command(
@@ -133,10 +171,10 @@ def receive_github_webhook(args: dict) -> Result:
         >>> assert result.is_ok
         >>> job_id = result.value
     """
-    # Obtém processor com fila compartilhada
+    # Obtém processor com fila e event bus compartilhados
     job_queue = get_job_queue()
-    trello_service = get_trello_service()
-    processor = WebhookProcessor(job_queue, trello_service=trello_service)
+    event_bus = get_event_bus()
+    processor = WebhookProcessor(job_queue, event_bus=event_bus)
 
     # Processa webhook (executa async em thread separada)
     import asyncio

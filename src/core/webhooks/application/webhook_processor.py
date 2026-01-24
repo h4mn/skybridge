@@ -3,18 +3,22 @@
 Webhook Processor Application Service.
 
 Processa eventos de webhook recebidos e cria jobs para processamento assíncrono.
-Integra com Trello para criar cards automaticamente quando issues são abertas.
+Emite Domain Events para desacoplar integrações (Trello, notificações, etc.).
+
+PRD018 ARCH-07: Migrado para usar Domain Events ao invés de chamadas diretas.
 """
 from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.webhooks.ports.job_queue_port import JobQueuePort
+    from core.domain_events.event_bus import EventBus
 
 from core.webhooks.domain import WebhookEvent, WebhookJob, WebhookSource
+from core.domain_events.issue_events import IssueReceivedEvent
 from kernel.contracts.result import Result
 
 logger = logging.getLogger(__name__)
@@ -28,31 +32,37 @@ class WebhookProcessor:
     - Validar eventos recebidos
     - Criar jobs apropriados para cada tipo de evento
     - Enfileirar jobs para processamento assíncrono
-    - Criar cards no Trello para issues abertas (integração opcional)
+    - Emitir Domain Events (desacoplado de integrações específicas)
 
-    Não faz processamento real - apenas orquestra a criação de jobs.
+    Não faz processamento real - apenas orquestra a criação de jobs
+    e emite eventos para outros componentes reagirem.
+
+    PRD018 ARCH-07: Desacoplado via Domain Events.
     """
 
     def __init__(
         self,
         job_queue: "JobQueuePort",
-        trello_service: Optional["TrelloIntegrationService"] = None,
+        event_bus: "EventBus",
     ):
         """
         Inicializa processor.
 
         Args:
             job_queue: Fila para enfileirar jobs
-            trello_service: Serviço de integração com Trello (opcional)
+            event_bus: Event bus para emitir Domain Events
         """
         self.job_queue = job_queue
-        self.trello_service = trello_service
+        self.event_bus = event_bus
 
     async def process_github_issue(
         self, payload: dict, event_type: str, signature: str | None = None, delivery_id: str | None = None
     ) -> Result[str, str]:
         """
         Processa evento de issue do GitHub.
+
+        Emite IssueReceivedEvent para desacoplar de integrações específicas.
+        O TrelloEventListener ouvirá esse evento e criará o card.
 
         Args:
             payload: Payload do webhook (JSON)
@@ -95,14 +105,37 @@ class WebhookProcessor:
             # Extrai action (opened, edited, closed, etc)
             action = payload.get("action", "opened")
 
-            # Cria card no Trello para issues abertas
-            trello_card_id = None
-            if action == "opened" and self.trello_service:
-                trello_card_id = await self._create_trello_card(
-                    payload, issue_data, issue_number
-                )
+            # Extrai informações para o Domain Event
+            issue_title = issue_data.get("title", "")
+            issue_body = issue_data.get("body", "")
+            sender_info = payload.get("sender", {})
+            sender = sender_info.get("login", "unknown")
+            repository = payload.get("repository", {})
+            repo_name = repository.get("full_name", "unknown/repo")
+            labels_data = issue_data.get("labels", [])
+            labels = [label.get("name") for label in labels_data] if labels_data else []
+            assignee = issue_data.get("assignee", {}).get("login") if issue_data.get("assignee") else None
 
-            # Cria evento de domínio
+            # PRD018 ARCH-07: Emite Domain Event ao invés de chamar Trello diretamente
+            # O TrelloEventListener ouvirá esse evento e criará o card
+            await self.event_bus.publish(
+                IssueReceivedEvent(
+                    aggregate_id=f"{repo_name}#{issue_number}",
+                    issue_number=issue_number,
+                    repository=repo_name,
+                    title=issue_title,
+                    body=issue_body,
+                    sender=sender,
+                    action=action,
+                    labels=labels,
+                    assignee=assignee,
+                )
+            )
+            logger.info(
+                f"IssueReceivedEvent emitido | issue=#{issue_number} | repo={repo_name}"
+            )
+
+            # Cria evento de domínio interno
             event = WebhookEvent(
                 source=WebhookSource.GITHUB,
                 event_type=f"issues.{action}",
@@ -115,14 +148,6 @@ class WebhookProcessor:
 
             # Cria job
             job = WebhookJob.create(event)
-
-            # Armazena card_id do Trello para uso posterior
-            if trello_card_id:
-                job.metadata["trello_card_id"] = trello_card_id
-                logger.info(
-                    f"Job {job.job_id} | correlation_id={job.correlation_id} | "
-                    f"vinculado ao card Trello: {trello_card_id}"
-                )
 
             # Enfileira
             await self.job_queue.enqueue(job)
@@ -138,60 +163,6 @@ class WebhookProcessor:
                 f"Erro ao processar webhook | correlation_id={correlation_id} | error={e}"
             )
             return Result.err(f"Erro ao processar webhook: {str(e)}")
-
-    async def _create_trello_card(
-        self, payload: dict, issue_data: dict, issue_number: int
-    ) -> Optional[str]:
-        """
-        Cria card no Trello para uma issue do GitHub.
-
-        Args:
-            payload: Payload completo do webhook
-            issue_data: Dados da issue
-            issue_number: Número da issue
-
-        Returns:
-            card_id do Trello ou None se falhou/ não configurado
-        """
-        try:
-            # Extrai informações da issue
-            issue_title = issue_data.get("title", "")
-            issue_body = issue_data.get("body")
-            issue_url = issue_data.get("html_url", "")
-            author = issue_data.get("user", {}).get("login", "unknown")
-            repository = payload.get("repository", {})
-            repo_name = repository.get("full_name", "unknown/repo")
-
-            # Extrai labels
-            labels_data = issue_data.get("labels", [])
-            labels = [label.get("name") for label in labels_data] if labels_data else []
-
-            # Cria card no Trello
-            result = await self.trello_service.create_card_from_github_issue(
-                issue_number=issue_number,
-                issue_title=issue_title,
-                issue_body=issue_body,
-                issue_url=issue_url,
-                author=author,
-                repo_name=repo_name,
-                labels=labels,
-            )
-
-            if result.is_ok:
-                card_id = result.unwrap()
-                logger.info(
-                    f"Card Trello criado: {card_id} para issue #{issue_number}"
-                )
-                return card_id
-            else:
-                logger.warning(
-                    f"Falha ao criar card Trello para issue #{issue_number}: {result.error}"
-                )
-                return None
-
-        except Exception as e:
-            logger.error(f"Erro ao criar card Trello: {e}")
-            return None
 
     async def process_webhook(
         self,
