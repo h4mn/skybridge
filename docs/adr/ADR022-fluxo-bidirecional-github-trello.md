@@ -96,7 +96,7 @@ O fluxo atual não permite controle granular do processo de desenvolvimento via 
 ## Referências
 
 - [PRD018 — Roadmap Autonomia](../prd/PRD018-roadmap-autonomia-incidente.md)
-- [PRD023 — Implementação Fluxo Trello](../prd/PRD023-fluxo-bidirecional-trello.md)
+- [PRD020 — Implementação Fluxo Trello](../prd/PRD020-fluxo-bidirecional-trello.md)
 
 ---
 
