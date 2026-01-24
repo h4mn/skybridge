@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 from runtime.bootstrap.app import get_app
 from runtime.config.config import get_config, load_ngrok_config
 from runtime.observability.logger import get_logger, print_banner, print_ngrok_urls, print_local_urls, print_separator
-from version import __version__
+from skybridge import __version__
 
 
 def main():
