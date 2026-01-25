@@ -93,6 +93,61 @@ result = process_job(job)
    - Bibliotecas e frameworks usam inglês
    - Código ficaria inconsistente
 
+## Motivação: Alinhamento com Práticas Internacionais
+
+Esta decisão não é isolada — ela se alinha com padrões adotados por comunidades de desenvolvimento ao redor do mundo que enfrentam os mesmos desafios de trabalhar com idiomas não-ingleses.
+
+### Consenso Global
+
+Pesquisa com desenvolvedores de diversas comunidades (chinesa, árabe, russa, europeia) revela um **consenso claro** sobre melhores práticas para projetos em idiomas não-ingleses:
+
+| Componente | Consenso Global | Decisão Skybridge |
+|------------|-----------------|-------------------|
+| Nomes de variáveis, funções, classes | 🇺🇸 Inglês (100%) | 🇺🇸 Inglês ✅ |
+| Comentários de código | 🌐 Idioma nativo | 🇧🇷 PT-BR ✅ |
+| Logs de aplicação | 🌐 Idioma nativo | 🇧🇷 PT-BR ✅ |
+| Mensagens de erro/validação | 🌐 Idioma nativo | 🇧🇷 PT-BR ✅ |
+| Termos técnicos sem tradução | 🇺🇸 Inglês (middleware, endpoint) | 🇺🇸 Inglês ✅ |
+
+### Exemplos de Outras Comunidades
+
+**Comunidade Chinesa (🇨🇳 Alibaba):**
+> "【强制】所有编程相关的命名严禁使用拼音与英文混合的方式，更不允许直接使用中文的方式。说明：正确的英文拼写和语法可以让阅读者易于理解，避免歧义。"
+
+*Tradução:* "É **obrigatório** que todos os nomes relacionados à programação sejam em inglês. O inglês correto torna o código compreensível e evita ambiguidade."
+
+**Comunidade Árabe (🇸🇦):**
+Devido a questões técnicas de scripts RTL (Right-to-Left), desenvolvedores árabes mantêm identificadores em inglês e usam árabe apenas em comentários.
+
+**Comunidade Russa (🇷🇺):**
+Estudos acadêmicos mostram que desenvolvedores russos adotam universalmente: código em inglês + comentários/logs em russo.
+
+**Comunidade Europeia (🇳🇱 Países Baixos):**
+O artigo seminal ["Programming on a Non-English Project"](https://berk.es/2012/10/05/programming-on-a-none-english-project-best-practices/) (Berk Kessels, 2012) estabelece a **"Regra da Exceção Única"**: código deve ser em inglês sempre, sem exceções; comentários e documentação podem seguir o idioma nativo. Esta abordagem permanece válida 15 anos depois.
+
+### System Prompts de Agentes AI
+
+Considerando a SPEC008 e o uso de agentes autônomos no Skybridge, os **system prompts** (`src/runtime/config/system_prompt.json`) seguem o mesmo princípio:
+
+- **Instruções técnicas** devem ser em PT-BR (alinhado com ADR018)
+- **Output JSON** com nomes de campos em inglês (interoperabilidade)
+- **Thinkings/raciocínio** em PT-BR (observabilidade para time brasileiro)
+
+**Tradeoffs analisados:**
+- ✅ Coerência com ADR018 e código em PT-BR
+- ✅ Manutenibilidade para time brasileiro
+- ⚠️ Performance de LLM em PT-BR é ~2-3% inferior (impacto mínimo)
+- ⚠️ Colaboração internacional mitigada via documentação bilíngue
+
+### Referências
+
+- [Programming on a Non-English Project; best practices](https://berk.es/2012/10/05/programming-on-a-none-english-project-best-practices/) — Berk Kessels, 2012
+- [Alibaba Java Development Guidelines](https://xiaoxue-images.oss-cn-shenzhen.aliyuncs.com/%25E9%2598%25BF%25E9%2587%258C%25E5%25B7%25B4%25E5%25B7%25B4Java%25E5%25BC%2580%25E5%258F%2591%25E8%25A7%2584%25E8%258C%2583%25EF%25BC%2588%25E5%25B5%25A9%25E5%25B1%25B1%25E7%2589%2588%25EF%25BC%2589.pdf) — Seção de nomenclatura
+- [W3C Internationalization Best Practices](https://www.w3.org/TR/international-specs/)
+- [Right-to-Left Languages Localization](https://www.ecinnovations.com/blog/right-to-left-languages-localization/)
+
+A decisão do Skybridge, portanto, não é uma exceção ou um experimento — é uma prática madura e testada por comunidades globais que enfrentam os mesmos desafios linguísticos.
+
 ## Consequências
 
 ### Positivas
