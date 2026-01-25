@@ -424,8 +424,11 @@ class SkybridgeApp:
     def _setup_routes(self):
         """Configura rotas."""
         from runtime.delivery.routes import create_rpc_router
+        from runtime.delivery.websocket import create_console_router  # PRD019: WebSocket console
+
         self.app.include_router(create_rpc_router(), tags=["Sky-RPC"])
-        self.logger.info("Rotas configuradas")
+        self.app.include_router(create_console_router(), tags=["WebSocket"])  # PRD019
+        self.logger.info("Rotas configuradas (incluindo WebSocket console)")
 
     def run(self, host: str | None = None, port: int | None = None):
         """Executa o servidor com uvicorn."""
