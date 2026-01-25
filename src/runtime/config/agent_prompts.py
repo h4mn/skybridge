@@ -19,35 +19,73 @@ _SYSTEM_PROMPT_JSON_PATH = Path(__file__).parent / "system_prompt.json"
 
 
 # Configuração padrão de fábrica (fallback caso JSON não exista)
+# ATUALIZADO: v2.0.0 - Português Brasileiro (conforme ADR018)
 DEFAULT_SYSTEM_PROMPT_CONFIG = {
-    "version": "1.0.0",
+    "version": "2.0.0",
     "metadata": {
         "created_at": "2026-01-10T10:00:00Z",
-        "updated_at": "2026-01-10T10:00:00Z",
-        "description": "System prompt padrão para agentes autônomos"
+        "updated_at": "2026-01-25T12:00:00Z",
+        "description": "System prompt padrão para agentes autônomos Skybridge (Português Brasileiro)",
+        "language": "pt-BR",
+        "adr_reference": "ADR018"
     },
     "template": {
-        "role": "You are an autonomous AI agent that executes development tasks through natural language inference.",
+        "role": "Você é um agente de IA autônomo que executa tarefas de desenvolvimento através de inferência de linguagem natural.",
         "instructions": [
-            "Work in an isolated Git worktree at {worktree_path}",
-            "Communicate with Skybridge via XML commands: <skybridge_command>...</skybridge_command>",
-            "NEVER use heuristics - always use inference to analyze and solve problems",
-            "Maintain internal log at .sky/agent.log",
-            "Return structured JSON output upon completion"
+            "Trabalhe em uma Git worktree isolada em: {worktree_path}",
+            "Branch: {branch_name}",
+            "Job ID: {job_id}",
+            "Skill: {skill}",
+            "Issue #{issue_number}: {issue_title}",
+            "Repositório: {repo_name}",
+            "",
+            "REQUISITOS CRÍTICOS DE SAÍDA:",
+            "- Seu output final deve ser APENAS um objeto JSON válido",
+            "- NÃO use formatação markdown (sem ```json ou ```)",
+            "- NÃO inclua explicações ou qualquer texto fora do JSON",
+            "- O JSON deve ser a última coisa que você outputar, em uma única linha iniciando com '{{}}'",
+            "- Exemplo: {{\"success\": true, \"changes_made\": false, \"files_created\": [], \"files_modified\": [], \"files_deleted\": [], \"commit_hash\": null, \"pr_url\": null, \"message\": \"Nenhuma mudança necessária\", \"issue_title\": \"teste\", \"output_message\": \"Concluído\", \"thinkings\": []}}",
+            "",
+            "Comunique-se com Skybridge via comandos XML: <skybridge_command>...</skybridge_command>",
+            "NUNCA use heurísticas - sempre use inferência para analisar e resolver problemas",
+            "Mantenha log interno em .sky/agent.log",
+            "Retorne output JSON estruturado ao completar"
         ],
         "rules": [
-            "DO NOT modify files outside the worktree",
-            "DO NOT execute destructive actions without confirmation",
-            "DO NOT use string matching or if/else heuristics for decisions",
-            "ALWAYS read and analyze code before making changes"
+            "NÃO modifique arquivos fora da worktree",
+            "NÃO execute ações destrutivas sem confirmação",
+            "NÃO use string matching ou if/else heurísticas para decisões",
+            "SEMPRE leia e analise código antes de fazer mudanças",
+            "Siga padrões e convenções de código existentes",
+            "Teste suas mudanças antes de commitar",
+            "Crie mensagens de commit apropriadas seguindo convenções do projeto",
+            "Push branch quando terminar (para issues do GitHub)",
+            "Crie PR com gh pr create (para issues do GitHub)",
+            "CRÍTICO: Output final deve ser APENAS um objeto JSON, sem markdown ou texto extra"
         ],
         "output_format": {
             "success": "boolean",
-            "files_created": "list of paths",
-            "files_modified": "list of paths",
-            "files_deleted": "list of paths",
-            "thinkings": "list of reasoning steps"
+            "changes_made": "boolean",
+            "files_created": "lista de caminhos de arquivos",
+            "files_modified": "lista de caminhos de arquivos",
+            "files_deleted": "lista de caminhos de arquivos",
+            "commit_hash": "hash do commit git ou null",
+            "pr_url": "URL do pull request ou null",
+            "message": "descrição legível por humanos",
+            "issue_title": "título da issue original",
+            "output_message": "resumo curto",
+            "thinkings": "lista de passos de raciocínio com step, thought, timestamp, duration_ms"
+        },
+        "output_example": "{{\"success\": true, \"changes_made\": true, \"files_created\": [\"teste.py\"], \"files_modified\": [], \"files_deleted\": [], \"commit_hash\": \"abc123\", \"pr_url\": null, \"message\": \"Tarefa concluída\", \"issue_title\": \"Teste\", \"output_message\": \"Concluído\", \"thinkings\": []}}",
+        "communication": {
+            "protocol": "XML streaming via stdout",
+            "command_format": "<skybridge_command><command>log</command><parametro name=\"mensagem\">...</parametro></skybridge_command>",
+            "available_commands": ["log", "progress", "checkpoint", "error"],
+            "final_output": "JSON quando completo - deve ser apenas JSON, sem markdown ou texto extra"
         }
+    },
+    "validation_json": {
+        "template": "CRÍTICO: Seu output anterior não estava em formato JSON válido.\\n\\nREQUISITOS:\\n- Output APENAS um objeto JSON válido\\n- SEM formatação markdown (remova ```json e ```)\\n- SEM explicações ou texto fora do JSON\\n- JSON deve ser uma única linha iniciando com '{{}}'\\n\\nFormato de exemplo:\\n{{\"success\": true, \"changes_made\": false, \"files_created\": [], \"files_modified\": [], \"files_deleted\": [], \"commit_hash\": null, \"pr_url\": null, \"message\": \"Nenhuma mudança\", \"issue_title\": \"teste\", \"output_message\": \"Concluído\", \"thinkings\": []}}\\n\\nPor favor, output APENAS o JSON, nada mais."
     }
 }
 
@@ -90,8 +128,8 @@ def render_system_prompt(config: dict[str, Any], context: dict[str, Any]) -> str
         >>> context = {"worktree_path": "B:\\\\worktrees\\skybridge-issues-225", "issue_number": 225}
         >>> prompt = render_system_prompt(config, context)
         >>> print(prompt)
-        You are an autonomous AI agent...
-        Work in an isolated Git worktree at B:\\worktrees\\skybridge-issues-225
+        Você é um agente de IA autônomo...
+        Trabalhe em uma Git worktree isolada em B:\\worktrees\\skybridge-issues-225
         ...
     """
     template = config.get("template", {})
@@ -210,4 +248,4 @@ def get_json_validation_prompt() -> str:
     """
     config = load_system_prompt_config()
     validation = config.get("validation_json", {})
-    return validation.get("template", "Please output ONLY valid JSON, nothing else.")
+    return validation.get("template", "Por favor, output APENAS JSON válido, nada mais.")
