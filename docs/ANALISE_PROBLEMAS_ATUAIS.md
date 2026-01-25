@@ -1,7 +1,7 @@
 # Análise de Problemas Atuais - Skybridge
 
 **Data:** 2026-01-17
-**Última atualização:** 2026-01-21
+**Última atualização:** 2026-01-25
 **Branch:** `refactor/events`
 **Autor:** Sky
 
@@ -17,33 +17,27 @@ Esta análise identifica os **problemas críticos** que o Skybridge enfrenta hoj
 
 ### 1. Filas Separadas - Jobs Nunca São Processados
 
+**Status:** ✅ **RESOLVIDO** (2026-01-21)
+
 **Descrição:**
 Webhook Server e Webhook Worker rodam em **processos separados**, cada um criando sua **própria instância** de `InMemoryJobQueue`. Jobs enfileirados pelo servidor **nunca são vistos** pelo worker.
 
-**Evidência:**
-```python
-# github_webhook_server.py (linha 126)
-job_queue = InMemoryJobQueue()  # Instância #1
+**Solução Implementada:**
+✅ **FileBasedJobQueue** foi implementado conforme PRD017
+- Webhook Server e Worker agora compartilham estado via sistema de arquivos
+- Jobs enfileirados por um processo são visíveis pelo outro
+- Sistema funciona end-to-end
 
-# webhook_worker.py (linha 146)
-job_queue = InMemoryJobQueue()  # Instância #2 - SEPARADA!
-```
+**Implementação:**
+- **Código:** `src/infra/webhooks/adapters/file_based_job_queue.py`
+- **Documentação:** `docs/IMPLEMENTACAO_FILEBASEDQUEUE.md`
+- **PRD:** `docs/prd/PRD017-mensageria-standalone.md`
 
-**Impacto:**
-- ✅ Webhooks são recebidos e cards criados no Trello
-- ❌ Jobs ficam na fila para sempre
-- ❌ Agentes nunca são executados
-- ❌ Cards mostram "Aguardando processamento..." eternamente
+**Métricas Disponíveis:**
+- `queue_size`, `jobs_per_hour`, latências (p50, p95, p99)
+- Decision dashboard para determinar quando migrar para Redis
 
-**Causa Raiz:**
-Arquitetura atual assume fila compartilhada, mas `InMemoryJobQueue` não compartilha estado entre processos.
-
-**Solução:**
-**Opção A (Quick Fix):** Unificar servidor + worker no mesmo processo
-**Opção B (Produção):** Implementar `RedisJobQueue` para fila compartilhada
-**Opção C (Simplificado):** Processar jobs diretamente no endpoint com `asyncio.create_task()`
-
-**Prioridade:** 🔴 URGENTE - Sistema não funciona sem isso
+**Prioridade:** ~~🔴 URGENTE~~ → ✅ **CONCLUÍDO**
 
 ---
 
@@ -218,7 +212,7 @@ JobOrchestrator → emit(JobStartedEvent) ─────────→ [Trello
 
 | Problema | Severidade | Impacto | Esforço | Prioridade | ROI | Status |
 |----------|------------|---------|---------|------------|-----|--------|
-| 1. Filas separadas | 🔴 CRÍTICA | Sistema não funciona | 2-4h | P0 | 🔥🔥🔥 | ⚠️ Pendente |
+| 1. Filas separadas | ~~🔴 CRÍTICA~~ | Sistema não funciona | 2-4h | ~~P0~~ | 🔥🔥🔥 | ✅ **RESOLVIDO** |
 | 2. Issue #32 aberta | 🟡 ALTA | Compleção bureaucratic | 0.5h | P1 | 🔥🔥 | ⚠️ Pendente |
 | 3. Event loop closed | 🟡 MÉDIA | Logs poluídos | 2h | P2 | 🔥 | ⚠️ Pendente |
 | 4. Issues duplicadas | 🟢 BAIXA | Limpeza | 0.5h | P3 | | ⚠️ Pendente |
@@ -276,9 +270,10 @@ Mês 3+: Escalar
 
 ## 📝 Notas
 
-- **Problema #1 é o mais crítico** - sem isso, sistema não funciona
+- ~~**Problema #1 é o mais crítico**~~ - ✅ **RESOLVIDO** via FileBasedJobQueue (PRD017)
 - **Métricas vêm antes de Domain Events** - precisa medir antes de otimizar
 - **Domain Events facilitam teste** - mas não bloqueiam funcionamento
+- **✅ Problema #1 RESOLVIDO** - FileBasedJobQueue implementado em 2026-01-21 (PRD017)
 - **✅ Problema #6 RESOLVIDO** - Domain Events implementados em 2026-01-21 (PRD018 Fase 0)
 
 ---

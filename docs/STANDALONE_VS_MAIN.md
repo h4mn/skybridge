@@ -1,11 +1,27 @@
 # Standalone vs Main - Adaptações Necessárias
 
 **Data:** 2025-01-17
+**Status:** ⚠️ **OBSOLETO** - Ver ADR019 para estrutura atual
 **Contexto:** Integração GitHub → Trello
 
 ---
 
-## 📋 Contexto
+## ⚠️ Aviso de Obsolescência
+
+Este documento foi criado durante a transição de worktrees e descreve adaptações necessárias para a estrutura antiga (`src/skybridge/...`).
+
+**Estrutura atual (após ADR019):**
+- A simplificação da estrutura foi implementada via ADR019
+- O renomeamento `platform` → `runtime` está completo
+- A estrutura atual é `src/core/`, `src/infra/`, `src/kernel/`, `src/runtime/`
+
+**Para informações sobre a estrutura atual, consulte:**
+- **ADR019:** `docs/adr/ADR019-simplificacao-estrutura-src.md`
+- **Implementação:** `src/runtime/` (ex-platform), `src/core/`, `src/infra/`
+
+---
+
+## 📋 Contexto (Histórico)
 
 Durante a implementação da integração GitHub → Trello, identificamos diferenças entre:
 - **Worktree kanban:** Estrutura simplificada (`src/core/...`)

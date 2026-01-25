@@ -75,6 +75,10 @@ from runtime.config.config import get_config
 
 O nome `platform` foi renomeado para `runtime` porque:
 
+**Nota:** Para informações sobre adaptações necessárias durante a transição de worktrees (especialmente para integração GitHub → Trello), consulte `docs/STANDALONE_VS_MAIN.md`. Esse documento detalha as diferenças entre a estrutura simplificada nas worktrees e a estrutura original, bem como as soluções implementadas.
+
+O nome `platform` foi renomeado para `runtime` porque:
+
 1. **Conflito com stdlib**: `import platform` sobrescreve módulo padrão do Python
 2. **Quebra de dependências**: Bibliotecas como `httpx` usam `platform` internamente
 3. **Semântica**: `runtime` descreve melhor as responsabilidades (bootstrap, config, delivery)
