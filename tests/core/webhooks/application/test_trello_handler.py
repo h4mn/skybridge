@@ -263,7 +263,7 @@ class TestTrelloEventsDoD:
         """
         import os
 
-        skill_path = "plugins/skybridge-workflows/src/skybridge_workflows/skills/analyze-issue.md"
+        skill_path = "src/runtime/prompts/skills/analyze-issue/SKILL.md"
         assert os.path.exists(skill_path), f"Skill {skill_path} não encontrado"
 
         # Verifica conteúdo básico

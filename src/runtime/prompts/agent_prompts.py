@@ -15,7 +15,7 @@ from typing import Any
 
 
 # Caminho para o arquivo de configuração JSON (fonte da verdade)
-_SYSTEM_PROMPT_JSON_PATH = Path(__file__).parent / "system_prompt.json"
+_SYSTEM_PROMPT_JSON_PATH = Path(__file__).parent / "system" / "system_prompt.json"
 
 
 # Configuração padrão de fábrica (fallback caso JSON não exista)

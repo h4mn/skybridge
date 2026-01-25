@@ -198,7 +198,7 @@ class TestIssue4StrObjectDebug:
 
             # Passo 1: load_system_prompt_config
             print("[DEBUG] 1. load_system_prompt_config()...")
-            from runtime.config.agent_prompts import load_system_prompt_config
+            from runtime.prompts import load_system_prompt_config
 
             template = load_system_prompt_config()
             print(f"[DEBUG]    template type: {type(template)}")
@@ -236,7 +236,7 @@ class TestIssue4StrObjectDebug:
 
             # Passo 3: render_system_prompt
             print("[DEBUG] 3. render_system_prompt()...")
-            from runtime.config.agent_prompts import render_system_prompt
+            from runtime.prompts import render_system_prompt
 
             try:
                 system_prompt = render_system_prompt(template, context)
