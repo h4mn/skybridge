@@ -58,6 +58,20 @@ EVENT_TYPE_TO_SKILL = {
     "pull_request.opened": None,
     "pull_request.closed": None,
     "pull_request.edited": None,
+    # PRD020: Trello webhooks
+    "card.moved.💡 Brainstorm": "analyze-issue",
+    "card.moved.📋 A Fazer": "resolve-issue",
+    "card.moved.🚧 Em Andamento": "resolve-issue",
+    "card.moved.👁️ Em Revisão": "review-issue",
+    "card.moved.🚀 Publicar": "publish-issue",
+}
+
+# PRD020: Mapeamento de autonomy_level para skill override
+AUTONOMY_LEVEL_TO_SKILL = {
+    "analysis": "analyze-issue",
+    "development": "resolve-issue",
+    "review": "review-issue",
+    "publish": "publish-issue",
 }
 
 
@@ -131,16 +145,29 @@ class JobOrchestrator:
         logger = logging.getLogger(__name__)
 
     @staticmethod
-    def _get_skill_for_event_type(event_type: str) -> str | None:
+    def _get_skill_for_event_type(event_type: str, autonomy_level: "AutonomyLevel | None" = None) -> str | None:
         """
         Retorna o skill apropriado para um event_type.
 
+        PRD020: Considera autonomy_level para sobrescrever o skill padrão.
+
         Args:
             event_type: Tipo do evento (ex: "issues.opened", "issues.closed")
+            autonomy_level: Nível de autonomia (PRD020)
 
         Returns:
             Nome do skill ou None se não deve executar agente
         """
+        # PRD020: Se autonomy_level for especificado, usa mapeamento específico
+        if autonomy_level is not None:
+            # Usa getattr para pegar o valor .value do enum sem depender de isinstance
+            autonomy_value = getattr(autonomy_level, "value", None)
+            if autonomy_value:
+                skill = AUTONOMY_LEVEL_TO_SKILL.get(autonomy_value)
+                if skill:
+                    return skill
+
+        # Fallback para mapeamento padrão por event_type
         return EVENT_TYPE_TO_SKILL.get(event_type)
 
     async def execute_job(self, job_id: str) -> Result[None, str]:
@@ -168,8 +195,8 @@ class JobOrchestrator:
         # Registra tempo de início
         self._job_start_time[job_id] = datetime.utcnow()
 
-        # Determina skill baseado no event_type
-        skill = self._get_skill_for_event_type(job.event.event_type)
+        # PRD020: Determina skill baseado no event_type E autonomy_level
+        skill = self._get_skill_for_event_type(job.event.event_type, job.autonomy_level)
         agent_type = skill or "none"
 
         # PRD018 ARCH-09: Emite JobStartedEvent

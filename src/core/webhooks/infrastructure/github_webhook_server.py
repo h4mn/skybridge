@@ -248,6 +248,120 @@ async def github_webhook(request: Request):
         )
 
 
+@app.post("/webhook/trello")
+async def trello_webhook(request: Request):
+    """
+    Recebe webhook do Trello.
+
+    PRD020: Endpoint para webhooks do Trello no fluxo bidirecional Trello → GitHub.
+
+    Headers esperados:
+        X-Trello-Webhook: ID do webhook (para verificação)
+        Trello-Webhook-ID: ID do webhook alternativo
+
+    Body: JSON payload do evento Trello
+    """
+    import asyncio
+
+    try:
+        # Lê payload
+        payload = await request.json()
+
+        # Extrai headers
+        trello_webhook_id = request.headers.get("X-Trello-Webhook") or request.headers.get("Trello-Webhook-ID", "")
+
+        correlation_id = trello_webhook_id or "unknown"
+        logger.info(
+            f"📩 Webhook Trello recebido | correlation_id={correlation_id}"
+        )
+
+        # Verifica assinatura se secret configurado (Trello usa HMAC-SHA1)
+        webhook_secret = os.getenv("TRELLO_WEBHOOK_SECRET")
+        if webhook_secret:
+            # Trello envia a assinatura no header X-Trello-Webhook
+            signature = request.headers.get("X-Trello-Webhook") or request.headers.get("Trello-Webhook")
+
+            if signature:
+                # Obtém callback URL usada na criação do webhook
+                callback_url = os.getenv("TRELLO_WEBHOOK_CALLBACK_URL", "")
+                if not callback_url:
+                    logger.warning("⚠️  TRELLO_WEBHOOK_SECRET configurado mas TRELLO_WEBHOOK_CALLBACK_URL não definido - pulando verificação")
+                else:
+                    # Verifica assinatura HMAC-SHA1 do Trello
+                    from infra.webhooks.adapters.trello_signature_verifier import (
+                        TrelloSignatureVerifier,
+                    )
+
+                    verifier = TrelloSignatureVerifier(callback_url)
+                    if not verifier.verify(payload_bytes, signature, webhook_secret):
+                        logger.error(
+                            f"❌ Assinatura Trello inválida | correlation_id={correlation_id}"
+                        )
+                        return JSONResponse(
+                            status_code=401,
+                            content={"error": "Invalid signature", "correlation_id": correlation_id}
+                        )
+                    logger.info(f"✅ Assinatura Trello válida | correlation_id={correlation_id}")
+
+        # Processa webhook via Sky-RPC handler
+        from kernel.registry.query_registry import get_query_registry
+
+        # Chama handler via Sky-RPC
+        handler_wrapper = get_query_registry().get("webhooks.trello.receive")
+        if not handler_wrapper:
+            logger.error("❌ Handler webhooks.trello.receive não encontrado")
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Handler not found", "correlation_id": correlation_id}
+            )
+
+        # Executa handler
+        import concurrent.futures
+        loop = asyncio.get_event_loop()
+
+        def run_handler():
+            return handler_wrapper.handler({"payload": payload, "trello_webhook_id": trello_webhook_id})
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            result = await loop.run_in_executor(executor, run_handler)
+
+        if result.is_ok:
+            response_data = result.unwrap()
+            logger.info(
+                f"✅ Webhook Trello processado | correlation_id={correlation_id} | action={response_data.get('action', 'unknown')}"
+            )
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "status": "accepted",
+                    "correlation_id": correlation_id,
+                    "action": response_data.get("action", "unknown"),
+                    "job_id": response_data.get("job_id"),
+                    "message": "Webhook processado com sucesso"
+                }
+            )
+        else:
+            error_msg = result.error
+            logger.error(
+                f"❌ Erro ao processar webhook Trello | correlation_id={correlation_id} | error={error_msg}"
+            )
+
+            return JSONResponse(
+                status_code=422,
+                content={"error": error_msg, "correlation_id": correlation_id}
+            )
+
+    except Exception as e:
+        logger.exception(
+            f"💥 Erro ao processar webhook Trello | correlation_id={correlation_id} | error={e}"
+        )
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Internal server error: {str(e)}"}
+        )
+
+
 def print_banner():
     """Imprime banner de inicialização."""
     print("\n" + "=" * 80)
