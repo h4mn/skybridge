@@ -3,7 +3,7 @@
 **Status:** 🚧 Em Elaboração
 **Data:** 2026-01-11
 **Autor:** Sky
-**Versão:** 1.1
+**Versão:** 1.2
 
 ---
 
@@ -992,13 +992,134 @@ export function useLogStream() {
 
 ---
 
-**Documento versão:** 1.1
-**Última atualização:** 2026-01-11
+**Documento versão:** 1.2
+**Última atualização:** 2026-01-25
 **Status:** 🚧 Em Elaboração
+
+---
+
+## 15. Gap Analysis: Documentação vs Implementação
+
+**Data da Análise:** 2026-01-25
+**Responsável:** Sky
+
+### Resumo Executivo
+
+Este PRD foi elaborado com stack técnica e estrutura bem definidas, mas uma análise do código atual revela **inconsistências significativas** entre o proposto e o implementado. O status do WebUI é de "proposta aprovada, aguardando implementação".
+
+### Propostas e Decisões Documentadas
+
+#### PRD014: Skybridge WebUI - Dashboard de Monitoramento
+- **Status:** 🚧 Em Elaboração
+- **Stack Decidida:** React 18.3+ + TypeScript 5.7+ + Vite 6.0+ + React Bootstrap 2.10+
+- **Estrutura Planejada:**
+  - `apps/web/main.py` (fachada Python)
+  - `apps/web/package.json` (dependências Node)
+  - `apps/web/src/` (código React)
+
+#### SPEC008: AI Agent Interface
+- **Status:** Rascunho
+- **Foco:** Interface para agentes de IA via stdin/stdout
+
+### Stack Técnica Planejada
+
+| Tecnologia | Versão | Justificativa |
+|------------|--------|---------------|
+| React | 18.3+ | Ecossistema maduro |
+| TypeScript | 5.7+ | Type safety, DX |
+| Vite | 6.0+ | Dev server rápido, HMR |
+| React Bootstrap | 2.10+ | Componentes UI |
+| Bootstrap | 5.3+ | Framework visual |
+| Axios | 1.7+ | Cliente HTTP |
+| React Router | 6.22+ | Client-side routing |
+| React Query | 5.28+ | Server state, cache |
+
+### Estado Atual da Implementação
+
+#### ✅ O QUE EXISTE:
+- Documentação PRD completa com roadmap (Fases 0-5)
+- Stack técnica definida
+- Diretório `apps/web/` com:
+  - `dist/index.html` (build prévio?)
+  - `node_modules/` (dependências internas)
+- Dependências backend declaradas (FastAPI, Uvicorn, Pydantic)
+
+#### ❌ O QUE NÃO EXISTE:
+1. **Código Fonte Frontend:**
+   - `package.json` não existe
+   - Diretório `src/` não existe
+   - `vite.config.ts` não existe
+   - `tsconfig.json` não existe
+   - Código React/TypeScript ausente
+
+2. **Fachada Python:**
+   - `apps/web/main.py` não implementado
+
+3. **API Endpoints para UI:**
+   - `/webhooks/jobs` - Listar jobs
+   - `/webhooks/worktrees` - Listar worktrees
+   - `/webhooks/worktrees/{name}` - Detalhes do worktree
+   - `/webhooks/worktrees/{name}` (DELETE) - Remover worktree
+   - `/observability/logs` - Logs históricos
+   - `/observability/logs/stream` - SSE para logs
+
+### Inconsistências Identificadas
+
+| # | Inconsistência | Proposto | Realidade | Impacto |
+|---|----------------|----------|-----------|---------|
+| **1** | Fachada Python | `apps/web/main.py` executa Vite | Arquivo não existe | Impossível iniciar WebUI |
+| **2** | Dependências Frontend | React, Bootstrap, Vite em `package.json` | Sem `package.json` | Sem dependências para desenvolvimento |
+| **3** | Estrutura de diretórios | `apps/web/src/` completo | Apenas `dist/` e `node_modules/` | Não há código fonte |
+| **4** | API endpoints | 6 novos endpoints planejados | Nenhum implementado | Frontend não teria backend |
+| **5** | .gitignore | Não mencionado | `dist/` existe sem referência | Incerteza sobre versionamento |
+
+### Status dos Componentes
+
+| Componente | Status | Próximo Passo |
+|------------|--------|---------------|
+| Documentação PRD014 | ✅ Completa | Revisão stakeholder |
+| Stack Técnica | ✅ Decidida | Setup Fase 0 |
+| Estrutura de diretórios | ⚠️ Parcial | Criar `src/` e configs |
+| Fachada Python (`main.py`) | ❌ Ausente | Implementar |
+| Código React/TypeScript | ❌ Ausente | Criar do zero |
+| API endpoints para UI | ❌ Ausentes | Implementar |
+| SSE streaming logs | ❌ Ausente | Implementar |
+
+### Recomendações
+
+1. **Prioridade 1:** Implementar Fase 0 do PRD014
+   - Criar `package.json` com stack declarada
+   - Implementar `apps/web/main.py`
+   - Configurar Vite + TypeScript
+
+2. **Prioridade 2:** Implementar API endpoints necessários
+   - `/webhooks/jobs`
+   - `/webhooks/worktrees`
+   - `/observability/logs/stream` (SSE)
+
+3. **Prioridade 3:** Desenvolver componentes React
+   - Dashboard principal
+   - Tabela de worktrees
+   - Streaming de logs
+
+4. **Atualizar .gitignore:**
+   - Adicionar referência a `dist/`
+   - Considerar `*.log` específico do WebUI
+
+### Conclusão
+
+O projeto possui uma proposta web completa e tecnicamente sólida, mas a implementação está estagnada na fase de planejamento. A decisão técnica foi tomada, mas o código fonte do frontend não foi criado.
+
+**Ação Recomendada:** Iniciar implementação pela Fase 0 (setup) para estabelecer a base antes de prosseguir com features mais complexas.
+
+> "Documentação sem código é apenas um sonho; código sem documentação é um pesadelo. Equilíbrio é a chave." – made by Sky 🎯
+
+---
 
 ## Histórico de Mudanças
 
 | Versão | Data | Alterações |
 |--------|------|------------|
+| 1.2 | 2026-01-25 | Adicionada seção 15: Gap Analysis com análise de inconsistências entre documentação e implementação |
 | 1.1 | 2026-01-11 | Decisão de stack: React selecionado; removida alternativa Vue |
 | 1.0 | 2026-01-11 | Versão inicial do PRD |
