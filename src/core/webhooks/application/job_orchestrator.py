@@ -159,10 +159,11 @@ class JobOrchestrator:
             Nome do skill ou None se não deve executar agente
         """
         # PRD020: Se autonomy_level for especificado, usa mapeamento específico
-        if autonomy_level:
-            from core.webhooks.domain.autonomy_level import AutonomyLevel
-            if isinstance(autonomy_level, AutonomyLevel):
-                skill = AUTONOMY_LEVEL_TO_SKILL.get(autonomy_level.value)
+        if autonomy_level is not None:
+            # Usa getattr para pegar o valor .value do enum sem depender de isinstance
+            autonomy_value = getattr(autonomy_level, "value", None)
+            if autonomy_value:
+                skill = AUTONOMY_LEVEL_TO_SKILL.get(autonomy_value)
                 if skill:
                     return skill
 

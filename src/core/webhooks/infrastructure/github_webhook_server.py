@@ -278,24 +278,37 @@ async def trello_webhook(request: Request):
         # Verifica assinatura se secret configurado (Trello usa HMAC-SHA1)
         webhook_secret = os.getenv("TRELLO_WEBHOOK_SECRET")
         if webhook_secret:
-            # Trello envia a assinatura no header X-Trello-Signature ou similar
-            # Nota: Trello não sempre envia assinatura, então só verificamos se presente
-            signature = request.headers.get("X-Trello-Signature") or request.headers.get("Trello-Signature")
+            # Trello envia a assinatura no header X-Trello-Webhook
+            signature = request.headers.get("X-Trello-Webhook") or request.headers.get("Trello-Webhook")
+
             if signature:
-                # TODO: Implementar verificação HMAC-SHA1 do Trello
-                # Por enquanto, apenas log warning
-                logger.warning("⚠️  Verificação de assinatura Trello não implementada")
+                # Obtém callback URL usada na criação do webhook
+                callback_url = os.getenv("TRELLO_WEBHOOK_CALLBACK_URL", "")
+                if not callback_url:
+                    logger.warning("⚠️  TRELLO_WEBHOOK_SECRET configurado mas TRELLO_WEBHOOK_CALLBACK_URL não definido - pulando verificação")
+                else:
+                    # Verifica assinatura HMAC-SHA1 do Trello
+                    from infra.webhooks.adapters.trello_signature_verifier import (
+                        TrelloSignatureVerifier,
+                    )
+
+                    verifier = TrelloSignatureVerifier(callback_url)
+                    if not verifier.verify(payload_bytes, signature, webhook_secret):
+                        logger.error(
+                            f"❌ Assinatura Trello inválida | correlation_id={correlation_id}"
+                        )
+                        return JSONResponse(
+                            status_code=401,
+                            content={"error": "Invalid signature", "correlation_id": correlation_id}
+                        )
+                    logger.info(f"✅ Assinatura Trello válida | correlation_id={correlation_id}")
 
         # Processa webhook via Sky-RPC handler
-        from kernel.registry import get_handler
-        from kernel.security.auth import AuthContext
-
-        # Cria contexto de autenticação (webhooks não requerem auth)
-        auth_context = AuthContext.create_anonymous()
+        from kernel.registry.query_registry import get_query_registry
 
         # Chama handler via Sky-RPC
-        handler = get_handler("webhooks.trello.receive")
-        if not handler:
+        handler_wrapper = get_query_registry().get("webhooks.trello.receive")
+        if not handler_wrapper:
             logger.error("❌ Handler webhooks.trello.receive não encontrado")
             return JSONResponse(
                 status_code=500,
@@ -307,7 +320,7 @@ async def trello_webhook(request: Request):
         loop = asyncio.get_event_loop()
 
         def run_handler():
-            return handler.invoke({"payload": payload, "trello_webhook_id": trello_webhook_id}, auth_context)
+            return handler_wrapper.handler({"payload": payload, "trello_webhook_id": trello_webhook_id})
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             result = await loop.run_in_executor(executor, run_handler)
