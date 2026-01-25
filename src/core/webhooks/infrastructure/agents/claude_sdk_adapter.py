@@ -406,6 +406,3 @@ class ClaudeSDKAdapter(AgentFacade):
         owner = repository.get("owner", {}).get("login", "unknown")
         name = repository.get("name", "unknown")
         return f"{owner}/{name}"
-
-
-> "A migração bem-sucedida começa com um plano detalhado e executa com testes A/B contínuos" – made by Sky 🚀

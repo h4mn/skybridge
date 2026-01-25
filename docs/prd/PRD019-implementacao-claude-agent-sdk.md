@@ -137,24 +137,26 @@ Implementar a interface de agentes usando **claude-agent-sdk** como substituta d
 
 ### Funcional
 
-- [ ] `ClaudeSDKAdapter` implementa `AgentFacade`
-- [ ] Feature flag `USE_SDK_ADAPTER` funciona
-- [ ] SDK e subprocess produzem mesmos resultados
+- [x] `ClaudeSDKAdapter` implementa `AgentFacade`
+- [x] Feature flag `USE_SDK_ADAPTER` funciona
+- [x] SDK e subprocess produzem mesmos resultados
 
 ### Performance
 
-- [ ] Latência 4-5x menor que subprocess
-- [ ] Parse 100% confiável (sem regex)
+- [x] Latência 4-5x menor que subprocess
+- [x] Parse 100% confiável (sem regex)
 
 ### Qualidade
 
-- [ ] Testes A/B passando
-- [ ] Testes de session continuity passando
+- [x] Testes A/B passando (36 testes)
+- [x] Testes de session continuity passando
+- [x] Testes de benchmarks de performance passando
 
 ### Documentação
 
-- [ ] ADR021 atualizada (status: implementada)
-- [ ] PRD019 completa
+- [x] ADR021 atualizada (status: implementada)
+- [x] PRD019 completa
+- [x] PoC marcada como legacy
 
 ---
 

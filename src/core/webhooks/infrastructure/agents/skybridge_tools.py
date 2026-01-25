@@ -10,7 +10,7 @@ para o agente como mcp__skybridge__tool_name.
 from __future__ import annotations
 
 import json
-import os
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -49,7 +49,7 @@ def skybridge_log_tool(level: str, message: str, metadata: dict[str, Any] | None
 
     # Em produção, isso enviaria para o Orchestrator via event bus
     # Por ora, apenas imprime no stderr para ser capturado pelo SDK
-    print(f"[SKYBRIDGE_LOG] {json.dumps(log_entry)}", file=os.stderr)
+    print(f"[SKYBRIDGE_LOG] {json.dumps(log_entry)}", file=sys.stderr)
 
     return {
         "content": [
@@ -82,7 +82,7 @@ def skybridge_progress_tool(percent: int, message: str, status: str | None = Non
         "status": status or "running",
     }
 
-    print(f"[SKYBRIDGE_PROGRESS] {json.dumps(progress_entry)}", file=os.stderr)
+    print(f"[SKYBRIDGE_PROGRESS] {json.dumps(progress_entry)}", file=sys.stderr)
 
     return {
         "content": [
@@ -113,7 +113,7 @@ def skybridge_checkpoint_tool(label: str, description: str | None = None) -> dic
         "description": description or f"Checkpoint: {label}",
     }
 
-    print(f"[SKYBRIDGE_CHECKPOINT] {json.dumps(checkpoint_entry)}", file=os.stderr)
+    print(f"[SKYBRIDGE_CHECKPOINT] {json.dumps(checkpoint_entry)}", file=sys.stderr)
 
     return {
         "content": [
@@ -189,6 +189,3 @@ def create_checkpoint(label: str, description: str | None = None) -> None:
         description: Descrição do checkpoint
     """
     skybridge_checkpoint_tool(label, description)
-
-
-> "Custom tools estendem as capacidades do SDK de forma type-safe e performática" – made by Sky 🚀

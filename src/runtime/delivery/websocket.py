@@ -243,6 +243,3 @@ def create_console_router() -> Any:
         return status
 
     return router
-
-
-> "O streaming em tempo real transforma a observabilidade de agentes em uma experiência viva" – made by Sky 🚀
