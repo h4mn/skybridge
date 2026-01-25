@@ -39,6 +39,11 @@ from runtime.demo.scenarios.engine_scenarios import (
     DemoEngineValidationDemo,
 )
 
+from runtime.demo.scenarios.agent_sdk_scenarios import (
+    AgentSDKE2EDemo,
+    AgentSDKBenchmarkDemo,
+)
+
 __all__ = [
     # Trello
     "TrelloFlowDemo",
@@ -55,4 +60,7 @@ __all__ = [
     # Engine
     "CLITestSuiteDemo",
     "DemoEngineValidationDemo",
+    # Agent SDK (PRD019)
+    "AgentSDKE2EDemo",
+    "AgentSDKBenchmarkDemo",
 ]
