@@ -179,3 +179,79 @@ class TrelloCommentAddedEvent(DomainEvent):
             }
         )
         return base
+
+
+@dataclass(frozen=True)
+class TrelloWebhookReceivedEvent(DomainEvent):
+    """
+    Emitted when a webhook from Trello is received.
+
+    PRD020: Parte do fluxo bidirecional Trello → GitHub.
+    Este evento é emitido quando o Trello envia um webhook
+    indicando uma mudança em um card.
+
+    Attributes:
+        webhook_id: ID do webhook que enviou o evento
+        action_type: Tipo de ação (ex: "updateCard", "createCard")
+        card_id: ID do card afetado
+        card_name: Nome do card
+        list_before_name: Nome da lista anterior (se aplicável)
+        list_after_name: Nome da lista atual (se aplicável)
+    """
+
+    webhook_id: str = ""
+    action_type: str = ""
+    card_id: str = ""
+    card_name: str = ""
+    list_before_name: str = ""
+    list_after_name: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        """Convert to dictionary with Trello-specific fields."""
+        base = super().to_dict()
+        base.update(
+            {
+                "webhook_id": self.webhook_id,
+                "action_type": self.action_type,
+                "card_id": self.card_id,
+                "card_name": self.card_name,
+                "list_before_name": self.list_before_name,
+                "list_after_name": self.list_after_name,
+            }
+        )
+        return base
+
+
+@dataclass(frozen=True)
+class TrelloCardMovedToListEvent(DomainEvent):
+    """
+    Emitted when a Trello card is moved to a specific list.
+
+    PRD020: Evento específico para movimentos entre listas Kanban.
+    Usado para acionar diferentes comportamentos baseado na lista
+    de destino (autonomy levels).
+
+    Attributes:
+        card_id: ID do card movido
+        card_name: Nome do card
+        list_name: Nome da lista de destino
+        issue_number: Número da issue GitHub associada (se aplicável)
+    """
+
+    card_id: str = ""
+    card_name: str = ""
+    list_name: str = ""
+    issue_number: int | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        """Convert to dictionary with Trello-specific fields."""
+        base = super().to_dict()
+        base.update(
+            {
+                "card_id": self.card_id,
+                "card_name": self.card_name,
+                "list_name": self.list_name,
+                "issue_number": self.issue_number,
+            }
+        )
+        return base
