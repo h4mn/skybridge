@@ -128,7 +128,7 @@ class ClaudeSDKAdapter(AgentFacade):
         """
         from runtime.observability.logger import get_logger
         from claude_agent_sdk import ClaudeSDKClient
-        from claude_agent_sdk.types import ClaudeAgentOptions
+        from claude_agent_sdk.types import ClaudeAgentOptions, HookMatcher, HookContext
 
         logger = get_logger()
 
@@ -152,14 +152,13 @@ class ClaudeSDKAdapter(AgentFacade):
         execution.mark_running()
 
         try:
-            # Configura opções do SDK
+            # Configura opções do SDK com hooks de observabilidade
             options = ClaudeAgentOptions(
                 system_prompt=system_prompt,
                 permission_mode=self.permission_mode,  # type: ignore
                 cwd=worktree_path,
                 allowed_tools=self.allowed_tools or [],
-                # Hooks de observabilidade serão registrados via _register_hooks
-                hooks=None,
+                hooks=self._build_hooks_config(job, logger),
             )
 
             # Cria diretório .sky/ para log interno do agente
@@ -178,11 +177,8 @@ class ClaudeSDKAdapter(AgentFacade):
                 },
             )
 
-            # Cria e conecta cliente SDK
+            # Cria e conecta cliente SDK (hooks já configurados nas options)
             async with ClaudeSDKClient(options=options) as client:
-                # Registra hooks de observabilidade
-                await self._register_hooks(client, job, logger)
-
                 # Envia prompt principal
                 await client.query(main_prompt)
 
@@ -263,20 +259,95 @@ class ClaudeSDKAdapter(AgentFacade):
         # Se não recebeu ResultMessage, retorna None
         return None
 
-    async def _register_hooks(self, client, job, logger) -> None:
+    def _build_hooks_config(self, job, logger) -> dict[str, list[HookMatcher]]:
         """
-        Registra hooks de observabilidade no cliente SDK.
+        Constrói configuração de hooks de observabilidade para o SDK.
+
+        Os hooks interceptam eventos do SDK para logging e telemetry:
+        - PreToolUse: Log antes de cada tool use
+        - PostToolUse: Log após cada tool use (com resultado)
 
         Args:
-            client: ClaudeSDKClient configurado
             job: Job de webhook
             logger: Logger estruturado
+
+        Returns:
+            Dict com configuração de hooks por evento
         """
-        # TODO: Implementar hooks quando a API do SDK suportar
-        # PreToolUseHook: Log antes de cada tool use
-        # PostToolUseHook: Log após cada tool use
-        # StreamingHook: Envia para WebSocket console
-        pass
+        async def pre_tool_hook(
+            input_data: dict[str, Any],
+            tool_use_id: str | None,
+            context: HookContext,
+        ) -> dict[str, Any]:
+            """
+            Hook executado antes de cada tool use.
+
+            Loga detalhes da tool que será executada para observabilidade.
+            """
+            tool_name = input_data.get("tool_name", "unknown")
+            tool_input = input_data.get("tool_input", {})
+
+            logger.info(
+                f"Tool iniciada: {tool_name}",
+                extra={
+                    "job_id": job.job_id,
+                    "tool": tool_name,
+                    "tool_use_id": tool_use_id,
+                    "input": tool_input,
+                },
+            )
+
+            # Envia para WebSocket console se disponível
+            try:
+                from runtime.delivery.websocket import get_console_manager
+                console_manager = get_console_manager()
+                await console_manager.broadcast_raw(
+                    job.job_id,
+                    "tool_use",
+                    f"Executando: {tool_name}",
+                    {"tool": tool_name, "input": tool_input},
+                )
+            except Exception:
+                # WebSocket console não disponível, ignora
+                pass
+
+            return {}
+
+        async def post_tool_hook(
+            input_data: dict[str, Any],
+            tool_use_id: str | None,
+            context: HookContext,
+        ) -> dict[str, Any]:
+            """
+            Hook executado após cada tool use.
+
+            Loga resultado da tool executada para observabilidade.
+            """
+            tool_name = input_data.get("tool_name", "unknown")
+            tool_result = input_data.get("tool_result", {})
+            is_error = tool_result.get("is_error", False)
+
+            logger.info(
+                f"Tool completada: {tool_name}",
+                extra={
+                    "job_id": job.job_id,
+                    "tool": tool_name,
+                    "tool_use_id": tool_use_id,
+                    "success": not is_error,
+                    "result": tool_result,
+                },
+            )
+
+            return {}
+
+        return {
+            "PreToolUse": [
+                HookMatcher(hooks=[pre_tool_hook]),
+            ],
+            "PostToolUse": [
+                HookMatcher(hooks=[post_tool_hook]),
+            ],
+        }
 
     def _build_system_prompt(
         self,
