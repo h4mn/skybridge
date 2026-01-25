@@ -1,17 +1,19 @@
 ---
-status: aprovada
+status: implementada
 data: 2026-01-21
 aprovada_por: usuário
 data_aprovacao: 2026-01-24
 implementacao: feat/claude-agent-sdk
+data_implementacao: 2026-01-24
 ---
 
 # ADR021 — Adotar claude-agent-sdk para Interface de Agentes
 
-**Status:** ✅ **APROVADA** - Em Implementação
+**Status:** ✅ **IMPLEMENTADA**
 
 **Data:** 2026-01-21
 **Data de Aprovação:** 2026-01-24
+**Data de Implementação:** 2026-01-24
 **Branch de Implementação:** `feat/claude-agent-sdk`
 
 ## Contexto

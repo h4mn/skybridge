@@ -120,7 +120,20 @@ class JobOrchestrator:
         self.job_queue = job_queue
         self.worktree_manager = worktree_manager
         self.event_bus = event_bus
-        self.agent_adapter = agent_adapter or ClaudeCodeAdapter()
+
+        # PRD019: Feature flag para selecionar adapter
+        if agent_adapter is not None:
+            self.agent_adapter = agent_adapter
+        else:
+            # Verifica feature flag USE_SDK_ADAPTER
+            from runtime.config import get_feature_flags
+            flags = get_feature_flags()
+            if flags.use_sdk_adapter:
+                from core.webhooks.infrastructure.agents.claude_sdk_adapter import ClaudeSDKAdapter
+                self.agent_adapter = ClaudeSDKAdapter()
+            else:
+                self.agent_adapter = ClaudeCodeAdapter()
+
         self.guardrails = guardrails
         self.commit_message_generator = commit_message_generator
         self.git_service = git_service

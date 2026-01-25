@@ -22,6 +22,9 @@ from core.webhooks.infrastructure.agents.agent_facade import (
 from core.webhooks.infrastructure.agents.claude_agent import (
     ClaudeCodeAdapter,
 )
+from core.webhooks.infrastructure.agents.claude_sdk_adapter import (
+    ClaudeSDKAdapter,
+)
 from core.webhooks.infrastructure.agents.protocol import (
     XMLStreamingProtocol,
     SkybridgeCommand,
@@ -34,6 +37,7 @@ __all__ = [
     "ThinkingStep",
     "AgentFacade",
     "ClaudeCodeAdapter",
+    "ClaudeSDKAdapter",
     "XMLStreamingProtocol",
     "SkybridgeCommand",
 ]
