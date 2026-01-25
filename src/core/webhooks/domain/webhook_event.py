@@ -18,6 +18,7 @@ class WebhookSource(Enum):
     """Fontes de webhook suportadas."""
 
     GITHUB = "github"
+    TRELLO = "trello"
     # Phase 2: Adicionar Discord, YouTube, Stripe
     # DISCORD = "discord"
     # YOUTUBE = "youtube"
@@ -77,10 +78,12 @@ class WebhookEvent:
             Número da issue ou None se não aplicável
         """
         if self.source == WebhookSource.GITHUB and self.event_type.startswith("issues."):
-            try:
-                return int(self.payload.get("issue", {}).get("number"))
-            except (TypeError, ValueError, AttributeError):
-                return None
+            issue = self.payload.get("issue")
+            if issue and isinstance(issue, dict):
+                try:
+                    return int(issue.get("number"))
+                except (TypeError, ValueError):
+                    return None
         return None
 
     def get_repository(self) -> tuple[str, str] | None:
@@ -112,6 +115,7 @@ class WebhookJob:
         event: Evento de webhook original
         status: Estado atual do job
         correlation_id: ID de correlação para rastreamento distribuído (derivado de delivery_id)
+        autonomy_level: Nível de autonomia para processamento (PRD020)
         worktree_path: Caminho para o worktree isolado (se criado)
         branch_name: Nome da branch criada (se aplicável)
         issue_number: Número da issue (se aplicável)
@@ -128,6 +132,7 @@ class WebhookJob:
     event: WebhookEvent
     status: JobStatus
     correlation_id: str | None = None
+    autonomy_level: "AutonomyLevel | None" = None
     worktree_path: str | None = None
     branch_name: str | None = None
     issue_number: int | None = None

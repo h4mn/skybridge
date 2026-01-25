@@ -44,7 +44,7 @@ def print_info(text: str):
     print(f"ℹ️  {text}")
 
 
-def test_server_online():
+def check_server_online():
     """Testa se o servidor está online."""
     print_header("TESTE 1: Servidor Online")
     try:
@@ -60,7 +60,7 @@ def test_server_online():
         return False
 
 
-def test_openapi_hybrid():
+def check_openapi_hybrid():
     """Testa se /openapi retorna o OpenAPI Híbrido."""
     print_header("TESTE 2: OpenAPI Híbrido")
 
@@ -102,7 +102,7 @@ def test_openapi_hybrid():
     return True, spec
 
 
-def test_dynamic_schemas(spec: dict):
+def check_dynamic_schemas(spec: dict):
     """Testa se schemas dinâmicos foram injetados."""
     print_header("TESTE 3: Schemas Dinâmicos Injetados")
 
@@ -153,7 +153,7 @@ def test_dynamic_schemas(spec: dict):
     return True
 
 
-def test_discovery_endpoint():
+def check_discovery_endpoint():
     """Testa /discover endpoint."""
     print_header("TESTE 4: Endpoint /discover")
 
@@ -202,7 +202,7 @@ def test_discovery_endpoint():
     return True, discovery
 
 
-def test_openapi_discovery_sync(spec: dict, discovery: dict):
+def check_openapi_discovery_sync(spec: dict, discovery: dict):
     """Testa se OpenAPI e /discover estão sincronizados."""
     print_header("TESTE 5: Sincronização OpenAPI ↔ /discover")
 
@@ -235,7 +235,7 @@ def test_openapi_discovery_sync(spec: dict, discovery: dict):
     return True
 
 
-def test_privacy_endpoint():
+def check_privacy_endpoint():
     """Testa /privacy endpoint."""
     print_header("TESTE 6: Endpoint /privacy")
 
@@ -255,7 +255,7 @@ def test_privacy_endpoint():
     return True
 
 
-def test_redocly_validation():
+def check_redocly_validation():
     """Testa validação com Redocly CLI."""
     print_header("TESTE 7: Validação Redocly CLI")
 
@@ -302,13 +302,13 @@ def main():
     results = []
 
     # Teste 1: Servidor online
-    if not test_server_online():
+    if not check_server_online():
         print_error("\n❌ ABORTANDO: Servidor não está online")
         print_info("Inicie o servidor com: python -m skybridge.platform.bootstrap")
         return 1
 
     # Teste 2: OpenAPI Híbrido
-    result = test_openapi_hybrid()
+    result = check_openapi_hybrid()
     if isinstance(result, tuple):
         results.append(("OpenAPI Híbrido", result[0]))
         spec = result[1]
@@ -318,11 +318,11 @@ def main():
 
     # Teste 3: Schemas dinâmicos
     if spec:
-        result = test_dynamic_schemas(spec)
+        result = check_dynamic_schemas(spec)
         results.append(("Schemas Dinâmicos", result))
 
     # Teste 4: /discover
-    result = test_discovery_endpoint()
+    result = check_discovery_endpoint()
     if isinstance(result, tuple):
         results.append(("/discover", result[0]))
         discovery = result[1]
@@ -332,15 +332,15 @@ def main():
 
     # Teste 5: Sincronização
     if spec and discovery:
-        result = test_openapi_discovery_sync(spec, discovery)
+        result = check_openapi_discovery_sync(spec, discovery)
         results.append(("Sincronização OpenAPI↔/discover", result))
 
     # Teste 6: /privacy
-    result = test_privacy_endpoint()
+    result = check_privacy_endpoint()
     results.append(("/privacy", result))
 
     # Teste 7: Redocly
-    test_redocly_validation()
+    check_redocly_validation()
 
     # Resumo
     print_header("📊 RESUMO DOS TESTES")

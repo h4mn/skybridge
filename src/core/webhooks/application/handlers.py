@@ -6,22 +6,34 @@ Handlers registrados para processamento de webhooks via Sky-RPC.
 """
 from __future__ import annotations
 
+import logging
+
 from kernel.registry.decorators import command
 from kernel.contracts.result import Result
 from core.webhooks.application.webhook_processor import (
     WebhookProcessor,
 )
-from infra.webhooks.adapters.in_memory_queue import (
-    InMemoryJobQueue,
-)
+from core.webhooks.ports.job_queue_port import JobQueuePort
+
+logger = logging.getLogger(__name__)
 
 # Singleton global do job queue (compartilhado entre handler e worker)
-_job_queue: InMemoryJobQueue | None = None
+_job_queue: JobQueuePort | None = None
 
-# TrelloIntegrationService (opcional, singleton)
-_trello_service = None
-# TrelloService (opcional, singleton)
-_trello_kanban_service = None
+# EventBus (singleton para Domain Events)
+_event_bus = None
+
+# PRD020: Mapeamento listas Trello → AutonomyLevel
+LIST_TO_AUTONOMY = {
+    "💡 Brainstorm": "analysis",
+    "📋 A Fazer": "development",
+    "🚧 Em Andamento": "development",
+    "👁️ Em Revisão": "review",
+    "🚀 Publicar": "publish",
+}
+
+# TrelloIntegrationService (opcional, singleton - REMOVIDO PRD018 ARCH-07)
+# TrelloService (opcional, singleton - REMOVIDO PRD018 ARCH-07)
 
 
 def get_trello_service():
@@ -83,12 +95,47 @@ def get_trello_kanban_service():
     return _trello_kanban_service
 
 
-def get_job_queue() -> InMemoryJobQueue:
-    """Retorna instância singleton do job queue."""
+def get_job_queue() -> JobQueuePort:
+    """
+    Retorna instância singleton do job queue.
+
+    Usa JobQueueFactory para criar a fila apropriada baseado em
+    JOB_QUEUE_PROVIDER do ambiente:
+    - sqlite: SQLiteJobQueue (padrão, zero dependências)
+    - redis: RedisJobQueue (tradicional)
+    - dragonfly: RedisJobQueue (DragonflyDB)
+    - file: FileBasedJobQueue (fallback local)
+
+    Returns:
+        Instância de JobQueuePort
+    """
     global _job_queue
     if _job_queue is None:
-        _job_queue = InMemoryJobQueue()
+        from infra.webhooks.adapters.job_queue_factory import (
+            JobQueueFactory,
+        )
+
+        _job_queue = JobQueueFactory.create_from_env()
+        logger.info(f"JobQueue inicializado: {type(_job_queue).__name__}")
     return _job_queue
+
+
+def get_event_bus():
+    """
+    Retorna instância singleton do event bus.
+
+    PRD018 ARCH-07/09: EventBus para Domain Events desacoplando componentes.
+
+    Returns:
+        Instância de EventBus
+    """
+    global _event_bus
+    if _event_bus is None:
+        from infra.domain_events.in_memory_event_bus import InMemoryEventBus
+
+        _event_bus = InMemoryEventBus()
+        logger.info("EventBus inicializado: InMemoryEventBus")
+    return _event_bus
 
 
 @command(
@@ -133,10 +180,10 @@ def receive_github_webhook(args: dict) -> Result:
         >>> assert result.is_ok
         >>> job_id = result.value
     """
-    # Obtém processor com fila compartilhada
+    # Obtém processor com fila e event bus compartilhados
     job_queue = get_job_queue()
-    trello_service = get_trello_service()
-    processor = WebhookProcessor(job_queue, trello_service=trello_service)
+    event_bus = get_event_bus()
+    processor = WebhookProcessor(job_queue, event_bus=event_bus)
 
     # Processa webhook (executa async em thread separada)
     import asyncio
@@ -181,8 +228,9 @@ def receive_trello_webhook(args: dict) -> Result:
     """
     Recebe webhook do Trello e processa eventos de cards.
 
-    Detecta movimentos de cards entre listas, especialmente:
-    - Card movido para "📋 A Fazer" → Inicia agente
+    PRD020: Fluxo bidirecional Trello → GitHub.
+    Detecta movimentos de cards entre listas e cria jobs apropriados
+    baseado no autonomy level da lista de destino.
 
     Args:
         args: Dicionário contendo:
@@ -205,6 +253,7 @@ def receive_trello_webhook(args: dict) -> Result:
         return Result.err("TrelloService não configurado")
 
     payload = args.get("payload", {})
+    trello_webhook_id = args.get("trello_webhook_id", "")
 
     # Detecta tipo de evento
     action_type = payload.get("action", {}).get("type", "")
@@ -214,6 +263,7 @@ def receive_trello_webhook(args: dict) -> Result:
     import asyncio
     import json
     import logging
+    import re
     from datetime import datetime
 
     logger = logging.getLogger(__name__)
@@ -234,6 +284,7 @@ def receive_trello_webhook(args: dict) -> Result:
             card_data = action_data.get("card", {})
             card_id = card_data.get("id")
             card_name = card_data.get("name", "")
+            card_desc = card_data.get("desc", "")
 
             # Extrai informações de movimento do payload
             list_before = action_data.get("listBefore", {})
@@ -250,6 +301,32 @@ def receive_trello_webhook(args: dict) -> Result:
             logger.info(f"   Card ID: {card_id}")
             logger.info(f"   De: {list_before_name} ({list_before.get('id', 'N/A')})")
             logger.info(f"   Para: {list_after_name} ({list_after.get('id', 'N/A')})")
+
+            # PRD020: Emitir TrelloWebhookReceivedEvent
+            event_bus = get_event_bus()
+            from core.domain_events.trello_events import TrelloWebhookReceivedEvent
+            await event_bus.publish(
+                TrelloWebhookReceivedEvent(
+                    aggregate_id=card_id,
+                    webhook_id=trello_webhook_id,
+                    action_type=action_type,
+                    card_id=card_id,
+                    card_name=card_name,
+                    list_before_name=list_before_name,
+                    list_after_name=list_after_name,
+                )
+            )
+            logger.info(f"✅ TrelloWebhookReceivedEvent emitido para card '{card_name}'")
+
+            # Determinar autonomy_level baseado na lista de destino
+            from core.webhooks.domain.autonomy_level import AutonomyLevel
+            autonomy_level_str = LIST_TO_AUTONOMY.get(list_after_name, "development")
+            try:
+                autonomy_level = AutonomyLevel(autonomy_level_str)
+            except ValueError:
+                autonomy_level = AutonomyLevel.DEVELOPMENT
+
+            logger.info(f"   Autonomy Level: {autonomy_level.value} (baseado na lista '{list_after_name}')")
 
             # Verifica se foi movido PARA "📋 A Fazer"
             from runtime.config.config import get_trello_kanban_lists_config
@@ -269,11 +346,123 @@ def receive_trello_webhook(args: dict) -> Result:
                     return Result.err(handle_result.error)
 
                 logger.info(f"✅ Card movido automaticamente para '{kanban_config.progress}'")
-                return Result.ok(
-                    {"processed": True, "action": "moved_to_progress"}
-                )
+
+                # PRD020: Extrair issue_number do card e criar job
+                issue_number = extract_issue_number_from_card(card_name, card_desc)
+                repository = extract_repository_from_card(card_desc)
+
+                if issue_number:
+                    # Criar WebhookEvent e WebhookJob
+                    from core.webhooks.domain import WebhookSource, WebhookEvent, WebhookJob
+                    from core.domain_events.job_events import JobCreatedEvent
+
+                    webhook_event = WebhookEvent(
+                        source=WebhookSource.TRELLO,
+                        event_type=f"card.moved.{list_after_name}",
+                        event_id=card_id,
+                        payload=payload,
+                        received_at=datetime.utcnow(),
+                        delivery_id=trello_webhook_id,
+                    )
+
+                    job = WebhookJob.create(webhook_event)
+                    job.autonomy_level = autonomy_level
+                    job.metadata.update({
+                        "trello_card_id": card_id,
+                        "trello_card_name": card_name,
+                        "trello_list_name": list_after_name,
+                    })
+
+                    # Enfileirar job
+                    job_queue = get_job_queue()
+                    job_id = await job_queue.enqueue(job)
+
+                    logger.info(f"✅ Job criado: job_id={job_id} | issue=#{issue_number} | autonomy={autonomy_level.value}")
+
+                    # Emitir JobCreatedEvent
+                    await event_bus.publish(
+                        JobCreatedEvent(
+                            aggregate_id=job_id,
+                            job_id=job_id,
+                            issue_number=issue_number,
+                        )
+                    )
+
+                    return Result.ok(
+                        {"processed": True, "action": "moved_to_progress", "job_id": job_id}
+                    )
+                else:
+                    logger.warning(f"⚠️ Card '{card_name}' não possui issue_number - pulando criação de job")
+
+            # PRD020: Para outras listas, também criar job se tiver issue_number
+            if list_after_name in LIST_TO_AUTONOMY and list_after_name != todo_list_name:
+                issue_number = extract_issue_number_from_card(card_name, card_desc)
+                if issue_number:
+                    from core.webhooks.domain import WebhookSource, WebhookEvent, WebhookJob
+                    from core.domain_events.job_events import JobCreatedEvent
+
+                    webhook_event = WebhookEvent(
+                        source=WebhookSource.TRELLO,
+                        event_type=f"card.moved.{list_after_name}",
+                        event_id=card_id,
+                        payload=payload,
+                        received_at=datetime.utcnow(),
+                        delivery_id=trello_webhook_id,
+                    )
+
+                    job = WebhookJob.create(webhook_event)
+                    job.autonomy_level = autonomy_level
+                    job.metadata.update({
+                        "trello_card_id": card_id,
+                        "trello_card_name": card_name,
+                        "trello_list_name": list_after_name,
+                    })
+
+                    job_queue = get_job_queue()
+                    job_id = await job_queue.enqueue(job)
+
+                    logger.info(f"✅ Job criado: job_id={job_id} | issue=#{issue_number} | autonomy={autonomy_level.value} | lista={list_after_name}")
+
+                    event_bus = get_event_bus()
+                    await event_bus.publish(
+                        JobCreatedEvent(
+                            aggregate_id=job_id,
+                            job_id=job_id,
+                            issue_number=issue_number,
+                        )
+                    )
+
+                    return Result.ok(
+                        {"processed": True, "action": "job_created", "job_id": job_id}
+                    )
 
         return Result.ok({"processed": True, "action": "ignored"})
+
+    def extract_issue_number_from_card(card_name: str, card_desc: str) -> int | None:
+        """Extrai issue number do nome ou descrição do card."""
+        # Tenta extrair do nome (ex: "#123 Issue Title")
+        match = re.search(r"#(\d+)", card_name)
+        if match:
+            return int(match.group(1))
+
+        # Tenta extrair da descrição (ex: "Issue #123")
+        match = re.search(r"#(\d+)", card_desc or "")
+        if match:
+            return int(match.group(1))
+
+        return None
+
+    def extract_repository_from_card(card_desc: str) -> str | None:
+        """Extrai repositório da descrição do card."""
+        if not card_desc:
+            return None
+
+        # Tenta extrair formato "owner/repo"
+        match = re.search(r"([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)", card_desc)
+        if match:
+            return f"{match.group(1)}/{match.group(2)}"
+
+        return None
 
     # Executa em thread separada para evitar conflitos de loop
     import concurrent.futures
@@ -282,3 +471,35 @@ def receive_trello_webhook(args: dict) -> Result:
         result = future.result(timeout=30)
 
     return result
+
+
+def extract_issue_number_from_card(card_name: str, card_desc: str) -> int | None:
+    """Extrai issue number do nome ou descrição do card."""
+    import re
+
+    # Tenta extrair do nome (ex: "#123 Issue Title")
+    match = re.search(r"#(\d+)", card_name)
+    if match:
+        return int(match.group(1))
+
+    # Tenta extrair da descrição (ex: "Issue #123")
+    match = re.search(r"#(\d+)", card_desc or "")
+    if match:
+        return int(match.group(1))
+
+    return None
+
+
+def extract_repository_from_card(card_desc: str) -> str | None:
+    """Extrai repositório da descrição do card."""
+    import re
+
+    if not card_desc:
+        return None
+
+    # Tenta extrair formato "owner/repo"
+    match = re.search(r"([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)", card_desc)
+    if match:
+        return f"{match.group(1)}/{match.group(2)}"
+
+    return None

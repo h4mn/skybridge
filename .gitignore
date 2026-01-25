@@ -66,3 +66,15 @@ tmpclaude-*
 .worktrees/
 .security-key
 logs/security/
+
+# Claude Code session files (local context)
+.claude/*.md
+.claude/sessions/
+
+# Skybridge local data
+.sky/
+data/
+archived/
+
+# ASGI experimental config
+apps/api/asgi.py

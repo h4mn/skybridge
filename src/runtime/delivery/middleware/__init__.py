@@ -25,6 +25,7 @@ async def verify_webhook_signature(
     Returns:
         None se assinatura válida, JSONResponse com erro se inválida
     """
+    import os
     from runtime.config.config import get_webhook_config
     from infra.webhooks.adapters.github_signature_verifier import (
         GitHubSignatureVerifier,
@@ -51,6 +52,11 @@ async def verify_webhook_signature(
     # Busca segredo
     secret = getattr(config, f"{source}_secret", None)
     if not secret:
+        # Se não há secret e WEBHOOK_SKIP_SIGNATURE_VERIFY=true, permite
+        if os.getenv("WEBHOOK_SKIP_SIGNATURE_VERIFY", "false").lower() == "true":
+            logger.info(f"WEBHOOK_SKIP_SIGNATURE_VERIFY=true - pulando verificação para source: {source}")
+            return None
+
         logger.error(f"Segredo não configurado para source: {source}")
         return JSONResponse(
             status_code=500,

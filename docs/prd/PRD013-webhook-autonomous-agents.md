@@ -1262,8 +1262,35 @@ result = safe_worktree_cleanup("B:\\_repositorios\\skybridge-worktrees\\skybridg
 
 - [Estudo Técnico](../report/webhook-autonomous-agents-study.md)
 - [Worktree Validation Example](../report/worktree-validation-example.md)
+- [Fluxo GitHub → Trello - Componentes e Status](../FLUXO_GITHUB_TRELO_COMPONENTES.md) ⭐ **NOVO**
 - [GitHub Webhooks Best Practices](https://docs.github.com/en/webhooks)
 - [FastAPI Webhooks Guide](https://neon.com/guides/fastapi-webhooks)
+
+### D. Status de Implementação - Detalhado
+
+Para o status detalhado de cada componente do fluxo GitHub → Trello, consulte:
+
+**📄 [FLUXO_GITHUB_TRELO_COMPONENTES.md](../FLUXO_GITHUB_TRELO_COMPONENTES.md)**
+
+Este documento contém:
+- Status detalhado de cada componente (8 componentes)
+- Próximos passos para cada componente
+- Métricas de decisão para migração para Redis
+- Problemas conhecidos e suas resoluções
+- Roadmap de evolução
+
+**Componentes Principais:**
+
+| # | Componente | Status | PRD013 Referência |
+|---|-----------|--------|-------------------|
+| 1 | GitHub Webhook Receiver | ✅ Completo | RF001 |
+| 2 | Webhook Processor | ✅ Completo | RF002 |
+| 3 | FileBased Job Queue | ✅ Completo | RF002 |
+| 4 | Background Worker | ✅ Completo | RF002 |
+| 5 | Job Orchestrator | ✅ Completo | RF004 |
+| 6 | Agent Facade (Claude) | ✅ Completo | SPEC008 |
+| 7 | Trello Integration | ✅ Completo | - |
+| 8 | Observability | ✅ Completo (Nível 1) | RNF003 |
 
 ---
 

@@ -35,9 +35,16 @@ class TestWebhookProcessor:
         return queue
 
     @pytest.fixture
-    def processor(self, job_queue):
-        """Retorna processor com fila mockada."""
-        return WebhookProcessor(job_queue)
+    def event_bus(self):
+        """Retorna event bus mockado."""
+        bus = Mock()
+        bus.publish = AsyncMock()
+        return bus
+
+    @pytest.fixture
+    def processor(self, job_queue, event_bus):
+        """Retorna processor com fila e event bus mockados."""
+        return WebhookProcessor(job_queue, event_bus)
 
     @pytest.mark.asyncio
     async def test_process_github_issue_success(self, processor):

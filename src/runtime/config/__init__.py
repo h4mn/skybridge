@@ -22,6 +22,11 @@ from runtime.config.config import (
     get_trello_config,
 )
 
+from runtime.config.feature_flags import (
+    FeatureFlags,
+    get_feature_flags,
+)
+
 from runtime.config.agent_prompts import (
     get_system_prompt_template,
     render_system_prompt,
@@ -41,6 +46,7 @@ __all__ = [
     "WebhookConfig",
     "AgentConfig",
     "TrelloConfig",
+    "FeatureFlags",
     # Config getters
     "get_config",
     "get_ssl_config",
@@ -51,6 +57,7 @@ __all__ = [
     "get_webhook_config",
     "get_agent_config",
     "get_trello_config",
+    "get_feature_flags",
     # Agent prompts
     "get_system_prompt_template",
     "render_system_prompt",

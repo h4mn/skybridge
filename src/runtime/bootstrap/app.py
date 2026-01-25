@@ -54,8 +54,8 @@ def start_webhook_worker_sync():
         WorktreeManager,
     )
     from core.webhooks.application.handlers import get_job_queue
-    from runtime.config.config import get_webhook_config, get_trello_config
-    from os import getenv
+    from runtime.config.config import get_webhook_config
+    from infra.domain_events.in_memory_event_bus import InMemoryEventBus
 
     webhook_config = get_webhook_config()
 
@@ -68,37 +68,84 @@ def start_webhook_worker_sync():
     job_queue = get_job_queue()
     worktree_manager = WorktreeManager(webhook_config.worktree_base_path, webhook_config.base_branch)
 
-    # TrelloIntegrationService (opcional)
-    trello_service = None
+    # PRD018 ARCH-09: EventBus para Domain Events
+    event_bus = InMemoryEventBus()
+
+    # PRD018 ARCH-08: Inicializa TrelloEventListener
     try:
+        from core.webhooks.infrastructure.listeners.trello_event_listener import (
+            TrelloEventListener,
+        )
+        from runtime.config.config import get_trello_config
+        from core.kanban.application.trello_integration_service import (
+            TrelloIntegrationService,
+        )
+        from infra.kanban.adapters.trello_adapter import TrelloAdapter
+        from os import getenv
+
         trello_config = get_trello_config()
+        trello_service = None
+
         if trello_config.api_key and trello_config.api_token:
             board_id = getenv("TRELLO_BOARD_ID")
             if board_id:
-                from core.kanban.application.trello_integration_service import (
-                    TrelloIntegrationService,
-                )
-                from infra.kanban.adapters.trello_adapter import TrelloAdapter
                 trello_adapter = TrelloAdapter(
                     trello_config.api_key,
                     trello_config.api_token,
                     board_id
                 )
                 trello_service = TrelloIntegrationService(trello_adapter)
-                logger.info("TrelloIntegrationService inicializado")
+
+        trello_listener = TrelloEventListener(event_bus, trello_service)
+        # Listener será iniciado depois, junto com o worker
     except Exception as e:
-        logger.warning(f"Trello não disponível: {e}")
+        logger.warning(f"TrelloEventListener não criado: {e}")
+        trello_listener = None
+
+    # PRD018 Fase 3: Inicializa serviços de commit/push/PR
+    from core.webhooks.application.guardrails import JobGuardrails
+    from core.webhooks.application.commit_message_generator import CommitMessageGenerator
+    from core.webhooks.application.git_service import GitService
+    from os import getenv
+
+    guardrails = JobGuardrails()
+    commit_message_generator = CommitMessageGenerator()
+    git_service = GitService()
+
+    # GitHub client (opcional - requer GITHUB_TOKEN)
+    github_client = None
+    github_token = getenv("GITHUB_TOKEN")
+    if github_token:
+        try:
+            from infra.github.github_api_client import create_github_client
+            github_client = create_github_client(github_token)
+            logger.info("GitHubAPIClient inicializado (commit/push/PR habilitado)")
+        except Exception as e:
+            logger.warning(f"GitHubAPIClient não criado: {e}")
+    else:
+        logger.info("GITHUB_TOKEN não configurado - PR automático desabilitado")
 
     orchestrator = JobOrchestrator(
         job_queue,
         worktree_manager,
-        trello_service=trello_service
+        event_bus=event_bus,
+        guardrails=guardrails,
+        commit_message_generator=commit_message_generator,
+        git_service=git_service,
+        github_client=github_client,
+        enable_auto_commit=True,
+        enable_auto_pr=github_client is not None,
     )
     worker = WebhookWorker(job_queue, orchestrator)
 
     # Create new event loop for this thread
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+
+    # Inicia TrelloEventListener antes do worker
+    if trello_listener:
+        loop.run_until_complete(trello_listener.start())
+        logger.info("TrelloEventListener iniciado e inscrito no EventBus")
 
     try:
         loop.run_until_complete(worker.start())
@@ -377,8 +424,11 @@ class SkybridgeApp:
     def _setup_routes(self):
         """Configura rotas."""
         from runtime.delivery.routes import create_rpc_router
+        from runtime.delivery.websocket import create_console_router  # PRD019: WebSocket console
+
         self.app.include_router(create_rpc_router(), tags=["Sky-RPC"])
-        self.logger.info("Rotas configuradas")
+        self.app.include_router(create_console_router(), tags=["WebSocket"])  # PRD019
+        self.logger.info("Rotas configuradas (incluindo WebSocket console)")
 
     def run(self, host: str | None = None, port: int | None = None):
         """Executa o servidor com uvicorn."""

@@ -3,6 +3,9 @@
 Webhook Background Worker.
 
 Worker assíncrono que processa jobs de webhook em background.
+
+O worker é iniciado automaticamente pelo bootstrap da API (bootstrap/app.py)
+e compartilha a mesma fila de jobs (JobQueuePort) configurada via JobQueueFactory.
 """
 from __future__ import annotations
 
@@ -16,24 +19,9 @@ from core.webhooks.application.job_orchestrator import (
 from core.webhooks.application.worktree_manager import (
     WorktreeManager,
 )
-from infra.webhooks.adapters.file_based_job_queue import (
-    FileBasedJobQueue,
-)
+from core.webhooks.ports.job_queue_port import JobQueuePort
 from runtime.config.config import get_webhook_config, get_trello_config
 from runtime.observability.logger import get_logger
-import os
-
-# Trello integration (optional)
-try:
-    from core.kanban.application.trello_integration_service import (
-        TrelloIntegrationService,
-    )
-    from infra.kanban.adapters.trello_adapter import TrelloAdapter
-    TRELLO_AVAILABLE = True
-except ImportError:
-    TRELLO_AVAILABLE = False
-    logger = get_logger()
-    logger.warning("TrelloIntegrationService não disponível - cards não serão criados")
 
 logger = get_logger()
 
@@ -56,7 +44,7 @@ class WebhookWorker:
 
     def __init__(
         self,
-        job_queue: FileBasedJobQueue,
+        job_queue: JobQueuePort,
         orchestrator: JobOrchestrator,
         poll_interval: float = 1.0,
     ):
@@ -81,17 +69,15 @@ class WebhookWorker:
 
         while self._running:
             try:
-                # Aguarda job com timeout
-                job = await self.job_queue.wait_for_dequeue(
-                    timeout=self.poll_interval
-                )
+                # Tenta desenfileir job
+                job = await self.job_queue.dequeue()
 
                 if job:
                     logger.info(
                         f"Processando job {job.job_id}",
                         extra={
                             "job_id": job.job_id,
-                            "source": job.event.source.value,
+                            "source": str(job.event.source),  # Conversão para string (SQLite salva como string)
                             "event_type": job.event.event_type,
                         },
                     )
@@ -110,9 +96,11 @@ class WebhookWorker:
                             extra={"job_id": job.job_id},
                         )
                 else:
-                    # Verifica se deve shutdown
+                    # Sem jobs por enquanto, aguarda antes de tentar novamente
                     if self._shutdown_event.is_set():
                         break
+                    await asyncio.sleep(self.poll_interval)
+                    continue
 
             except asyncio.CancelledError:
                 logger.info("Worker cancelado")
@@ -132,71 +120,3 @@ class WebhookWorker:
         self._running = False
         self._shutdown_event.set()
         logger.info("Sinal de shutdown do worker de webhook enviado")
-
-
-async def main() -> None:
-    """
-    Entry point para o worker.
-
-    Inicializa dependências e inicia loop de processamento.
-    """
-    # Carrega configuração
-    config = get_webhook_config()
-
-    # Inicializa dependências
-    # FileBasedJobQueue: compartilha fila com webhook server (resolve Problema #1)
-    queue_dir = os.getenv("SKYBRIDGE_QUEUE_DIR", "workspace/skybridge/fila")
-    job_queue = FileBasedJobQueue(queue_dir=queue_dir)
-    logger.info(f"✅ FileBasedJobQueue inicializado em: {queue_dir}")
-
-    worktree_manager = WorktreeManager(config.worktree_base_path, config.base_branch)
-
-    # TrelloIntegrationService (opcional)
-    trello_service = None
-    if TRELLO_AVAILABLE:
-        trello_config = get_trello_config()
-        if trello_config.api_key and trello_config.api_token:
-            from os import getenv
-            board_id = getenv("TRELLO_BOARD_ID")
-            if board_id:
-                trello_adapter = TrelloAdapter(
-                    trello_config.api_key,
-                    trello_config.api_token,
-                    board_id
-                )
-                trello_service = TrelloIntegrationService(trello_adapter)
-                logger.info("TrelloIntegrationService inicializado")
-            else:
-                logger.warning("TRELLO_BOARD_ID não configurado")
-        else:
-            logger.warning("TRELLO_API_KEY ou TRELLO_API_TOKEN não configurado")
-
-    # JobOrchestrator com Trello
-    orchestrator = JobOrchestrator(
-        job_queue,
-        worktree_manager,
-        trello_service=trello_service
-    )
-
-    # Cria worker
-    worker = WebhookWorker(job_queue, orchestrator)
-
-    # Setup signal handlers para graceful shutdown
-    def signal_handler() -> None:
-        logger.info("Sinal de shutdown recebido")
-        worker.stop()
-
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, signal_handler)
-
-    # Inicia worker
-    await worker.start()
-
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Worker interrompido")
-        sys.exit(0)

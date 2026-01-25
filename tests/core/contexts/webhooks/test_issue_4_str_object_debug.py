@@ -29,14 +29,22 @@ from kernel.contracts.result import Result
 
 class TestIssue4StrObjectDebug:
     """
-    Teste de debug para identificar onde 'str' object está sendo usado no lugar de dict.
+    Teste de regressão para Issue #4: 'str' object has no attribute 'get'
 
-    Cenário do erro real:
+    Cenário do erro histórico:
     - Webhook recebido com event_type="issues.opened"
     - Job criado e enfileirado
     - Worker chama orchestrator.execute_job()
     - Erro: 'str' object has no attribute 'get'
+
+    Este teste garante que o payload NÃO vira string em nenhum ponto do fluxo.
     """
+
+    @pytest.fixture
+    def event_bus(self):
+        """Event bus para testes."""
+        from infra.domain_events.in_memory_event_bus import InMemoryEventBus
+        return InMemoryEventBus()
 
     @pytest.fixture
     def github_webhook_payload(self):
@@ -102,7 +110,7 @@ class TestIssue4StrObjectDebug:
         return job
 
     def test_full_flow_with_debug_logs(
-        self, webhook_job, github_webhook_payload
+        self, webhook_job, github_webhook_payload, event_bus
     ):
         """
         Teste completo simulando o fluxo do worker com logs debug.
@@ -122,6 +130,11 @@ class TestIssue4StrObjectDebug:
             webhook_job.worktree_path
         ))
 
+        # ✅ ASSERT DE REGRESSÃO: Payload deve ser dict ANTES de qualquer processamento
+        assert isinstance(webhook_job.event.payload, dict), (
+            f"REGRESSÃO: Payload deve ser dict no início, mas é {type(webhook_job.event.payload)}"
+        )
+
         # Mock GitExtractor
         with patch(
             "runtime.observability.snapshot.extractors.git_extractor.GitExtractor"
@@ -139,6 +152,7 @@ class TestIssue4StrObjectDebug:
             orchestrator = JobOrchestrator(
                 job_queue=job_queue,
                 worktree_manager=mock_worktree_manager,
+                event_bus=event_bus,
                 agent_adapter=adapter,
             )
 
@@ -150,6 +164,11 @@ class TestIssue4StrObjectDebug:
             # Vamos verificar cada passo do _execute_agent
 
             print("\n[DEBUG] Verificando skybridge_context...")
+
+            # ✅ ASSERT DE REGRESSÃO: Payload deve continuar sendo dict
+            assert isinstance(webhook_job.event.payload, dict), (
+                f"REGRESSÃO: Payload virou {type(webhook_job.event.payload)} antes de _get_repo_name"
+            )
 
             # Simula o que _execute_agent faz
             skybridge_context = {
@@ -164,6 +183,12 @@ class TestIssue4StrObjectDebug:
             print("\n[DEBUG] Chamando adapter.spawn()...")
             print(f"[DEBUG] job.event type: {type(webhook_job.event)}")
             print(f"[DEBUG] job.event.payload type: {type(webhook_job.event.payload)}")
+
+            # ✅ ASSERT DE REGRESSÃO: Payload ainda é dict aqui
+            assert isinstance(webhook_job.event.payload, dict), (
+                f"REGRESSÃO: Payload virou {type(webhook_job.event.payload)} antes do adapter"
+            )
+
             print(
                 f"[DEBUG] job.event.payload.get('issue'): {webhook_job.event.payload.get('issue')}"
             )
@@ -181,14 +206,26 @@ class TestIssue4StrObjectDebug:
 
             # Passo 2: Constrói context
             print("[DEBUG] 2. Construindo context para render_system_prompt...")
+
+            # ✅ ASSERT DE REGRESSÃO: Payload NÃO pode virar string antes de extrair issue
+            assert isinstance(webhook_job.event.payload, dict), (
+                f"REGRESSÃO: Payload virou {type(webhook_job.event.payload)} antes de extrair issue"
+            )
+
+            # ✅ ASSERT DE REGRESSÃO: issue.get() não pode falhar com AttributeError
+            issue = webhook_job.event.payload.get("issue", {})
+            assert isinstance(issue, dict), (
+                f"REGRESSÃO: issue deve ser dict, mas é {type(issue)}"
+            )
+
             context = {
                 "worktree_path": webhook_job.worktree_path,
                 "branch_name": webhook_job.branch_name or "unknown",
                 "skill": "resolve-issue",
                 "issue_number": webhook_job.issue_number or 0,
                 # === PONTO CRÍTICO ===
-                "issue_title": webhook_job.event.payload.get("issue", {}).get("title", ""),
-                "issue_body": webhook_job.event.payload.get("issue", {}).get("body", ""),
+                "issue_title": issue.get("title", ""),
+                "issue_body": issue.get("body", ""),
                 "repo_name": skybridge_context["repo_name"],
                 "job_id": webhook_job.job_id,
             }
@@ -237,37 +274,61 @@ class TestIssue4StrObjectDebug:
             print("\n[DEBUG] Tentando adapter.spawn() completo...")
             print("=" * 80)
 
+            # ✅ ASSERT DE REGRESSÃO FINAL: Payload ainda é dict no final do fluxo
+            assert isinstance(webhook_job.event.payload, dict), (
+                f"REGRESSÃO FINAL: Payload virou {type(webhook_job.event.payload)} no final do fluxo"
+            )
+
+            # ✅ ASSERT DE REGRESSÃO: Issue ainda existe e é dict
+            final_issue = webhook_job.event.payload.get("issue")
+            assert final_issue is not None, "REGRESSÃO: 'issue' desapareceu do payload"
+            assert isinstance(final_issue, dict), (
+                f"REGRESSÃO: 'issue' virou {type(final_issue)} no final do fluxo"
+            )
+
+            # ✅ ASSERT DE REGRESSÃO: Campos críticos existem
+            assert "title" in final_issue, "REGRESSÃO: 'title' desapareceu de issue"
+            assert "body" in final_issue, "REGRESSÃO: 'body' desapareceu de issue"
+
             # NOTA: Este teste NÃO chama subprocess (Claude Code não está instalado)
             # Ele apenas valida que os dados estão corretos até o ponto de spawn
-
-            # Validações finais
-            assert isinstance(webhook_job.event.payload, dict), (
-                f"Payload deve ser dict, mas é {type(webhook_job.event.payload)}"
-            )
-            assert webhook_job.event.payload.get("issue") is not None, (
-                "Payload deve conter 'issue'"
-            )
 
             print("\n" + "=" * 80)
             print("[DEBUG] TESTE COMPLETO - Todas as validações passaram")
             print("=" * 80)
 
     def test_get_repo_name_does_not_cause_str_error(
-        self, webhook_job
+        self, webhook_job, event_bus
     ):
         """
         Testa especificamente o _get_repo_name para identificar o problema.
+
+        Este é um teste de regressão: garante que _get_repo_name não causa
+        o erro "AttributeError: 'str' object has no attribute 'get'".
         """
         print("\n[DEBUG] Testando _get_repo_name()...")
+
+        # ✅ ASSERT DE REGRESSÃO: Payload deve ser dict antes do teste
+        assert isinstance(webhook_job.event.payload, dict), (
+            f"REGRESSÃO: Payload deve ser dict, mas é {type(webhook_job.event.payload)}"
+        )
 
         orchestrator = JobOrchestrator(
             job_queue=InMemoryJobQueue(),
             worktree_manager=Mock(),
+            event_bus=event_bus,
         )
 
         # Valida payload antes
         print(f"[DEBUG] job.event.payload: {webhook_job.event.payload}")
         print(f"[DEBUG] job.event.payload type: {type(webhook_job.event.payload)}")
+
+        # ✅ ASSERT DE REGRESSÃO: repository deve existir e ser dict
+        repository = webhook_job.event.payload.get("repository")
+        assert repository is not None, "REGRESSÃO: 'repository' desapareceu do payload"
+        assert isinstance(repository, dict), (
+            f"REGRESSÃO: 'repository' deve ser dict, mas é {type(repository)}"
+        )
 
         # Chama _get_repo_name
         try:
@@ -278,6 +339,11 @@ class TestIssue4StrObjectDebug:
             print(f"[DEBUG] ERRO em _get_repo_name: {e}")
             print(f"[DEBUG] Isso significa que algum .get() está sendo chamado em string")
             raise
+
+        # ✅ ASSERT DE REGRESSÃO: Payload ainda é dict após _get_repo_name
+        assert isinstance(webhook_job.event.payload, dict), (
+            f"REGRESSÃO: Payload virou {type(webhook_job.event.payload)} após _get_repo_name"
+        )
 
     def test_claude_adapter_build_system_prompt_with_real_data(
         self, webhook_job

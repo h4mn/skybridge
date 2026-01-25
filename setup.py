@@ -43,6 +43,7 @@ setup(
         "requests>=2.31.0",
         "rich>=13.7.0",
         "pyngrok>=7.0.0",
+        "redis>=5.0.0",  # PRD018 Fase 2 - Job Queue
     ],
     extras_require={
         "dev": [
