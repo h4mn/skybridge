@@ -331,47 +331,49 @@ def test_benchmark_skybridge_tools():
 
     Mede latência das custom tools (log, progress, checkpoint).
 
-    Esperado: Deve ser muito rápido (< 1ms).
+    Nota: As funções helper (send_log, send_progress, create_checkpoint)
+    são síncronas e imprimem no stderr. Este benchmark mede a latência
+    dessas funções helper que são usadas internamente.
     """
     from core.webhooks.infrastructure.agents.skybridge_tools import (
-        skybridge_log_tool,
-        skybridge_progress_tool,
-        skybridge_checkpoint_tool,
+        send_log,
+        send_progress,
+        create_checkpoint,
     )
 
     iterations = 10000
 
-    # Benchmark skybridge_log_tool
+    # Benchmark send_log (função helper síncrona)
     start = time.perf_counter()
     for _ in range(iterations):
-        result = skybridge_log_tool(
+        send_log(
             level="info",
             message="Test log message",
             metadata={"key": "value"},
         )
     log_time = time.perf_counter() - start
 
-    # Benchmark skybridge_progress_tool
+    # Benchmark send_progress (função helper síncrona)
     start = time.perf_counter()
     for _ in range(iterations):
-        result = skybridge_progress_tool(
+        send_progress(
             percent=50,
             message="50% complete",
         )
     progress_time = time.perf_counter() - start
 
-    # Benchmark skybridge_checkpoint_tool
+    # Benchmark create_checkpoint (função helper síncrona)
     start = time.perf_counter()
     for _ in range(iterations):
-        result = skybridge_checkpoint_tool(
+        create_checkpoint(
             label="checkpoint-1",
             description="Test checkpoint",
         )
     checkpoint_time = time.perf_counter() - start
 
-    log_result = create_benchmark_result("skybridge_log_tool()", iterations, log_time, "s")
-    progress_result = create_benchmark_result("skybridge_progress_tool()", iterations, progress_time, "s")
-    checkpoint_result = create_benchmark_result("skybridge_checkpoint_tool()", iterations, checkpoint_time, "s")
+    log_result = create_benchmark_result("send_log()", iterations, log_time, "s")
+    progress_result = create_benchmark_result("send_progress()", iterations, progress_time, "s")
+    checkpoint_result = create_benchmark_result("create_checkpoint()", iterations, checkpoint_time, "s")
 
     print(f"\n{log_result['name']}:")
     print(f"  Average: {log_result['avg_display']}")

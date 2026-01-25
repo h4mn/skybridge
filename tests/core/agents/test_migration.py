@@ -872,25 +872,40 @@ async def test_skybridge_log_tool():
     DoD Funcional: Skybridge log tool funciona.
 
     Valida:
-    - skybridge_log_tool retorna dict correto
+    - Função helper send_log funciona (imprime no stderr)
+    - Tool decorada skybridge_log retorna dict correto (SDK disponível)
     - Formato de retorno é compatível com MCP
     """
-    from core.webhooks.infrastructure.agents.skybridge_tools import skybridge_log_tool
+    from core.webhooks.infrastructure.agents.skybridge_tools import (
+        send_log,
+        skybridge_log,
+        SDK_AVAILABLE,
+    )
 
-    result = skybridge_log_tool(
+    # Testa função helper (sempre disponível)
+    send_log(
         level="info",
         message="Test log message",
         metadata={"key": "value"},
     )
+    # Função helper apenas imprime no stderr, não retorna nada
 
-    # Valida estrutura MCP
-    assert "content" in result
-    assert isinstance(result["content"], list)
-    assert len(result["content"]) > 0
+    # Se SDK disponível, testa a tool decorada
+    if SDK_AVAILABLE:
+        result = await skybridge_log.handler({
+            "level": "info",
+            "message": "Test log message",
+            "metadata": {"key": "value"},
+        })
 
-    content_item = result["content"][0]
-    assert content_item["type"] == "text"
-    assert "Log [info]" in content_item["text"]
+        # Valida estrutura MCP
+        assert "content" in result
+        assert isinstance(result["content"], list)
+        assert len(result["content"]) > 0
+
+        content_item = result["content"][0]
+        assert content_item["type"] == "text"
+        assert "Log [info]" in content_item["text"]
 
 
 @pytest.mark.asyncio
@@ -899,29 +914,43 @@ async def test_skybridge_progress_tool():
     DoD Funcional: Skybridge progress tool funciona.
 
     Valida:
-    - skybridge_progress_tool retorna dict correto
+    - Função helper send_progress funciona (imprime no stderr)
+    - Tool decorada skybridge_progress retorna dict correto (SDK disponível)
     - Percentual é normalizado (0-100)
     """
-    from core.webhooks.infrastructure.agents.skybridge_tools import skybridge_progress_tool
+    from core.webhooks.infrastructure.agents.skybridge_tools import (
+        send_progress,
+        skybridge_progress,
+        SDK_AVAILABLE,
+    )
 
-    # Testa percentual válido
-    result = skybridge_progress_tool(
+    # Testa função helper (sempre disponível)
+    send_progress(
         percent=75,
         message="75% complete",
         status="running",
     )
 
-    assert "content" in result
-    assert "75%" in result["content"][0]["text"]
+    # Se SDK disponível, testa a tool decorada
+    if SDK_AVAILABLE:
+        # Testa percentual válido
+        result = await skybridge_progress.handler({
+            "percent": 75,
+            "message": "75% complete",
+            "status": "running",
+        })
 
-    # Testa percentual acima de 100 (deve ser normalizado)
-    result = skybridge_progress_tool(
-        percent=150,  # Acima de 100
-        message="Over 100%",
-    )
+        assert "content" in result
+        assert "75%" in result["content"][0]["text"]
 
-    assert "content" in result
-    assert "100%" in result["content"][0]["text"]  # Normalizado
+        # Testa percentual acima de 100 (deve ser normalizado)
+        result = await skybridge_progress.handler({
+            "percent": 150,  # Acima de 100
+            "message": "Over 100%",
+        })
+
+        assert "content" in result
+        assert "100%" in result["content"][0]["text"]  # Normalizado
 
 
 @pytest.mark.asyncio
@@ -930,18 +959,31 @@ async def test_skybridge_checkpoint_tool():
     DoD Funcional: Skybridge checkpoint tool funciona.
 
     Valida:
-    - skybridge_checkpoint_tool retorna dict correto
+    - Função helper create_checkpoint funciona (imprime no stderr)
+    - Tool decorada skybridge_checkpoint retorna dict correto (SDK disponível)
     - Label é incluído na resposta
     """
-    from core.webhooks.infrastructure.agents.skybridge_tools import skybridge_checkpoint_tool
+    from core.webhooks.infrastructure.agents.skybridge_tools import (
+        create_checkpoint,
+        skybridge_checkpoint,
+        SDK_AVAILABLE,
+    )
 
-    result = skybridge_checkpoint_tool(
+    # Testa função helper (sempre disponível)
+    create_checkpoint(
         label="checkpoint-1",
         description="First checkpoint",
     )
 
-    assert "content" in result
-    assert "checkpoint-1" in result["content"][0]["text"]
+    # Se SDK disponível, testa a tool decorada
+    if SDK_AVAILABLE:
+        result = await skybridge_checkpoint.handler({
+            "label": "checkpoint-1",
+            "description": "First checkpoint",
+        })
+
+        assert "content" in result
+        assert "checkpoint-1" in result["content"][0]["text"]
 
 
 # =============================================================================

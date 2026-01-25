@@ -198,45 +198,108 @@ async def test_integration_custom_tools_mcp_format():
 
     Valida que as custom tools retornam formato compatível com MCP
     e podem ser integradas na SDK quando disponível.
+
+    Nota: As funções helper (send_log, send_progress, create_checkpoint)
+    mantêm a interface síncrona original para compatibilidade, enquanto
+    as versões decoradas com @tool (skybridge_log, skybridge_progress, etc.)
+    são assíncronas e seguem o padrão do SDK.
     """
     from core.webhooks.infrastructure.agents.skybridge_tools import (
-        skybridge_log_tool,
-        skybridge_progress_tool,
-        skybridge_checkpoint_tool,
+        send_log,
+        send_progress,
+        create_checkpoint,
     )
 
-    # Testa skybridge_log_tool
-    log_result = skybridge_log_tool(
+    # Testa send_log (função helper síncrona)
+    # Isso imprime no stderr e retorna None (comportamento de helper)
+    send_log(
         level="info",
         message="Test log",
         metadata={"key": "value"},
     )
 
-    # Valida formato MCP: { "content": [{"type": "text", "text": "..."}] }
-    assert "content" in log_result
-    assert isinstance(log_result["content"], list)
-    assert len(log_result["content"]) > 0
-    assert log_result["content"][0]["type"] == "text"
-    assert isinstance(log_result["content"][0]["text"], str)
+    # Valida que a função foi executada sem erro
+    # (as funções helper imprimem no stderr para captura pelo SDK)
 
-    # Testa skybridge_progress_tool
-    progress_result = skybridge_progress_tool(
+    # Testa send_progress (função helper síncrona)
+    send_progress(
         percent=75,
         message="75% complete",
         status="running",
     )
 
-    assert "content" in progress_result
-    assert "75%" in progress_result["content"][0]["text"]
-
-    # Testa skybridge_checkpoint_tool
-    checkpoint_result = skybridge_checkpoint_tool(
+    # Testa create_checkpoint (função helper síncrona)
+    create_checkpoint(
         label="checkpoint-1",
         description="First checkpoint",
     )
 
-    assert "content" in checkpoint_result
-    assert "checkpoint-1" in checkpoint_result["content"][0]["text"]
+    # Se SDK estiver disponível, valida as tools decoradas com @tool
+    try:
+        from core.webhooks.infrastructure.agents.skybridge_tools import (
+            skybridge_log,
+            skybridge_progress,
+            skybridge_checkpoint,
+            create_skybridge_mcp_server,
+            SDK_AVAILABLE,
+        )
+
+        if SDK_AVAILABLE:
+            # Valida que as tools são objetos SdkMcpTool com atributos corretos
+            assert hasattr(skybridge_log, "name")
+            assert skybridge_log.name == "skybridge_log"
+            assert hasattr(skybridge_log, "description")
+            assert hasattr(skybridge_log, "handler")
+
+            assert hasattr(skybridge_progress, "name")
+            assert skybridge_progress.name == "skybridge_progress"
+
+            assert hasattr(skybridge_checkpoint, "name")
+            assert skybridge_checkpoint.name == "skybridge_checkpoint"
+
+            # Valida que create_skybridge_mcp_server retorna uma configuração válida
+            server_config = create_skybridge_mcp_server()
+            assert server_config is not None
+            assert isinstance(server_config, dict)
+            assert server_config["type"] == "sdk"
+            assert server_config["name"] == "skybridge"
+            assert "instance" in server_config
+
+            # Testa o handler diretamente (é a função assíncrona original)
+            log_result = await skybridge_log.handler({
+                "level": "info",
+                "message": "Test log async",
+                "metadata": {"key": "value"},
+            })
+
+            # Valida formato MCP: { "content": [{"type": "text", "text": "..."}] }
+            assert "content" in log_result
+            assert isinstance(log_result["content"], list)
+            assert len(log_result["content"]) > 0
+            assert log_result["content"][0]["type"] == "text"
+            assert isinstance(log_result["content"][0]["text"], str)
+
+            # Testa skybridge_progress.handler
+            progress_result = await skybridge_progress.handler({
+                "percent": 75,
+                "message": "75% complete",
+                "status": "running",
+            })
+
+            assert "content" in progress_result
+            assert "75%" in progress_result["content"][0]["text"]
+
+            # Testa skybridge_checkpoint.handler
+            checkpoint_result = await skybridge_checkpoint.handler({
+                "label": "checkpoint-1",
+                "description": "First checkpoint",
+            })
+
+            assert "content" in checkpoint_result
+            assert "checkpoint-1" in checkpoint_result["content"][0]["text"]
+    except ImportError:
+        # SDK não disponível - testa apenas helpers (já testados acima)
+        pass
 
 
 # =============================================================================
