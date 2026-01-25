@@ -8,6 +8,102 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 
 
+
+## [0.10.0] - 2026-01-25
+
+
+### ✨ Novidades
+
+* [`efb73ef`](https://github.com/h4mn/skybridge/commit/efb73ef8641c8eabff403e7f98d24f72dadb18d9) **core:** PRD018 Fase 3 - Guardrails (Validações Pré-Commit) [`@h4mn`](https://github.com/h4mn)
+* [`cec6652`](https://github.com/h4mn/skybridge/commit/cec6652bc33b1e2ed784d93ef5abffb3f2876cca) **infra:** PRD018 Fase 3 - Domain Event Listeners [`@h4mn`](https://github.com/h4mn)
+* [`c73d895`](https://github.com/h4mn/skybridge/commit/c73d8954e095791463a5518b9d9bf48981ca9214) **infra:** PRD018 Fase 2 - Job Queue Adapters com Factory Pattern [`@h4mn`](https://github.com/h4mn)
+* [`c34edb5`](https://github.com/h4mn/skybridge/commit/c34edb553e95cd9eb6b8c02d8829f7003aff300f) **core:** PRD018 Fase 3 - CommitMessageGenerator [`@h4mn`](https://github.com/h4mn)
+* [`bd58da2`](https://github.com/h4mn/skybridge/commit/bd58da2f57051f79db537ca127b7d9fb42755798) **demo:** adicionar demos Agent SDK para PRD019 [`@h4mn`](https://github.com/h4mn)
+* [`afd5b4a`](https://github.com/h4mn/skybridge/commit/afd5b4a4872ae42e6066283cf3ba3cc0159f6530) **prd020:** implementar fluxo bidirecional Trello → GitHub [`@h4mn`](https://github.com/h4mn)
+* [`ac43145`](https://github.com/h4mn/skybridge/commit/ac431457eed200656373dbe0782f793fd9f6ad18) **infra:** PRD018 Fase 3 - GitHub API Client [`@h4mn`](https://github.com/h4mn)
+* [`a07cee3`](https://github.com/h4mn/skybridge/commit/a07cee38c0bd7ff0ff517d2dc64fde38a6c874b0) **core:** PRD018 Fase 3 - Domain Events System (Core) [`@h4mn`](https://github.com/h4mn)
+* [`989c07e`](https://github.com/h4mn/skybridge/commit/989c07e6550f7e14f887a85bcd90183f3fcb7b00) **prd020:** implementar verificação HMAC-SHA1 do Trello + conftest load_dotenv [`@h4mn`](https://github.com/h4mn)
+* [`93468f5`](https://github.com/h4mn/skybridge/commit/93468f5b2508b9b0de79a9f52fa65e6893374dc8) **ci:** implementar gerador de changelog Sky com Python [`@h4mn`](https://github.com/h4mn)
+* [`50e0900`](https://github.com/h4mn/skybridge/commit/50e09005375d4813d717ce5e3b4ed5e90cc065eb) **core:** PRD018 Fase 3 - JobOrchestrator com Autonomia 70% [`@h4mn`](https://github.com/h4mn)
+* [`3d99690`](https://github.com/h4mn/skybridge/commit/3d996904cc2f78076c5cf2ace449ca0d537cd1db) **infra:** PRD018 Fase 3 - InMemoryEventBus Implementation [`@h4mn`](https://github.com/h4mn)
+* [`2b06e14`](https://github.com/h4mn/skybridge/commit/2b06e14f8c766f257eb70788e564ecf312bbc648) **ci:** implementar gerador de changelog Sky com Python [`@h4mn`](https://github.com/h4mn)
+* [`283be38`](https://github.com/h4mn/skybridge/commit/283be3809076404d38bba677247931fa8e46c4b0) **runtime:** HEAD method para Trello e atualiza bootstrap [`@h4mn`](https://github.com/h4mn)
+* [`17967d4`](https://github.com/h4mn/skybridge/commit/17967d4d168cbdb040aba87f1ed1cc566c642992) **core:** PRD018 Fase 3 - GitService (Operações Git Abstratas) [`@h4mn`](https://github.com/h4mn)
+* [`0e9ae6b`](https://github.com/h4mn/skybridge/commit/0e9ae6bcba0e236e2927824769f042cc5e666602) **prd019:** implementar ClaudeSDKAdapter com feature flag [`@h4mn`](https://github.com/h4mn)
+* [`09ad406`](https://github.com/h4mn/skybridge/commit/09ad40637fefb8ced3ff47031dfa695d5983a891) **ci:** habilitar modo detalhado no changelog do release [`@h4mn`](https://github.com/h4mn)
+
+[**#33**](https://github.com/h4mn/skybridge/pull/33) - implementar FileBasedJobQueue standalone + observabilidade
+
+* [`c46da09`](https://github.com/h4mn/skybridge/commit/c46da096640437e0a430e60ce5b46e17c063df30) **queue:** implementar FileBasedJobQueue standalone + observabilidade ([#33](https://github.com/h4mn/skybridge/pull/33)) [`@h4mn`](https://github.com/h4mn)
+
+
+[**#49**](https://github.com/h4mn/skybridge/pull/49) - sincronização de labels GitHub→Trello e correção de handlers
+
+* [`7534cd9`](https://github.com/h4mn/skybridge/commit/7534cd99102373ff276b95b07efc8921470488dc) **webhooks:** sincronização de labels GitHub→Trello e correção de handlers ([#49](https://github.com/h4mn/skybridge/pull/49)) [`@h4mn`](https://github.com/h4mn)
+
+
+[**#40**](https://github.com/h4mn/skybridge/pull/40) - configurar branch base para worktrees de agentes
+
+* [`3c29179`](https://github.com/h4mn/skybridge/commit/3c2917974449fbdaf542de120c86f8cceb209826) **webhooks:** configurar branch base para worktrees de agentes ([#40](https://github.com/h4mn/skybridge/pull/40)) [`@h4mn`](https://github.com/h4mn)
+
+
+
+### 🐛 Correções
+
+* [`e53d93b`](https://github.com/h4mn/skybridge/commit/e53d93bd32f9952307da0c79d256ec126dc98c40) **build:** remover configuração Poetry do pyproject.toml [`@h4mn`](https://github.com/h4mn)
+* [`df89294`](https://github.com/h4mn/skybridge/commit/df89294c3bc38ebd9cd844115c617de2a38788fe) **build:** remover sintaxe inválida no pyproject.toml [`@h4mn`](https://github.com/h4mn)
+* [`5508d24`](https://github.com/h4mn/skybridge/commit/5508d2444bd79c2538cdc5038a459181dfa8b237) **ci:** adicionar instalação do requests no workflow de release [`@h4mn`](https://github.com/h4mn)
+* [`159690c`](https://github.com/h4mn/skybridge/commit/159690c57b2ae5a10346c956efbd7e88829fde58) **sdk:** implementar custom tools e hooks corretamente via API oficial [`@h4mn`](https://github.com/h4mn)
+* [`0f7c04d`](https://github.com/h4mn/skybridge/commit/0f7c04d8946e4cb0300c3317e1eb93a8bda710ef) altera assinatura de PRs automáticos para "made with Sky" [`@h4mn`](https://github.com/h4mn)
+
+[**#66**](https://github.com/h4mn/skybridge/pull/66) - PRD018 Fase 2 - Resolve Problemas P1-P3 da Issue #66
+
+* [`1ea3402`](https://github.com/h4mn/skybridge/commit/1ea34027823437361432165972bdc214402a439d) PRD018 Fase 2 - Resolve Problemas P1-P3 da Issue #66 ([#66](https://github.com/h4mn/skybridge/pull/66)) [`@h4mn`](https://github.com/h4mn)
+
+
+
+### ♻️ Refatoração
+
+* [`a5d568a`](https://github.com/h4mn/skybridge/commit/a5d568a835e9ac3e8591aefe7aea462bc949b045) **core:** PRD018 Fase 2 - Application Layer com JobQueueFactory [`@h4mn`](https://github.com/h4mn)
+
+[**#28**](https://github.com/h4mn/skybridge/pull/28) - integração GitHub → Trello com agentes autônomos
+
+* [`2d313ec`](https://github.com/h4mn/skybridge/commit/2d313ec71aa48826030d8a4a91a03532f759bc8e) **namespace:** integração GitHub → Trello com agentes autônomos ([#28](https://github.com/h4mn/skybridge/pull/28)) [`@h4mn`](https://github.com/h4mn)
+
+
+
+### 📚 Documentação
+
+* [`f63d6e2`](https://github.com/h4mn/skybridge/commit/f63d6e2a1e097145eea807639559fe8bba1194fe) **adr018:** adicionar seção de motivação com alinhamento internacional [`@h4mn`](https://github.com/h4mn)
+* [`d4d4322`](https://github.com/h4mn/skybridge/commit/d4d4322c6eb052b35df79f077e9c972a9ea0839b) **config:** adicionar memória do projeto e reorganizar .env.example [`@h4mn`](https://github.com/h4mn)
+* [`c480ebb`](https://github.com/h4mn/skybridge/commit/c480ebb73972442dae083386774fb90b7a654351) **adr:** ADR021 - Adoção do Claude Agent SDK [`@h4mn`](https://github.com/h4mn)
+* [`c4069ae`](https://github.com/h4mn/skybridge/commit/c4069ae87535da23ccf4f52603882850ef96b59d) Atualiza PRDs, remove testes obsoletos e adiciona resumo [`@h4mn`](https://github.com/h4mn)
+* [`907ee20`](https://github.com/h4mn/skybridge/commit/907ee2098349fde03a41757cdf618452e8c2f578) corrigir numeração PRD019/PRD020 e referências internas [`@h4mn`](https://github.com/h4mn)
+* [`7147cad`](https://github.com/h4mn/skybridge/commit/7147cadbbdf25c064ca28b592f81462b1aa0ab4e) adicionar roteiro de aprendizado Git & GitHub avançado [`@h4mn`](https://github.com/h4mn)
+* [`6c9a53a`](https://github.com/h4mn/skybridge/commit/6c9a53a92804fd6a0671fdcda0b0d7f6cd977a7d) adicionar PRD018 roadmap autonomia v2.0 e relatório consolidado [`@h4mn`](https://github.com/h4mn)
+* [`61d3bd2`](https://github.com/h4mn/skybridge/commit/61d3bd2b6376c8cb95686ed37e2129a4be602e6d) remover PRDs com numeração incorreta [`@h4mn`](https://github.com/h4mn)
+* [`601dac3`](https://github.com/h4mn/skybridge/commit/601dac3ec5fbec42ef207448e3aa5ea65da2bbb1) **changelog:** documentar gerador de changelog Sky com Python [`@h4mn`](https://github.com/h4mn)
+* [`3cba75a`](https://github.com/h4mn/skybridge/commit/3cba75ab394d6bfef214525fac1f09a06f83fe3b) PRD018 Fase 2 - Documentação e Scripts [`@h4mn`](https://github.com/h4mn)
+* [`3caeccd`](https://github.com/h4mn/skybridge/commit/3caeccd0d63d9d5162c13ec6917b29ae7fe56b28) **report:** adiciona relatórios de streaming console e structlog [`@h4mn`](https://github.com/h4mn)
+* [`0451b0d`](https://github.com/h4mn/skybridge/commit/0451b0d30ee80b82ba7ffe574d1c30db1e3e0ca6) aprovar ADR021 e criar ADR022 + PRDs para autonomia 2026.S1 [`@h4mn`](https://github.com/h4mn)
+
+
+### ✅ Testes
+
+* [`e9b606f`](https://github.com/h4mn/skybridge/commit/e9b606fae31e09eebecfbbe82f057381f4cb9ef0) Atualiza test_openapi_hybrid_online para validação completa [`@h4mn`](https://github.com/h4mn)
+* [`aecfb66`](https://github.com/h4mn/skybridge/commit/aecfb66ea11814bf553437ebc9c189f2906686b4) **prd019:** suíte completa de testes e correções [`@h4mn`](https://github.com/h4mn)
+* [`985c789`](https://github.com/h4mn/skybridge/commit/985c7898607d1c541fd22cb262d41a7d76a66deb) **core:** Corrige fixtures e adiciona event_bus aos testes [`@h4mn`](https://github.com/h4mn)
+* [`0cf5cc7`](https://github.com/h4mn/skybridge/commit/0cf5cc753037b8dc593ffb3c2d65566baa015953) **agents:** corrigir testes para API @tool do claude-agent-sdk [`@h4mn`](https://github.com/h4mn)
+
+
+### 🧹 Tarefas
+
+* [`df3d19e`](https://github.com/h4mn/skybridge/commit/df3d19ee209aa3be0ba846386e0c6541ff4e52b2) **ci:** resolver conflito de merge com main [`@h4mn`](https://github.com/h4mn)
+* [`d3b20a5`](https://github.com/h4mn/skybridge/commit/d3b20a50c7a365cbe42553fc5d85f387a3776230) **sync:** sincronizar dev com main (v0.5.4) [`@h4mn`](https://github.com/h4mn)
+* [`8598de6`](https://github.com/h4mn/skybridge/commit/8598de6f07d87f2fd2bf925c79603a448c5fe862) **config:** pytest, requirements e configurações [`@h4mn`](https://github.com/h4mn)
+* [`837c212`](https://github.com/h4mn/skybridge/commit/837c212044fca9728411e29cc793cb08c87898fd) **sync:** sincronizar dev com main (semantic-release configurado) [`@h4mn`](https://github.com/h4mn)
+* [`2c6214f`](https://github.com/h4mn/skybridge/commit/2c6214f1167fb37c0bcecb3466d91e8be0cfae0a) atualiza .gitignore para arquivos locais [`@h4mn`](https://github.com/h4mn)
+
 ## [0.9.0] - 2026-01-20
 
 
