@@ -6,104 +6,31 @@ O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.html/).
 
 
-## [Pendente]
+
+
+## [0.9.0] - 2026-01-20
 
 
 ### ✨ Novidades
 
 
-[**#28**](https://github.com/h4mn/skybridge/pull/28) - implementar integração GitHub → Trello com agentes autônomos
+[**#54**](https://github.com/h4mn/skybridge/pull/54) - habilitar modo detalhado no changelog do release
 
-* [`fb9ffe7`](https://github.com/h4mn/skybridge/commit/fb9ffe7e1af1c85d6d832cb00ba218d44f4e04cf) **kanban:** implementar integração GitHub → Trello com agentes autônomos ([#28](https://github.com/h4mn/skybridge/pull/28)) [`@h4mn`](https://github.com/h4mn)
-* [`48d3c9a`](https://github.com/h4mn/skybridge/commit/48d3c9a1204567b9fbf0015b691d5c51391a10d2) **kanban:** implementar contexto Kanban com integração Trello ([#28](https://github.com/h4mn/skybridge/pull/28)) [`@h4mn`](https://github.com/h4mn)
-
-
-[**#33**](https://github.com/h4mn/skybridge/pull/33) - implementar FileBasedJobQueue standalone + observabilidade
-
-* [`c46da09`](https://github.com/h4mn/skybridge/commit/c46da096640437e0a430e60ce5b46e17c063df30) **queue:** implementar FileBasedJobQueue standalone + observabilidade ([#33](https://github.com/h4mn/skybridge/pull/33)) [`@h4mn`](https://github.com/h4mn)
+* [`e86a8fa`](https://github.com/h4mn/skybridge/commit/e86a8fa59ab37f219b77876960f313cc08ecb73a) **ci:** habilitar modo detalhado no changelog do release ([#54](https://github.com/h4mn/skybridge/pull/54)) [`@h4mn`](https://github.com/h4mn)
 
 
-[**#49**](https://github.com/h4mn/skybridge/pull/49) - implementar sincronização de labels e corrigir handlers asyn...
-
-* [`93b8517`](https://github.com/h4mn/skybridge/commit/93b8517a7b007a81f0a70f8801264b6239d2fe1c) **webhooks:** implementar sincronização de labels e corrigir handlers async ([#49](https://github.com/h4mn/skybridge/pull/49)) [`@h4mn`](https://github.com/h4mn)
-* [`7534cd9`](https://github.com/h4mn/skybridge/commit/7534cd99102373ff276b95b07efc8921470488dc) **webhooks:** sincronização de labels GitHub→Trello e correção de handlers ([#49](https://github.com/h4mn/skybridge/pull/49)) [`@h4mn`](https://github.com/h4mn)
-* [`3daab9f`](https://github.com/h4mn/skybridge/commit/3daab9fdaae09087d60c6464b8566f5a2982d3c1) **runtime:** implementar Demo Engine com CLI e integração com Snapshot ([#49](https://github.com/h4mn/skybridge/pull/49)) [`@h4mn`](https://github.com/h4mn)
-* [`33f47a0`](https://github.com/h4mn/skybridge/commit/33f47a08b6967a9f78000986cc561015ab3d30c4) **webhooks:** configurar branch base para worktrees de agentes ([#49](https://github.com/h4mn/skybridge/pull/49)) [`@h4mn`](https://github.com/h4mn)
-* [`195412c`](https://github.com/h4mn/skybridge/commit/195412ccabab9268d827646e1445d3cc0cce3130) **queue:** implementar FileBasedJobQueue standalone + observabilidade ([#49](https://github.com/h4mn/skybridge/pull/49)) [`@h4mn`](https://github.com/h4mn)
-
-* [`93468f5`](https://github.com/h4mn/skybridge/commit/93468f5b2508b9b0de79a9f52fa65e6893374dc8) **ci:** implementar gerador de changelog Sky com Python [`@h4mn`](https://github.com/h4mn)
-
-[**#25**](https://github.com/h4mn/skybridge/pull/25) - implementar idempotência completa com correlation ID
-
-* [`9260458`](https://github.com/h4mn/skybridge/commit/9260458df722f8f7e4c49727a5cd0f36592536ec) **webhooks:** implementar idempotência completa com correlation ID ([#25](https://github.com/h4mn/skybridge/pull/25)) [`@h4mn`](https://github.com/h4mn)
+## [0.8.0] - 2026-01-20
 
 
-[**#40**](https://github.com/h4mn/skybridge/pull/40) - configurar branch base para worktrees de agentes
+### ✨ Novidades
 
-* [`3c29179`](https://github.com/h4mn/skybridge/commit/3c2917974449fbdaf542de120c86f8cceb209826) **webhooks:** configurar branch base para worktrees de agentes ([#40](https://github.com/h4mn/skybridge/pull/40)) [`@h4mn`](https://github.com/h4mn)
-
+* [`ee1ab00`](https://github.com/h4mn/skybridge/commit/ee1ab0076e2c73bb7743ccbaa10be39431a281e0) **ci:** implementar gerador de changelog Sky com Python ([#51](https://github.com/h4mn/skybridge/pull/51)) [`@h4mn`](https://github.com/h4mn)
 
 
 ### 🐛 Correções
 
-* [`e53d93b`](https://github.com/h4mn/skybridge/commit/e53d93bd32f9952307da0c79d256ec126dc98c40) **build:** remover configuração Poetry do pyproject.toml [`@h4mn`](https://github.com/h4mn)
-
-[**#49**](https://github.com/h4mn/skybridge/pull/49) - implementar exists_by_delivery no FileBasedJobQueue
-
-* [`84dbb0e`](https://github.com/h4mn/skybridge/commit/84dbb0e6df865bf664d7b981c96cb29d90479e98) **queue:** implementar exists_by_delivery no FileBasedJobQueue ([#49](https://github.com/h4mn/skybridge/pull/49)) [`@h4mn`](https://github.com/h4mn)
-
-
-[**#30**](https://github.com/h4mn/skybridge/pull/30) - implementar deduplicação usando X-GitHub-Delivery #30
-
-* [`4a1b106`](https://github.com/h4mn/skybridge/commit/4a1b10676407899c5c82fe248e45b5c75902987e) **webhooks:** implementar deduplicação usando X-GitHub-Delivery #30 ([#30](https://github.com/h4mn/skybridge/pull/30)) [`@h4mn`](https://github.com/h4mn)
-
-
-
-### ♻️ Refatoração
-
-
-[**#30**](https://github.com/h4mn/skybridge/pull/30) - renomear Mock→Fake e implementar deduplicação #30
-
-* [`d949bd2`](https://github.com/h4mn/skybridge/commit/d949bd246e17769580f12bbd59b55befffae6771) **webhooks:** renomear Mock→Fake e implementar deduplicação #30 ([#30](https://github.com/h4mn/skybridge/pull/30)) [`@h4mn`](https://github.com/h4mn)
-
-
-[**#28**](https://github.com/h4mn/skybridge/pull/28) - migrar estrutura para simplificar imports
-
-* [`a49c3e5`](https://github.com/h4mn/skybridge/commit/a49c3e586a357ca27a95c4577a1223db163fc639) migrar estrutura para simplificar imports ([#28](https://github.com/h4mn/skybridge/pull/28)) [`@h4mn`](https://github.com/h4mn)
-* [`2d313ec`](https://github.com/h4mn/skybridge/commit/2d313ec71aa48826030d8a4a91a03532f759bc8e) **namespace:** integração GitHub → Trello com agentes autônomos ([#28](https://github.com/h4mn/skybridge/pull/28)) [`@h4mn`](https://github.com/h4mn)
-
-
-
-### 📚 Documentação
-
-* [`d4d4322`](https://github.com/h4mn/skybridge/commit/d4d4322c6eb052b35df79f077e9c972a9ea0839b) **config:** adicionar memória do projeto e reorganizar .env.example [`@h4mn`](https://github.com/h4mn)
-
-[**#49**](https://github.com/h4mn/skybridge/pull/49) - documentar idempotência e correlation ID
-
-* [`9a09d9b`](https://github.com/h4mn/skybridge/commit/9a09d9b5aa394b248083b7f9f3c713a7ed87499d) **webhooks:** documentar idempotência e correlation ID ([#49](https://github.com/h4mn/skybridge/pull/49)) [`@h4mn`](https://github.com/h4mn)
-* [`0a58ec4`](https://github.com/h4mn/skybridge/commit/0a58ec40306401098abc1503cc7f7a752bf6f187) adicionar levantamento completo do fluxo GitHub → Trello ([#49](https://github.com/h4mn/skybridge/pull/49)) [`@h4mn`](https://github.com/h4mn)
-
-
-[**#28**](https://github.com/h4mn/skybridge/pull/28) - documentar simplificação da estrutura src/
-
-* [`042dfdb`](https://github.com/h4mn/skybridge/commit/042dfdbce5e4c6ade7e8f607aa7ed43bca504336) **adr:** documentar simplificação da estrutura src/ ([#28](https://github.com/h4mn/skybridge/pull/28)) [`@h4mn`](https://github.com/h4mn)
-
-
-
-### ✅ Testes
-
-
-[**#49**](https://github.com/h4mn/skybridge/pull/49) - corrigir imports e patches após refactoring
-
-* [`fdce64f`](https://github.com/h4mn/skybridge/commit/fdce64fd21715a3258637dadc81474e67712fea8) corrigir imports e patches após refactoring ([#49](https://github.com/h4mn/skybridge/pull/49)) [`@h4mn`](https://github.com/h4mn)
-
-
-
-### 🧹 Tarefas
-
-* [`d3b20a5`](https://github.com/h4mn/skybridge/commit/d3b20a50c7a365cbe42553fc5d85f387a3776230) **sync:** sincronizar dev com main (v0.5.4) [`@h4mn`](https://github.com/h4mn)
-* [`837c212`](https://github.com/h4mn/skybridge/commit/837c212044fca9728411e29cc793cb08c87898fd) **sync:** sincronizar dev com main (semantic-release configurado) [`@h4mn`](https://github.com/h4mn)
-
+* [`14508b9`](https://github.com/h4mn/skybridge/commit/14508b9b55a75e12c36bf18cef78dfc1f56d9d5d) **ci:** adicionar instalação do requests no workflow de release ([#53](https://github.com/h4mn/skybridge/pull/53)) [`@h4mn`](https://github.com/h4mn)
+* [`68dc02a`](https://github.com/h4mn/skybridge/commit/68dc02aa3f7cf95abcea330ca265d8c69543e45d) **build:** remover sintaxe inválida no pyproject.toml ([#52](https://github.com/h4mn/skybridge/pull/52)) [`@h4mn`](https://github.com/h4mn)
 
 ## [0.5.4] - 2026-01-19
 
