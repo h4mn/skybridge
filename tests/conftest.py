@@ -2,10 +2,14 @@
 """
 pytest configuration for Skybridge tests.
 
-Adds src directory to Python path.
+Adds src directory to Python path and loads environment variables.
 """
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 # Add src directory to Python path
 src_path = Path(__file__).parent.parent / "src"

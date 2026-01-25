@@ -19,6 +19,7 @@ from core.webhooks.domain.webhook_event import (
     generate_worktree_name,
     generate_branch_name,
 )
+from .autonomy_level import AutonomyLevel  # noqa: E402
 
 __all__ = [
     "WebhookSource",
@@ -27,4 +28,5 @@ __all__ = [
     "JobStatus",
     "generate_worktree_name",
     "generate_branch_name",
+    "AutonomyLevel",
 ]
