@@ -9,6 +9,47 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 
 
+
+## [0.11.0] - 2026-01-25
+
+
+### ✨ Novidades
+
+* [`fb1ed51`](https://github.com/h4mn/skybridge/commit/fb1ed519298932cbc1d6dd0c1738eb887145355a) **pl001:** migrar versionamento para git tags via setuptools_scm [`@h4mn`](https://github.com/h4mn)
+* [`95c3772`](https://github.com/h4mn/skybridge/commit/95c37726b68f5d4333d7e55fba5bbfef0cb71d19) **webhooks:** implementar sistema de snapshots para worktrees [`@h4mn`](https://github.com/h4mn)
+* [`9564ec6`](https://github.com/h4mn/skybridge/commit/9564ec6a0cfe747f43b0630204a0c077288c1496) **webui:** adicionar proteção de senha para deleção de worktrees [`@h4mn`](https://github.com/h4mn)
+* [`77cf21c`](https://github.com/h4mn/skybridge/commit/77cf21c916e765e3acd3c48ce663c5d49d93fdb9) **quality:** adicionar infraestrutura de qualidade e SPEC009 demo [`@h4mn`](https://github.com/h4mn)
+* [`220e101`](https://github.com/h4mn/skybridge/commit/220e101e989e907f59f9cba0c676b056b7130877) **webui:** adicionar prefixo /api nas rotas para compatibilidade com WebUI [`@h4mn`](https://github.com/h4mn)
+* [`19cd0dc`](https://github.com/h4mn/skybridge/commit/19cd0dc01924821a11091173080aabba2b6117ba) **pl001:** concluir fases 4-5 da migração de versionamento [`@h4mn`](https://github.com/h4mn)
+* [`0d146ac`](https://github.com/h4mn/skybridge/commit/0d146acf21b3cf9a5224e489fd2532590c82026e) **webui:** implementar sistema de logs com streaming real-time [`@h4mn`](https://github.com/h4mn)
+
+
+### 🐛 Correções
+
+* [`b8f17cc`](https://github.com/h4mn/skybridge/commit/b8f17cc021cdc8594252ed17e96df4d191473811) **quality:** corrigir imports e configurar pre-commit Python [`@h4mn`](https://github.com/h4mn)
+* [`93f8c4d`](https://github.com/h4mn/skybridge/commit/93f8c4d7869991912f9c46a71617534b83d2cef4) **release:** corrigir execução do changelog no workflow [`@h4mn`](https://github.com/h4mn)
+* [`1e907a6`](https://github.com/h4mn/skybridge/commit/1e907a60798a658e2e96a54fcb1e66491090ced9) **release:** adicionar __init__.py para tornar runtime um pacote Python [`@h4mn`](https://github.com/h4mn)
+* [`18f682b`](https://github.com/h4mn/skybridge/commit/18f682bf9438e4c097776c2b84339911907dbf61) **release:** não falhar quando não há mudanças no CHANGELOG [`@h4mn`](https://github.com/h4mn)
+
+
+### ♻️ Refatoração
+
+* [`950f5cd`](https://github.com/h4mn/skybridge/commit/950f5cd52b931473d0d76cd47e3140dae7b4efe5) **skills:** traduzir frontmatters para Português Brasileiro (ADR018) [`@h4mn`](https://github.com/h4mn)
+* [`8a97d7b`](https://github.com/h4mn/skybridge/commit/8a97d7be37c3c5c6d850e3e30f7d6c753cabf272) **runtime:** traduzir system prompt para Português Brasileiro (ADR018) [`@h4mn`](https://github.com/h4mn)
+* [`2951297`](https://github.com/h4mn/skybridge/commit/29512972ff5c00926077b9fc0c20c22808cb307d) **runtime:** reorganizar prompts e skills para estrutura src/runtime/prompts (PRD021) [`@h4mn`](https://github.com/h4mn)
+
+
+### 📚 Documentação
+
+* [`d5ed9a1`](https://github.com/h4mn/skybridge/commit/d5ed9a1cb78fb4d8d997d5e99d97fb6a269f898c) corrigir inconsistências identificadas no relatório consolidado [`@h4mn`](https://github.com/h4mn)
+* [`9d4ebae`](https://github.com/h4mn/skybridge/commit/9d4ebaeb83b4851e64d6545269240b935636d5f0) **prd014:** adicionar gap analysis de documentação vs implementação [`@h4mn`](https://github.com/h4mn)
+
+
+### ✅ Testes
+
+* [`e8b4c9c`](https://github.com/h4mn/skybridge/commit/e8b4c9c5bd9f8c4ebc0af7144bd6fae8ecc2622d) pre-commit [`@h4mn`](https://github.com/h4mn)
+* [`d873be5`](https://github.com/h4mn/skybridge/commit/d873be566eed2d4401be9de888d40c6dcf418758) hook [`@h4mn`](https://github.com/h4mn)
+
 ## [0.10.0] - 2026-01-25
 
 
