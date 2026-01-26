@@ -90,6 +90,7 @@ class WebhookConfig:
     worktree_base_path: str
     enabled_sources: list[str]
     base_branch: str = "dev"  # Branch base para criar worktrees de agentes
+    delete_password: str | None = None  # Senha para deleção de worktrees no WebUI
 
 
 @dataclass(frozen=True)
@@ -256,6 +257,7 @@ def load_webhook_config() -> WebhookConfig:
         worktree_base_path=str(WORKTREES_BASE_PATH),
         enabled_sources=_env_list("WEBHOOK_ENABLED_SOURCES", ["github"]),
         base_branch=os.getenv("WEBHOOK_BASE_BRANCH", "dev"),  # Branch base para worktrees
+        delete_password=os.getenv("WEBUI_DELETE_PASSWORD"),  # Senha para deleção de worktrees
     )
 
 
