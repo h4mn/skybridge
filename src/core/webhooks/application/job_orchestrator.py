@@ -35,6 +35,9 @@ from core.domain_events.job_events import (
     PRCreatedEvent,
 )
 from kernel.contracts.result import Result
+from runtime.observability.snapshot.git_diff import get_git_diff
+
+logger = logging.getLogger(__name__)
 
 
 # Mapeamento de event_type para skill (PRD013)
@@ -158,6 +161,63 @@ class JobOrchestrator:
         logger = logging.getLogger(__name__)
 
     @staticmethod
+    def _save_snapshot_with_status(worktree_path: str, snapshot: dict, status: str) -> None:
+        """
+        Salva snapshot com status em .sky/snapshot.json.
+
+        Args:
+            worktree_path: Caminho do worktree
+            snapshot: Dicionário com dados do snapshot
+            status: Status do worktree (PROCESSING, COMPLETED, FAILED)
+        """
+        from pathlib import Path
+        import json
+        from datetime import datetime
+
+        snapshot_logger = logging.getLogger(f"{__name__}.snapshot")
+
+        sky_dir = Path(worktree_path) / ".sky"
+        sky_dir.mkdir(parents=True, exist_ok=True)
+
+        snapshot["status"] = status
+        snapshot["updated_at"] = datetime.utcnow().isoformat()
+
+        snapshot_path = sky_dir / "snapshot.json"
+        snapshot_path.write_text(
+            json.dumps(snapshot, indent=2, ensure_ascii=False),
+            encoding="utf-8"
+        )
+
+        # Log estruturado com informações relevantes
+        extra_data = {
+            "status": status,
+            "worktree_path": worktree_path,
+            "snapshot_path": str(snapshot_path),
+            "has_initial": "initial" in snapshot,
+            "has_final": "final" in snapshot,
+            "has_git_diff": "git_diff" in snapshot,
+            "has_error": "error" in snapshot,
+        }
+
+        if status == "COMPLETED":
+            snapshot_logger.info(
+                f"Snapshot salvo: {status} | worktree={worktree_path}",
+                extra=extra_data
+            )
+        elif status == "FAILED":
+            error_msg = snapshot.get("error", "Unknown error")
+            error_type = snapshot.get("error_type", "Unknown")
+            snapshot_logger.error(
+                f"Snapshot salvo: {status} | worktree={worktree_path} | error_type={error_type} | error={error_msg}",
+                extra=extra_data
+            )
+        else:  # PROCESSING
+            snapshot_logger.info(
+                f"Snapshot salvo: {status} | worktree={worktree_path}",
+                extra=extra_data
+            )
+
+    @staticmethod
     def _get_skill_for_event_type(event_type: str, autonomy_level: "AutonomyLevel | None" = None) -> str | None:
         """
         Retorna o skill apropriado para um event_type.
@@ -259,6 +319,14 @@ class JobOrchestrator:
         # Passo 1: Criar worktree
         worktree_result = self.worktree_manager.create_worktree(job)
         if worktree_result.is_err:
+            # Tenta salvar snapshot com status FAILED (se worktree_path existe)
+            if job.worktree_path:
+                try:
+                    failed_snapshot = {"error": worktree_result.error, "error_type": "WorktreeError"}
+                    self._save_snapshot_with_status(job.worktree_path, failed_snapshot, "FAILED")
+                except Exception:
+                    pass  # Ignora erros ao salvar snapshot em caso de falha na criação do worktree
+
             # PRD018 ARCH-09: Emite JobFailedEvent
             duration = (datetime.utcnow() - self._job_start_time[job_id]).total_seconds()
             await self.event_bus.publish(
@@ -291,8 +359,17 @@ class JobOrchestrator:
                 "stats": initial_snapshot.stats.model_dump(),
                 "structure": initial_snapshot.structure,
             }
+            # Salva snapshot inicial com status PROCESSING
+            self._save_snapshot_with_status(worktree_path, job.initial_snapshot, "PROCESSING")
         except Exception as e:
             error_msg = f"Erro ao capturar snapshot: {str(e)}"
+            # Salva snapshot com status FAILED
+            try:
+                failed_snapshot = {"error": error_msg, "error_type": "SnapshotError"}
+                self._save_snapshot_with_status(worktree_path, failed_snapshot, "FAILED")
+            except Exception:
+                pass
+
             # PRD018 ARCH-09: Emite JobFailedEvent
             duration = (datetime.utcnow() - self._job_start_time[job_id]).total_seconds()
             await self.event_bus.publish(
@@ -325,6 +402,17 @@ class JobOrchestrator:
 
         agent_result = await self._execute_agent(job, skill)
         if agent_result.is_err:
+            # Salva snapshot com status FAILED
+            try:
+                failed_snapshot = {
+                    "initial": job.initial_snapshot,
+                    "error": agent_result.error,
+                    "error_type": "AgentError"
+                }
+                self._save_snapshot_with_status(worktree_path, failed_snapshot, "FAILED")
+            except Exception:
+                pass
+
             # PRD018 ARCH-09: Emite JobFailedEvent
             duration = (datetime.utcnow() - self._job_start_time[job_id]).total_seconds()
             await self.event_bus.publish(
@@ -359,6 +447,28 @@ class JobOrchestrator:
             # Validação falhou - ainda assim marca como completo
             await self.job_queue.complete(job_id)
 
+            # Captura snapshot final
+            try:
+                final_snapshot = extractor.capture(worktree_path)
+
+                # Captura diffs do git para visualização no WebUI
+                git_diff_data = get_git_diff(worktree_path)
+
+                final_snapshot_data = {
+                    "initial": job.initial_snapshot,
+                    "final": {
+                        "metadata": final_snapshot.metadata.model_dump(),
+                        "stats": final_snapshot.stats.model_dump(),
+                        "structure": final_snapshot.structure,
+                    },
+                    "validation": validation_result.value,
+                    "git_diff": git_diff_data,
+                }
+                # Salva com status COMPLETED mesmo com falha na validação
+                self._save_snapshot_with_status(worktree_path, final_snapshot_data, "COMPLETED")
+            except Exception as e:
+                logging.getLogger(__name__).warning(f"Falha ao capturar snapshot final: {e}")
+
             # PRD018 ARCH-09: Emite JobCompletedEvent mesmo com advertências
             duration = (datetime.utcnow() - self._job_start_time[job_id]).total_seconds()
             files_modified = validation_result.value.get("status", {}).get("staged", 0) \
@@ -385,6 +495,27 @@ class JobOrchestrator:
         await self.job_queue.complete(job_id)
 
         validation_info = validation_result.value
+
+        # Captura snapshot final e salva com status COMPLETED
+        try:
+            final_snapshot = extractor.capture(worktree_path)
+
+            # Captura diffs do git para visualização no WebUI
+            git_diff_data = get_git_diff(worktree_path)
+
+            final_snapshot_data = {
+                "initial": job.initial_snapshot,
+                "final": {
+                    "metadata": final_snapshot.metadata.model_dump(),
+                    "stats": final_snapshot.stats.model_dump(),
+                    "structure": final_snapshot.structure,
+                },
+                "validation": validation_info,
+                "git_diff": git_diff_data,
+            }
+            self._save_snapshot_with_status(worktree_path, final_snapshot_data, "COMPLETED")
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Falha ao capturar snapshot final: {e}")
 
         # PRD018 ARCH-09: Emite JobCompletedEvent
         duration = (datetime.utcnow() - self._job_start_time[job_id]).total_seconds()
