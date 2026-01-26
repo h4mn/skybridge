@@ -158,10 +158,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Commit changelog
+          # Commit changelog only if it changed
           git add CHANGELOG.md
-          git commit -m "docs(release): update changelog for ${NEW_VERSION}"
-          git push
+          if git diff --cached --quiet; then
+            echo "📝 No changelog changes to commit (no new commits since tag)"
+          else
+            git commit -m "docs(release): update changelog for ${NEW_VERSION}"
+            git push
+          fi
 
           # Extract new section for GitHub Release notes
           sed -n "/## \[${NEW_VERSION}\]/,/## \[/p" CHANGELOG.md | head -n -1 > release_notes.md
