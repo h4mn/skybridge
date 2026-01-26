@@ -71,6 +71,9 @@ logs/security/
 .claude/*.md
 .claude/sessions/
 
+# Private documentation (brainstorming, drafts)
+docs/.private/
+
 # Skybridge local data
 .sky/
 data/
@@ -78,3 +81,6 @@ archived/
 
 # ASGI experimental config
 apps/api/asgi.py
+
+# Arquivos gerados pelo setuptools_scm (PL001)
+src/_version.py

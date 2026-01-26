@@ -30,15 +30,34 @@ import requests
 
 
 def get_project_version() -> str:
-    """Retorna a versão do projeto a partir de src/version.py."""
-    version_path = Path("src/version.py")
-    if version_path.exists():
-        for line in version_path.read_text(encoding="utf-8").split("\n"):
-            if line.startswith("__version__"):
-                # Extrair versão entre aspas, removendo sufixo -dev se existir
-                version = line.split("=")[1].strip().strip('"').strip("'")
-                return version.replace("-dev", "")
-    raise FileNotFoundError("Não foi possível encontrar __version__ em src/version.py")
+    """
+    Retorna a versão do projeto a partir de src/version.py.
+
+    PL001: A versão é lida de git tags via setuptools_scm (cascading fallback).
+    """
+    import sys
+    from pathlib import Path
+
+    # Adicionar src ao path se necessário
+    src_path = Path("src")
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+
+    # Importar version module (que lê de git tags via setuptools_scm)
+    import version as version_mod
+
+    version = version_mod.__version__
+
+    # Limpar sufixos de dev para uso no changelog
+    # Ex: "0.6.0.dev58+g9d4ebaeb8.d20260125" -> "0.6.0"
+    # Ex: "0.7.0.dev" -> "0.7.0"
+    import re
+    # Remover .dev, +gHASH, e outros sufixos de metadata
+    clean_version = re.sub(r'\.dev\d*.*$', '', version)
+    clean_version = re.sub(r'\+.*$', '', clean_version)
+    clean_version = re.sub(r'\.dev$', '', clean_version)
+
+    return clean_version
 
 
 @dataclass

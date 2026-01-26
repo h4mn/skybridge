@@ -90,6 +90,7 @@ class WebhookConfig:
     worktree_base_path: str
     enabled_sources: list[str]
     base_branch: str = "dev"  # Branch base para criar worktrees de agentes
+    delete_password: str | None = None  # Senha para deleção de worktrees no WebUI
 
 
 @dataclass(frozen=True)
@@ -118,6 +119,55 @@ class TrelloConfig:
         """Verifica se ambas as credenciais estão presentes."""
         return bool(self.api_key and self.api_token)
 
+
+@dataclass
+class TrelloKanbanListsConfig:
+    """
+    Configuração das listas Kanban do Trello (PRD020).
+
+    Mapeia os IDs das listas do Trello para os estágios do fluxo de trabalho.
+    Usado pelo TrelloService para detectar movimentos de cards e iniciar agentes.
+
+    Environment Variables:
+        TRELLO_LIST_BRAINROLL: ID da lista de Brainstorm/Backlog
+        TRELLO_LIST_TODO: ID da lista "A Fazer"
+        TRELLO_LIST_IN_PROGRESS: ID da lista "Em Andamento"
+        TRELLO_LIST_REVIEW: ID da lista de Revisão/Teste
+        TRELLO_LIST_DONE: ID da lista "Pronto"/Publicar
+
+    Example:
+        export TRELLO_LIST_BRAINROLL="5f8d3c2a1b9e0f1234"
+        export TRELLO_LIST_TODO="5f8d3c2a1b9e0f1235"
+    """
+
+    backlog_list: str = ""  # 🧠 Brainstorm / 📥 Issues
+    bugs_list: str = ""  # 📋 A Fazer (mesma que todo_list em muitos boards)
+    todo_list: str = ""  # 📋 A Fazer
+    in_progress_list: str = ""  # 🚧 Em Andamento
+    testing_list: str = ""  # 👀 Em Revisão / ✅ Em Teste
+    review_list: str = ""  # ⚔️ Desafio / 👀 Em Revisão
+    done_list: str = ""  # 🚀 Publicar / ✅ Pronto
+
+
+def get_trello_kanban_lists_config() -> TrelloKanbanListsConfig:
+    """
+    Retorna configuração das listas Kanban do Trello.
+
+    Lê IDs das listas das environment variables.
+    Se não estiverem definidas, retorna config com strings vazias.
+
+    Returns:
+        TrelloKanbanListsConfig com IDs das listas
+    """
+    return TrelloKanbanListsConfig(
+        backlog_list=os.getenv("TRELLO_LIST_BRAINROLL", ""),
+        bugs_list=os.getenv("TRELLO_LIST_TODO", ""),
+        todo_list=os.getenv("TRELLO_LIST_TODO", ""),
+        in_progress_list=os.getenv("TRELLO_LIST_IN_PROGRESS", ""),
+        testing_list=os.getenv("TRELLO_LIST_REVIEW", ""),
+        review_list=os.getenv("TRELLO_LIST_CHALLENGE", ""),
+        done_list=os.getenv("TRELLO_LIST_DONE", ""),
+    )
 
 
 def _env_bool(key: str, default: bool = False) -> bool:
@@ -256,6 +306,7 @@ def load_webhook_config() -> WebhookConfig:
         worktree_base_path=str(WORKTREES_BASE_PATH),
         enabled_sources=_env_list("WEBHOOK_ENABLED_SOURCES", ["github"]),
         base_branch=os.getenv("WEBHOOK_BASE_BRANCH", "dev"),  # Branch base para worktrees
+        delete_password=os.getenv("WEBUI_DELETE_PASSWORD"),  # Senha para deleção de worktrees
     )
 
 

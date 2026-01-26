@@ -730,7 +730,7 @@ class TestJSONValidation:
 
     def test_get_json_validation_prompt(self):
         """Retorna prompt de validação JSON."""
-        from runtime.config.agent_prompts import get_json_validation_prompt
+        from runtime.prompts import get_json_validation_prompt
 
         prompt = get_json_validation_prompt()
 

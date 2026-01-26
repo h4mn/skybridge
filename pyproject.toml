@@ -1,6 +1,32 @@
 # pyproject.toml - Configuração do Skybridge
-# Apenas para ferramentas (linters, formatters, etc.)
-# Build system usa setup.py
+# Build system com setuptools_scm para versionamento dinâmico via git tags (PL001)
+
+[project]
+name = "skybridge"
+dynamic = ["version"]
+requires-python = ">=3.11"
+description = "Microkernel RPC Platform for building distributed systems"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "h4mn", email = "hadley.santos@gmail.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+]
+
+[project.optional-dependencies]
+dev = [
+    "python-semantic-release>=9.0.0",
+]
+
+[tool.setuptools_scm]
+write_to = "src/_version.py"
+version_scheme = "release-branch-semver"
+fallback_version = "0.0.0"
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -42,5 +68,5 @@ dist_glob_patterns = ["dist/*"]
 upload_to_vcs_release = false
 
 [build-system]
-requires = ["setuptools>=40.8.0", "wheel"]
+requires = ["setuptools>=61.0", "setuptools_scm[toml]>=8.0"]
 build-backend = "setuptools.build_meta"

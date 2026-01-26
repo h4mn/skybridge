@@ -27,41 +27,10 @@ from runtime.config.feature_flags import (
     get_feature_flags,
 )
 
-from runtime.config.agent_prompts import (
+from runtime.prompts import (
     get_system_prompt_template,
     render_system_prompt,
     save_custom_prompt,
     reset_to_default_prompt,
     get_json_validation_prompt,
 )
-
-__all__ = [
-    # Config classes
-    "AppConfig",
-    "SslConfig",
-    "NgrokConfig",
-    "FileOpsConfig",
-    "DiscoveryConfig",
-    "SecurityConfig",
-    "WebhookConfig",
-    "AgentConfig",
-    "TrelloConfig",
-    "FeatureFlags",
-    # Config getters
-    "get_config",
-    "get_ssl_config",
-    "get_ngrok_config",
-    "get_fileops_config",
-    "get_discovery_config",
-    "get_security_config",
-    "get_webhook_config",
-    "get_agent_config",
-    "get_trello_config",
-    "get_feature_flags",
-    # Agent prompts
-    "get_system_prompt_template",
-    "render_system_prompt",
-    "save_custom_prompt",
-    "reset_to_default_prompt",
-    "get_json_validation_prompt",
-]

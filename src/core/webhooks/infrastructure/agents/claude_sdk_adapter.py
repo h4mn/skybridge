@@ -31,7 +31,7 @@ from core.webhooks.infrastructure.agents.domain import (
 )
 from kernel.contracts.result import Result
 from runtime.config import get_agent_config
-from runtime.config.agent_prompts import (
+from runtime.prompts import (
     render_system_prompt,
     load_system_prompt_config,
 )

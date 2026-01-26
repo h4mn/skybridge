@@ -798,6 +798,480 @@ def create_rpc_router() -> APIRouter:
                 }
             )
 
+    # ========== WebUI Endpoints (PRD014) ==========
+
+    @router.get("/webhooks/jobs")
+    async def list_webhook_jobs():
+        """
+        Lista todos os jobs de webhook para o WebUI.
+
+        PRD014: Endpoint para o Dashboard listar jobs.
+        """
+        try:
+            from core.webhooks.application.handlers import get_job_queue
+
+            job_queue = get_job_queue()
+
+            # Tenta obter métricas da fila (disponível em SQLiteJobQueue)
+            if hasattr(job_queue, 'get_metrics'):
+                metrics = await job_queue.get_metrics()
+                # Retornar estrutura compatível com o frontend
+                # Por enquanto, retornamos métricas agregadas em vez de lista individual
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "ok": True,
+                        "metrics": metrics,
+                        "jobs": [],  # Lista vazia por enquanto (requer implementação adicional)
+                    }
+                )
+            else:
+                # Fallback para filas sem get_metrics
+                return JSONResponse(
+                    status_code=200,
+                    content={"ok": True, "jobs": [], "metrics": {}},
+                )
+        except Exception as e:
+            logger.error(
+                f"Failed to list jobs: {str(e)}",
+                extra={"error": str(e)},
+            )
+            return JSONResponse(
+                status_code=200,
+                content={"ok": True, "jobs": [], "metrics": {}},
+            )
+
+    @router.get("/webhooks/worktrees")
+    async def list_worktrees():
+        """
+        Lista todos os worktrees ativos para o WebUI.
+
+        PRD014: Endpoint para o Dashboard listar worktrees.
+        """
+        try:
+            from pathlib import Path
+            from runtime.config.config import get_webhook_config
+            import json
+
+            config = get_webhook_config()
+            worktrees_path = Path(config.worktree_base_path)
+
+            worktrees = []
+            if worktrees_path.exists():
+                for item in worktrees_path.iterdir():
+                    if item.is_dir() and item.name.startswith("skybridge-github-"):
+                        # Lê snapshot se existir
+                        snapshot_path = item / ".sky" / "snapshot.json"
+                        snapshot = None
+                        if snapshot_path.exists():
+                            try:
+                                snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+                            except Exception:
+                                pass
+
+                        # Determina status baseado no snapshot
+                        status = "UNKNOWN"
+                        if snapshot:
+                            status = snapshot.get("status", "UNKNOWN").upper()
+
+                        worktrees.append({
+                            "name": item.name,
+                            "path": str(item),
+                            "status": status,
+                            "snapshot": snapshot,
+                        })
+
+            return JSONResponse(
+                status_code=200,
+                content={"ok": True, "worktrees": worktrees},
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to list worktrees: {str(e)}",
+                extra={"error": str(e)},
+            )
+            return JSONResponse(
+                status_code=200,
+                content={"ok": True, "worktrees": []},
+            )
+
+    @router.get("/webhooks/worktrees/{worktree_name}")
+    async def get_worktree_details(worktree_name: str):
+        """
+        Retorna detalhes completos de um worktree para o WebUI.
+
+        PRD014: Endpoint para o modal de detalhes do worktree.
+        """
+        try:
+            from pathlib import Path
+            from runtime.config.config import get_webhook_config
+            import json
+
+            config = get_webhook_config()
+            worktree_path = Path(config.worktree_base_path) / worktree_name
+
+            if not worktree_path.exists():
+                return JSONResponse(
+                    status_code=404,
+                    content={"ok": False, "error": f"Worktree not found: {worktree_name}"},
+                )
+
+            # Lê agent log
+            agent_log_path = worktree_path / ".sky" / "agent.log"
+            agent_log = None
+            if agent_log_path.exists():
+                try:
+                    agent_log = agent_log_path.read_text(encoding="utf-8")
+                except Exception:
+                    pass
+
+            # Lê snapshot
+            snapshot_path = worktree_path / ".sky" / "snapshot.json"
+            snapshot = None
+            if snapshot_path.exists():
+                try:
+                    snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "ok": True,
+                    "name": worktree_name,
+                    "path": str(worktree_path),
+                    "agent_log": agent_log,
+                    "snapshot": snapshot,
+                },
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to get worktree details: {str(e)}",
+                extra={"error": str(e), "worktree": worktree_name},
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"ok": False, "error": str(e)},
+            )
+
+    @router.delete("/webhooks/worktrees/{worktree_name}")
+    async def delete_worktree(worktree_name: str, password: str | None = None):
+        """
+        Remove um worktree para o WebUI.
+
+        PRD014: Endpoint para limpar worktrees do Dashboard com proteções de segurança.
+
+        Segurança:
+        - Requer senha configurada em WEBUI_DELETE_PASSWORD
+        - Só permite deletar worktrees com status COMPLETED ou FAILED
+        - Registra log de auditoria
+        """
+        try:
+            from pathlib import Path
+            from runtime.config.config import get_webhook_config
+            import json
+            from datetime import datetime
+
+            config = get_webhook_config()
+
+            # 1. Verifica se senha está configurada
+            if not config.delete_password:
+                return JSONResponse(
+                    status_code=403,
+                    content={"ok": False, "error": "Delete password not configured. Set WEBUI_DELETE_PASSWORD env var."},
+                )
+
+            # 2. Valida senha
+            if password != config.delete_password:
+                logger.warning(
+                    f"Failed delete attempt for worktree {worktree_name}: invalid password",
+                    extra={"worktree": worktree_name},
+                )
+                return JSONResponse(
+                    status_code=401,
+                    content={"ok": False, "error": "Invalid password"},
+                )
+
+            worktree_path = Path(config.worktree_base_path) / worktree_name
+
+            if not worktree_path.exists():
+                return JSONResponse(
+                    status_code=404,
+                    content={"ok": False, "error": f"Worktree not found: {worktree_name}"},
+                )
+
+            # 3. Lê status atual do snapshot
+            snapshot_path = worktree_path / ".sky" / "snapshot.json"
+            status = "UNKNOWN"
+            if snapshot_path.exists():
+                try:
+                    snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+                    status = snapshot.get("status", "UNKNOWN").upper()
+                except Exception:
+                    pass
+
+            # 4. Só permite deletar COMPLETED ou FAILED
+            if status not in ("COMPLETED", "FAILED"):
+                logger.warning(
+                    f"Delete attempt denied for worktree {worktree_name}: status is {status}",
+                    extra={"worktree": worktree_name, "status": status},
+                )
+                return JSONResponse(
+                    status_code=409,  # Conflict
+                    content={
+                        "ok": False,
+                        "error": f"Cannot delete worktree with status '{status}'. Only COMPLETED or FAILED can be deleted.",
+                        "status": status
+                    },
+                )
+
+            # 5. Log de auditoria
+            logger.info(
+                f"Deleting worktree {worktree_name} with status {status}",
+                extra={"worktree": worktree_name, "status": status, "timestamp": datetime.utcnow().isoformat()},
+            )
+
+            # 6. Remove worktree usando git worktree remove
+            import subprocess
+            result = subprocess.run(
+                ["git", "worktree", "remove", str(worktree_path)],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                return JSONResponse(
+                    status_code=500,
+                    content={"ok": False, "error": result.stderr},
+                )
+
+            return JSONResponse(
+                status_code=200,
+                content={"ok": True, "message": f"Worktree {worktree_name} removed"},
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to delete worktree: {str(e)}",
+                extra={"error": str(e), "worktree": worktree_name},
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"ok": False, "error": str(e)},
+            )
+
+    @router.get("/observability/logs")
+    async def get_logs(tail: int = 100, level: str | None = None):
+        """
+        Retorna logs recentes para o WebUI.
+
+        PRD014: Endpoint para busca histórica de logs.
+        """
+        try:
+            from pathlib import Path
+            from datetime import datetime
+
+            log_file = Path("workspace/skybridge/logs") / f"{datetime.now():%Y-%m-%d}.log"
+
+            if not log_file.exists():
+                return JSONResponse(status_code=200, content={"ok": True, "lines": []})
+
+            lines = log_file.read_text(encoding="utf-8").splitlines()
+
+            # Filtra por nível se especificado
+            if level:
+                lines = [l for l in lines if f"[{level.upper()}]" in l]
+
+            return JSONResponse(
+                status_code=200,
+                content={"ok": True, "lines": lines[-tail:]},
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to get logs: {str(e)}",
+                extra={"error": str(e)},
+            )
+            return JSONResponse(
+                status_code=200,
+                content={"ok": True, "lines": []},
+            )
+
+    @router.get("/observability/logs/stream")
+    async def stream_logs():
+        """
+        Stream logs em tempo real via SSE para o WebUI.
+
+        PRD014: Endpoint SSE para streaming de logs.
+        """
+        from fastapi.responses import StreamingResponse
+        import asyncio
+
+        async def log_generator():
+            """Gerador que lê novas linhas do log."""
+            from pathlib import Path
+            from datetime import datetime
+
+            log_file = Path("workspace/skybridge/logs") / f"{datetime.now():%Y-%m-%d}.log"
+            last_position = 0
+
+            if log_file.exists():
+                last_position = log_file.stat().st_size
+
+            while True:
+                if log_file.exists():
+                    current_size = log_file.stat().st_size
+
+                    if current_size > last_position:
+                        # Lê novas linhas
+                        with open(log_file, "rb") as f:
+                            f.seek(last_position)
+                            new_lines = f.read().decode("utf-8")
+
+                        for line in new_lines.splitlines():
+                            if line.strip():
+                                yield f"data: {line}\n\n"
+
+                        last_position = current_size
+
+                await asyncio.sleep(0.5)  # Poll a cada 500ms
+
+        return StreamingResponse(log_generator(), media_type="text/event-stream")
+
+    # ========== Log File Endpoints for Logs.tsx ==========
+
+    @router.get("/logs/files")
+    async def list_log_files():
+        """
+        Lista todos os arquivos de log disponíveis para o WebUI.
+
+        PRD014: Endpoint para a página de Logs listar arquivos.
+        """
+        try:
+            from pathlib import Path
+
+            logs_dir = Path("workspace/skybridge/logs")
+
+            if not logs_dir.exists():
+                return JSONResponse(
+                    status_code=200,
+                    content={"ok": True, "files": []}
+                )
+
+            files = []
+            for log_file in sorted(logs_dir.glob("*.log"), reverse=True):
+                stat = log_file.stat()
+                # Converte timestamp Unix (segundos) para ISO string
+                from datetime import datetime
+                modified_dt = datetime.fromtimestamp(stat.st_mtime)
+                files.append({
+                    "name": log_file.name,
+                    "size": stat.st_size,
+                    "modified": modified_dt.isoformat()
+                })
+
+            return JSONResponse(
+                status_code=200,
+                content={"ok": True, "files": files}
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to list log files: {str(e)}",
+                extra={"error": str(e)},
+            )
+            return JSONResponse(
+                status_code=200,
+                content={"ok": True, "files": []},
+            )
+
+    @router.get("/logs/file/{filename}")
+    async def get_log_file(
+        filename: str,
+        page: int = Query(1, ge=1, description="Número da página"),
+        per_page: int = Query(500, ge=1, le=50000, description="Itens por página"),
+        level: str | None = Query(None, description="Filtrar por nível (DEBUG/INFO/WARNING/ERROR/CRITICAL)"),
+        search: str | None = Query(None, description="Buscar termo nos logs")
+    ):
+        """
+        Retorna entradas de log de um arquivo específico com paginação e filtros.
+
+        PRD014: Endpoint para a página de Logs exibir entradas.
+
+        Logs são retornados em ordem reversa (mais recentes primeiro).
+        Mensagens com códigos ANSI são convertidas para HTML.
+        """
+        try:
+            from pathlib import Path
+            from datetime import datetime
+            from runtime.delivery.log_utils import parse_log_line, strip_ansi_codes
+
+            logs_dir = Path("workspace/skybridge/logs")
+            log_file = logs_dir / filename
+
+            # Verifica se o arquivo está dentro do diretório de logs (segurança)
+            if not str(log_file.resolve()).startswith(str(logs_dir.resolve())):
+                return JSONResponse(
+                    status_code=403,
+                    content={"ok": False, "error": "Acesso negado"}
+                )
+
+            if not log_file.exists():
+                return JSONResponse(
+                    status_code=404,
+                    content={"ok": False, "error": f"Arquivo não encontrado: {filename}"}
+                )
+
+            # Lê todas as linhas do arquivo
+            lines = log_file.read_text(encoding="utf-8").splitlines()
+
+            # Parse cada linha usando o utilitário
+            entries = []
+            for line in lines:
+                parsed = parse_log_line(line)
+                if parsed:
+                    entries.append(parsed)
+
+            # Inverte ordem: mais recentes primeiro
+            entries.reverse()
+
+            # Aplica filtros (busca em mensagem sem ANSI)
+            if level:
+                entries = [e for e in entries if e["level"].upper() == level.upper()]
+
+            if search:
+                search_lower = search.lower()
+                entries = [
+                    e for e in entries
+                    if search_lower in strip_ansi_codes(e["message"]).lower()
+                    or search_lower in e["logger"].lower()
+                ]
+
+            # Paginação
+            total = len(entries)
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            paginated_entries = entries[start_idx:end_idx]
+
+            # Retorna entradas com message_html para renderização
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "ok": True,
+                    "entries": paginated_entries,
+                    "total": total,
+                    "page": page,
+                    "per_page": per_page,
+                    "total_pages": (total + per_page - 1) // per_page
+                }
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to get log file: {str(e)}",
+                extra={"error": str(e), "filename": filename},
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"ok": False, "error": str(e)},
+            )
+
     # ========== Webhook Endpoints (PRD013) ==========
 
     @router.head("/webhooks/{source}")

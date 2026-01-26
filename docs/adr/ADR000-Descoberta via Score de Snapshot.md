@@ -19,8 +19,8 @@ Adotar um processo de **descoberta automatizada** usando snapshots filtrados (pa
 - Fora: refatoração, unificação de código e decisões de arquitetura final (tratadas em ADRs posteriores).
 
 ## Opções consideradas
-1) Análise manual dos repositórios  
-2) Migração imediata para um novo repositório “limpo”  
+1) Análise manual dos repositórios
+2) Migração imediata para um novo repositório “limpo”
 3) Descoberta automatizada via snapshot + scoring (**escolhida**)
 
 ## Critérios de decisão
@@ -42,9 +42,9 @@ Adotar um processo de **descoberta automatizada** usando snapshots filtrados (pa
 - Necessidade de calibrar pesos de score
 
 ### Riscos e mitigação
-- **Risco:** monolito dominar resultados  
+- **Risco:** monolito dominar resultados
   **Mitigação:** penalização sem marcadores fortes e leitura mínima de conteúdo
-- **Risco:** escopo excessivo  
+- **Risco:** escopo excessivo
   **Mitigação:** depth=5 e leitura sob demanda
 
 ## Plano / Próximos passos

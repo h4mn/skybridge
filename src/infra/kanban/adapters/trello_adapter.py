@@ -54,6 +54,7 @@ class TrelloAdapter(KanbanPort):
         self.api_token = api_token
         self.board_id = board_id
         self._lists_cache: dict[str, str] = {}  # Cache de nome -> idList
+        self._list_status_cache: dict[str, CardStatus] = {}  # Cache de idList -> CardStatus
         self._client = httpx.AsyncClient(
             base_url=TRELLO_API_BASE,
             params={
@@ -367,15 +368,112 @@ class TrelloAdapter(KanbanPort):
             external_source="trello",
         )
 
+    async def initialize_status_cache(self, board_id: str | None = None) -> Result[None, str]:
+        """
+        Inicializa o cache de mapeamento idList → CardStatus.
+
+        Busca todas as listas do board e mapeia para CardStatus baseado no nome.
+        Deve ser chamado explicitamente antes de usar get_card() se quiser status correto.
+
+        Args:
+            board_id: ID do board (usa self.board_id se não fornecido)
+
+        Returns:
+            Result OK se cache foi populado, erro se falhou
+        """
+        target_board = board_id or self.board_id
+        if not target_board:
+            return Result.err("board_id não fornecido")
+
+        try:
+            # Busca listas do board
+            response = await self._client.get(f"/boards/{target_board}/lists")
+            response.raise_for_status()
+            lists_data = response.json()
+
+            # Mapeamento de nomes de lista para CardStatus (específico para SPEC009)
+            name_to_status = {
+                # Lista comuns
+                "backlog": CardStatus.BACKLOG,
+                "to do": CardStatus.TODO,
+                "todo": CardStatus.TODO,
+                "doing": CardStatus.IN_PROGRESS,
+                "in progress": CardStatus.IN_PROGRESS,
+                "em andamento": CardStatus.IN_PROGRESS,
+                "review": CardStatus.REVIEW,
+                "testing": CardStatus.REVIEW,
+                "em teste": CardStatus.REVIEW,
+                "em revisão": CardStatus.REVIEW,
+                "done": CardStatus.DONE,
+                "pronto": CardStatus.DONE,
+                "publicar": CardStatus.DONE,
+                "blocked": CardStatus.BLOCKED,
+                # SPEC009 - Fluxo Multi-Agente (nomes com emojis)
+                "🧠 brainstorm": CardStatus.BACKLOG,
+                "💡 brainstorm": CardStatus.BACKLOG,
+                "📋 a fazer": CardStatus.TODO,
+                "🚧 em andamento": CardStatus.IN_PROGRESS,
+                "👀 em revisão": CardStatus.REVIEW,
+                "✅ em teste": CardStatus.REVIEW,
+                "⚔️ desafio": CardStatus.CHALLENGE,
+                "🚀 publicar": CardStatus.DONE,
+                "✅ pronto": CardStatus.DONE,
+            }
+
+            # Popula o cache
+            for lst in lists_data:
+                list_id = lst["id"]
+                list_name = lst.get("name", "").lower().strip()
+
+                # Busca status pelo nome (match exato ou parcial)
+                status = name_to_status.get(list_name)
+
+                # Se não encontrou por nome exato, tenta match parcial
+                if status is None:
+                    for key, value in name_to_status.items():
+                        if key in list_name or list_name in key:
+                            status = value
+                            break
+
+                # Se ainda não encontrou, usa posição como fallback
+                if status is None:
+                    pos = lists_data.index(lst)
+                    if pos == 0:
+                        status = CardStatus.BACKLOG
+                    elif pos == 1:
+                        status = CardStatus.TODO
+                    elif pos == 2:
+                        status = CardStatus.IN_PROGRESS
+                    elif pos == len(lists_data) - 1:
+                        status = CardStatus.DONE
+                    else:
+                        status = CardStatus.TODO
+
+                self._list_status_cache[list_id] = status
+                logger.info(f"Status cache: {list_name} ({list_id}) → {status.value}")
+
+            return Result.ok(None)
+
+        except httpx.HTTPStatusError as e:
+            return Result.err(f"Erro HTTP {e.response.status_code}: {e.response.text}")
+        except Exception as e:
+            logger.error(f"Erro ao popular cache de status: {e}")
+            return Result.err(f"Erro ao popular cache: {str(e)}")
+
     def _map_status(self, trello_list_id: str) -> CardStatus:
         """
         Mapeia ID da lista Trello para CardStatus.
 
-        TODO: Implementar cache de listas para mapeamento correto.
-        Por enquanto, assume defaults baseados em posições comuns.
+        Usa o cache populado por initialize_status_cache(). Se o cache não estiver
+        populado, retorna CardStatus.TODO como fallback.
+
+        Args:
+            trello_list_id: ID da lista do Trello
+
+        Returns:
+            CardStatus correspondente à lista, ou TODO se não encontrado no cache
         """
-        # Mapeamento simplificado - TODO: fazer lookup real de listas
-        return CardStatus.TODO
+        return self._list_status_cache.get(trello_list_id, CardStatus.TODO)
 
     async def auto_configure_lists(
         self,

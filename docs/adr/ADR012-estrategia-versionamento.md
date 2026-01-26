@@ -262,11 +262,84 @@ https://skybridge.dev/docs/v0.1/spec/protocol
 - [x] Criação do arquivo VERSION
 - [x] Atualização de todos os componentes para 0.1.0
 
-### 🔄 Pendente
-- [ ] Criar workflow `.github/workflows/release.yml`
-- [ ] Criar workflow `.github/workflows/docs.yml`
+### ✅ Concluído (2026-01-25)
+- [x] Criar workflow `.github/workflows/release.yml`
+- [x] Criar workflow `.github/workflows/docs.yml`
+- [x] Implementar geração automática de CHANGELOG.md (via `runtime/changelog.py`)
+
+### 🔄 Migração para Git Tags (PL001 - 2026-01-25)
+
+**Decisão:** Migrar de arquivo VERSION hardcoded para **git tags como fonte de verdade** usando `setuptools_scm`.
+
+**Motivação:**
+- ❌ **Problema:** Arquivo VERSION causa conflitos de merge entre branches
+- ❌ **Problema:** Versão hardcoded não reflete estado real do branch
+- ✅ **Solução:** Git tags + setuptools_scm = versão dinâmica
+
+**Mudanças aplicadas:**
+
+| Componente | Antes (PL000) | Depois (PL001) |
+|------------|---------------|----------------|
+| `src/version.py` | Lê arquivo VERSION | Cascade fallback (git tags → git describe → unknown) |
+| `pyproject.toml` | version hardcoded | `setuptools_scm` dynamic versioning |
+| `.github/workflows/release.yml` | Atualiza VERSION | Cria tag (não toca em arquivos) |
+| `.github/workflows/docs.yml` | `source VERSION` | `python -c "import version"` |
+| `VERSION` | Arquivo versionado | Removido (git tags são source of truth) |
+
+**Exemplo de versionamento após PL001:**
+
+```bash
+# branch main (tagged commit)
+git tag v0.10.0
+python -c "from version import __version__; print(__version__)"  # 0.10.0
+
+# branch dev (3 commits após v0.10.0)
+python -c "from version import __version__; print(__version__)"  # 0.10.0.dev3+gABC
+
+# branch staging (1 commit após v0.10.0)
+python -c "from version import __version__; print(__version__)"  # 0.10.0.dev1+gXYZ
+```
+
+**Cascade fallback em `src/version.py`:**
+
+```python
+# 1. setuptools_scm auto-generated (preferred)
+from ._version import version as __version__
+
+# 2. Git describe (development fallback)
+__version__ = f"{tag}.dev"  # ex: "0.10.0.dev"
+
+# 3. Unknown (last resort)
+__version__ = "0.0.0-unknown"
+```
+
+**Arquivo gerado (não versionado):**
+- `src/_version.py` → gerado automaticamente por `setuptools_scm`
+- Adicionado ao `.gitignore`
+
+**Workflow de release simplificado:**
+```yaml
+# .github/workflows/release.yml (PL001)
+- Detect version bump (conventional commits)
+- Calculate new version from latest tag
+- Create and push git tag (NO VERSION FILE!)
+- Update CHANGELOG
+- Create GitHub Release
+```
+
+**Workflow de documentação atualizado:**
+```yaml
+# .github/workflows/docs.yml (PL001)
+- Get version from Python module (reads git tags)
+- Update OpenAPI specs
+- Update SPEC versions
+- Deploy to GitHub Pages
+```
+
+**Referência completa:** Ver `docs/plan/PL001-migrar-versionamento-git-tags.md`
+
+## Pendente
 - [ ] Configurar commitlint para enforce conventional commits
-- [ ] Implementar geração automática de CHANGELOG.md
 
 ## Dependências
 

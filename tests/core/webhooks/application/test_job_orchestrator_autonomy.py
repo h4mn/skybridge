@@ -10,12 +10,12 @@ import pytest
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
 
-from src.core.webhooks.application.job_orchestrator import (
+from core.webhooks.application.job_orchestrator import (
     JobOrchestrator,
     EVENT_TYPE_TO_SKILL,
     AUTONOMY_LEVEL_TO_SKILL,
 )
-from src.core.webhooks.domain import (
+from core.webhooks.domain import (
     WebhookJob,
     WebhookEvent,
     WebhookSource,
@@ -232,7 +232,7 @@ class TestJobOrchestratorDoD:
         Verifica que JobOrchestrator suporta autonomy_level.
         """
         import inspect
-        from src.core.webhooks.application.job_orchestrator import JobOrchestrator
+        from core.webhooks.application.job_orchestrator import JobOrchestrator
 
         # Verifica método existe
         assert hasattr(JobOrchestrator, "_get_skill_for_event_type")
@@ -247,7 +247,7 @@ class TestJobOrchestratorDoD:
 
         Verifica que WebhookJob tem campo autonomy_level.
         """
-        from src.core.webhooks.domain import WebhookJob, WebhookEvent, WebhookSource
+        from core.webhooks.domain import WebhookJob, WebhookEvent, WebhookSource
         from datetime import datetime
 
         event = WebhookEvent(

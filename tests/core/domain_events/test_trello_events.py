@@ -12,11 +12,11 @@ import pytest
 from datetime import datetime
 from dataclasses import FrozenInstanceError
 
-from src.core.domain_events.trello_events import (
+from core.domain_events.trello_events import (
     TrelloWebhookReceivedEvent,
     TrelloCardMovedToListEvent,
 )
-from src.core.domain_events.domain_event import DomainEvent
+from core.domain_events.domain_event import DomainEvent
 
 
 class TestTrelloWebhookReceivedEvent:
@@ -155,7 +155,7 @@ class TestTrelloEventsIntegration:
 
     def test_events_are_importable(self):
         """Eventos devem ser importáveis do módulo."""
-        from src.core.domain_events import trello_events
+        from core.domain_events import trello_events
 
         assert hasattr(trello_events, "TrelloWebhookReceivedEvent")
         assert hasattr(trello_events, "TrelloCardMovedToListEvent")
