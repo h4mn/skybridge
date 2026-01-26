@@ -23,6 +23,12 @@ _job_queue: JobQueuePort | None = None
 # EventBus (singleton para Domain Events)
 _event_bus = None
 
+# TrelloIntegrationService (opcional, singleton)
+_trello_service = None
+
+# TrelloService (opcional, singleton)
+_trello_kanban_service = None
+
 # PRD020: Mapeamento listas Trello → AutonomyLevel
 LIST_TO_AUTONOMY = {
     "💡 Brainstorm": "analysis",
@@ -31,9 +37,6 @@ LIST_TO_AUTONOMY = {
     "👁️ Em Revisão": "review",
     "🚀 Publicar": "publish",
 }
-
-# TrelloIntegrationService (opcional, singleton - REMOVIDO PRD018 ARCH-07)
-# TrelloService (opcional, singleton - REMOVIDO PRD018 ARCH-07)
 
 
 def get_trello_service():

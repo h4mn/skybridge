@@ -11,6 +11,7 @@ Categorias:
 - e2e_scenarios.py: Demos end-to-end completas
 - queue_scenarios.py: Demos de sistema de fila
 - engine_scenarios.py: Demos que testam a própria engine/CLI
+- prd021_scenarios.py: Demos da reorganização de prompts e skills (PRD021)
 """
 
 # Import de todos os cenários para registrar automaticamente
@@ -44,6 +45,15 @@ from runtime.demo.scenarios.agent_sdk_scenarios import (
     AgentSDKBenchmarkDemo,
 )
 
+from runtime.demo.scenarios.prd021_scenarios import (
+    PRD021StructureDemo,
+    PRD021ImportDemo,
+)
+
+from runtime.demo.scenarios.spec009_e2e_demo import (
+    SPEC009InteractiveDemo,
+)
+
 __all__ = [
     # Trello
     "TrelloFlowDemo",
@@ -63,4 +73,9 @@ __all__ = [
     # Agent SDK (PRD019)
     "AgentSDKE2EDemo",
     "AgentSDKBenchmarkDemo",
+    # PRD021 - Refatoração de Prompts e Skills
+    "PRD021StructureDemo",
+    "PRD021ImportDemo",
+    # SPEC009 - Workflow Multi-Agente
+    "SPEC009InteractiveDemo",
 ]
