@@ -45,6 +45,8 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e .
+          # Install additional dependencies for changelog script
+          pip install requests
 
       - name: Parse commits and determine version bump
         id: parse_commits
@@ -150,7 +152,7 @@ jobs:
           echo "🔍 Generating changelog for ${NEW_VERSION} (from ${LATEST_TAG:-initial})..."
 
           # Generate changelog using Sky Python script
-          python -m runtime.changelog "${NEW_VERSION}" "${LATEST_TAG}" --from-gh --detailed --apply
+          python runtime/changelog.py "${NEW_VERSION}" "${LATEST_TAG}" --from-gh --detailed --apply
 
           # Configure git
           git config user.name "github-actions[bot]"
