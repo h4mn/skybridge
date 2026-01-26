@@ -1,9 +1,9 @@
 # Pre-commit hooks para Skybridge
-# Instalar: pre-commit install
+# Instalar: pip install pre-commit && pre-commit install
 # Rodar manualmente: pre-commit run --all-files
 
 repos:
-  # Hook nativo para detectar arquivos grandes
+  # Hooks nativos do pre-commit
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
@@ -16,47 +16,28 @@ repos:
       - id: check-added-large-files
         args: ['--maxkb=1000']
 
-  # Hook customizado para verificar imports críticos
+  # Hooks customizados para validações do projeto
   - repo: local
     hooks:
-      - id: check-critical-imports
-        name: Check critical imports
-        entry: python -c "
-import sys
-sys.path.insert(0, 'src')
-
-critical_modules = [
-    'runtime.config.config',
-    'core.webhooks.application.handlers',
-    'core.kanban.application.trello_service',
-    'infra.kanban.adapters.trello_adapter',
-    'runtime.prompts',
-]
-
-errors = []
-for module in critical_modules:
-    try:
-        __import__(module)
-    except Exception as e:
-        errors.append(f'❌ {module}: {e}')
-
-if errors:
-    print('\\n🚨 Import errors found:')
-    for error in errors:
-        print(error)
-    sys.exit(1)
-else:
-    print('✅ All critical imports OK')
-"
+      # 1. Testes de import (todos os módulos)
+      - id: pytest-imports
+        name: 📦 All import tests (162 tests)
+        entry: pytest tests/test_imports.py -v --tb=short
         language: system
         pass_filenames: false
         always_run: true
 
-  # Hook customizado para verificar UTF-8 headers
-  - repo: local
-    hooks:
+      # 2. Todos os testes do projeto
+      - id: pytest-all
+        name: 🧪 All project tests
+        entry: pytest tests/ -v --tb=short
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # 3. Headers UTF-8 (bloqueia commit se faltar)
       - id: check-utf8-headers
-        name: Check UTF-8 headers in Python files
+        name: 📝 UTF-8 headers check
         entry: python -c "
 import sys
 from pathlib import Path
@@ -70,12 +51,13 @@ for py_file in Path('src').rglob('*.py'):
             errors.append(str(py_file))
 
 if errors:
-    print('\\n⚠️  Missing UTF-8 header in:')
+    print('\\n🚨 Missing UTF-8 header in {} files:'.format(len(errors)))
     for error in errors[:10]:
-        print(f'  {error}')
+        print('  - {}'.format(error))
     if len(errors) > 10:
-        print(f'  ... and {len(errors) - 10} more')
-    print('\\nAdd: # -*- coding: utf-8 -*-')
+        print('  ... and {} more'.format(len(errors) - 10))
+    print('\\nAdd at the top of each file:')
+    print('# -*- coding: utf-8 -*-')
     sys.exit(1)
 else:
     print('✅ UTF-8 headers OK')
