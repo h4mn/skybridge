@@ -418,7 +418,6 @@ class SkybridgeApp:
         self.logger.info("Queries registradas", extra={
             "count": len(registry.list_all()),
             "fileops_mode": fileops_config.allowlist_mode,
-            "modules": modules,
         })
 
     def _setup_routes(self):

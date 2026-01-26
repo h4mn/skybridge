@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from typing import Any
 from pathlib import Path
 
+from version import __version__
+
 
 # Diretório base para worktrees (configurável por ambiente)
 # Conforme SPEC008 seção 8.1.1
@@ -230,7 +232,7 @@ def load_config() -> AppConfig:
         log_level=os.getenv("SKYBRIDGE_LOG_LEVEL", "INFO"),
         debug=_env_bool("SKYBRIDGE_DEBUG", False),
         title=os.getenv("SKYBRIDGE_TITLE", "Skybridge API"),
-        version=os.getenv("SKYBRIDGE_VERSION", "0.1.0"),
+        version=os.getenv("SKYBRIDGE_VERSION", __version__),
         description=os.getenv("SKYBRIDGE_DESCRIPTION", "Ponte entre intenção humana e execução assistida por IA"),
         docs_url=os.getenv("SKYBRIDGE_DOCS_URL", "/docs"),
         redoc_url=os.getenv("SKYBRIDGE_REDOC_URL", "/redoc"),
