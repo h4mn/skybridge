@@ -19,6 +19,7 @@ class CardStatus(Enum):
     TODO = "todo"
     IN_PROGRESS = "in_progress"
     REVIEW = "review"
+    CHALLENGE = "challenge"  # Fase de desafio/validação adversarial (SPEC009)
     DONE = "done"
     BLOCKED = "blocked"
     CANCELLED = "cancelled"

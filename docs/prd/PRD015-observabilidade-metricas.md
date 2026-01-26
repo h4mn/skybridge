@@ -450,6 +450,21 @@ async def test_measure_time_decorator():
 | **PRD013** | Depende | Agentes (PRD013) serão instrumentados com métricas |
 | **PRD016** | Independente | Domain Events (PRD016) futuramente também terão métricas |
 | **PRD014** | Complementa | WebUI Dashboard pode consumir /metrics |
+| **PRD017** | ✅ Implementado | FileBasedJobQueue **JÁ IMPLEMENTA** métricas de fila (queue_size, enqueue_latency, jobs_per_hour, etc) |
+
+**Nota sobre Métricas de Fila (PRD017):**
+O PRD017 já implementou métricas embutidas no `FileBasedJobQueue`:
+- `queue_size`: Tamanho atual da fila ✅ **JÁ IMPLEMENTADO**
+- `enqueue_latency_avg_ms`, `enqueue_latency_p95_ms` ✅ **JÁ IMPLEMENTADO**
+- `dequeue_latency_avg_ms`, `dequeue_latency_p95_ms` ✅ **JÁ IMPLEMENTADO**
+- `jobs_per_hour`: Throughput nas últimas 24h ✅ **JÁ IMPLEMENTADO**
+- `backlog_age_seconds`: Idade do job mais antigo ✅ **JÁ IMPLEMENTADO**
+
+Este PRD015 deve complementar (não duplicatar) essas métricas, focando em:
+- Métricas de negócio (jobs_total, jobs_by_skill, etc)
+- Métricas de performance de agentes (agent_duration_seconds)
+- Métricas de recursos (worker_memory_bytes, worker_cpu_percent)
+- Métricas de custos (claude_api_cost_usd)
 
 ---
 

@@ -185,4 +185,3 @@ class TestJobQueuePersistence:
         job = await processor2.job_queue.get_job(job_id)
         assert job is not None
         assert job.issue_number == 77
-

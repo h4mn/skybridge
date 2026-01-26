@@ -1,7 +1,8 @@
 # PRD017: Mensageria Standalone Evolutiva
 
-**Status:** 📋 Proposta
+**Status:** ✅ Implementado
 **Data:** 2026-01-17
+**Data de Implementação:** 2026-01-21
 **Autor:** Sky
 **Versão:** 1.0
 **Relacionado:** Problema #1, PRD015 (Métricas), PRD016 (Domain Events)
@@ -24,6 +25,38 @@ Implementar **mensageria standalone baseada em arquivos** que resolva o problema
 - ✅ **Métricas embutidas** (throughput, latência, backlog)
 - ✅ **Preparada para Domain Events** (suporta pub/sub entre processos)
 - ✅ **Migration path claro** para Redis/RabbitMQ
+
+---
+
+## 📋 Status de Implementação
+
+**Status:** ✅ **IMPLEMENTADO** (2026-01-21)
+
+O `FileBasedJobQueue` foi completamente implementado conforme especificado neste PRD. Para detalhes da implementação, consulte:
+- **Código:** `src/infra/webhooks/adapters/file_based_job_queue.py`
+- **Documentação:** `docs/IMPLEMENTACAO_FILEBASEDQUEUE.md`
+
+**Funcionalidades Implementadas:**
+- ✅ Persistência em arquivos JSON
+- ✅ Interface `JobQueuePort` completa
+- ✅ Métricas embutidas (throughput, latência, backlog)
+- ✅ Lock file para evitar race conditions
+- ✅ Recuperação de jobs órfãos em `processing/`
+- ✅ Drop-in replacement para `InMemoryJobQueue`
+
+**Métricas Disponíveis:**
+- `queue_size`: Tamanho atual da fila
+- `enqueue_count`, `dequeue_count`, `complete_count`, `fail_count`
+- `enqueue_latency_avg_ms`, `enqueue_latency_p95_ms`
+- `dequeue_latency_avg_ms`, `dequeue_latency_p95_ms`
+- `jobs_per_hour`: Throughput nas últimas 24h
+- `backlog_age_seconds`: Idade do job mais antigo
+- `disk_usage_mb`: Uso de disco da fila
+
+**Problema #1 (Filas Separadas):** ✅ **RESOLVIDO**
+- Webhook Server e Webhook Worker agora compartilham estado via sistema de arquivos
+- Jobs enfileirados por um processo são visíveis pelo outro
+- Sistema funciona end-to-end
 
 ---
 

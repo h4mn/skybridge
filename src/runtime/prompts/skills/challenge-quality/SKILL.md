@@ -1,6 +1,6 @@
 ---
 name: Challenge Quality
-description: Execute adversarial attacks to validate solution quality before human approval. Use this skill when all automated tests have passed and solution needs thorough security, boundary, and performance validation.
+description: Executa ataques adversariais para validar qualidade da solução antes de aprovação humana. Use esta skill quando todos os testes automatizados passaram e a solução precisa de validação profunda de segurança, boundary e performance.
 version: 1.0.0
 ---
 

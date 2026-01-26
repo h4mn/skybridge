@@ -1,6 +1,6 @@
 ---
 name: Create Issue
-description: Analyze user requirements and create a structured issue following the Skybridge multi-agent workflow template. Use this skill when a user submits a new requirement that needs to be tracked and resolved through the automated workflow.
+description: Analisa requisitos do usuário e cria uma issue estruturada seguindo o template do workflow multi-agente Skybridge. Use esta skill quando um usuário submete um novo requisito que precisa ser rastreado e resolvido através do workflow automatizado.
 version: 1.0.0
 ---
 

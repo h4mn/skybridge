@@ -6,7 +6,7 @@ File Content — Value object para conteúdo de arquivo.
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True):
+@dataclass
 class FileContent:
     """
     Value object representando conteúdo de arquivo.

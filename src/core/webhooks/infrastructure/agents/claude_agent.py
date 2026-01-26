@@ -27,7 +27,7 @@ from core.webhooks.infrastructure.agents.protocol import (
 )
 from kernel.contracts.result import Result
 from runtime.config import get_agent_config
-from runtime.config.agent_prompts import (
+from runtime.prompts import (
     load_system_prompt_config,
     render_system_prompt,
     get_json_validation_prompt,
@@ -625,4 +625,3 @@ class ClaudeCodeAdapter(AgentFacade):
                                 break
 
         return None
-

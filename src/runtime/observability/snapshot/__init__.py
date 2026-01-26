@@ -13,19 +13,129 @@ from runtime.observability.snapshot.diff import compare_snapshots, render_diff
 from runtime.observability.snapshot.extractors.fileops_extractor import FileOpsExtractor
 from runtime.observability.snapshot.extractors.health_extractor import HealthExtractor
 from runtime.observability.snapshot.extractors.tasks_extractor import TasksExtractor
-from runtime.observability.snapshot.models import SnapshotSubject
+from runtime.observability.snapshot.models import Snapshot, SnapshotSubject
 from runtime.observability.snapshot.registry import ExtractorRegistry
 from runtime.observability.snapshot.storage import list_snapshots, load_snapshot, save_diff, save_snapshot
 
 
 def register_default_extractors() -> None:
     """Registra extratores padrao do Snapshot Service."""
-    ExtractorRegistry.register(FileOpsExtractor())
-    ExtractorRegistry.register(TasksExtractor())
-    ExtractorRegistry.register(HealthExtractor())
+    try:
+        ExtractorRegistry.register(FileOpsExtractor())
+    except ValueError:
+        pass  # Já registrado
+    try:
+        ExtractorRegistry.register(TasksExtractor())
+    except ValueError:
+        pass  # Já registrado
+    try:
+        ExtractorRegistry.register(HealthExtractor())
+    except ValueError:
+        pass  # Já registrado
 
 
-register_default_extractors()
+# Registra extratores apenas uma vez
+if not hasattr(register_default_extractors, "_registered"):
+    register_default_extractors()
+    register_default_extractors._registered = True
+
+
+def _get_snapshot_capture_handler():
+    """Retorna o handler snapshot.capture, registrando apenas uma vez."""
+    async def _snapshot_capture_impl(request: dict[str, Any]) -> Result[dict[str, Any], str]:
+        """Handler RPC para captura de snapshot."""
+        if not request:
+            return Result.err("Request vazio")
+
+        subject_value = request.get("subject") or request.get("detalhe")
+        if not subject_value:
+            return Result.err("subject is required")
+
+        try:
+            subject = SnapshotSubject(subject_value)
+        except ValueError:
+            return Result.err(f"Unsupported subject: {subject_value}")
+
+        target = request.get("target") or request.get("path") or ""
+        if subject == SnapshotSubject.FILEOPS and not target:
+            return Result.err("target is required for fileops")
+        if not target:
+            target = "system"
+
+        depth = int(request.get("depth") or 5)
+        include_extensions = request.get("include_extensions")
+        if isinstance(include_extensions, str):
+            include_extensions = [include_extensions]
+        elif isinstance(include_extensions, list):
+            include_extensions = list(include_extensions)
+
+        exclude_patterns = request.get("exclude_patterns")
+        if isinstance(exclude_patterns, str):
+            exclude_patterns = [exclude_patterns]
+        elif isinstance(exclude_patterns, list):
+            exclude_patterns = list(exclude_patterns)
+
+        metadata = request.get("metadata") or {}
+        tags = request.get("tags") or {}
+
+        try:
+            from runtime.observability.snapshot.capture import capture_snapshot
+
+            snapshot_result = await capture_snapshot(
+                subject=subject,
+                target=target,
+                depth=depth,
+                include_extensions=include_extensions,
+                exclude_patterns=exclude_patterns,
+                metadata=metadata,
+                tags=tags,
+            )
+
+            return snapshot_result
+
+        except Exception as e:
+            return Result.err(f"Erro ao capturar snapshot: {e}")
+
+    # Tenta registrar, ignora se já registrado
+    try:
+        query(
+            name="snapshot.capture",
+            description="Captura snapshot estrutural de um dominio",
+            tags=["snapshot", "observability"],
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "subject": {"type": "string"},
+                    "target": {"type": "string"},
+                    "depth": {"type": "integer"},
+                    "include_extensions": {"type": "array", "items": {"type": "string"}},
+                    "exclude_patterns": {"type": "array", "items": {"type": "string"}},
+                    "metadata": {"type": "object"},
+                    "tags": {"type": "object"},
+                },
+                "required": ["subject"],
+            },
+            output_schema={
+                "type": "object",
+                "properties": {
+                    "snapshot_id": {"type": "string"},
+                    "timestamp": {"type": "string"},
+                    "subject": {"type": "string"},
+                    "metadata": {"type": "object"},
+                    "stats": {"type": "object"},
+                    "structure": {"type": "object"},
+                    "storage_path": {"type": "string"},
+                },
+            },
+        )(_snapshot_capture_impl)
+    except ValueError:
+        pass  # Já registrado
+
+    return _snapshot_capture_impl
+
+
+# Cria um alias que será exportado
+snapshot_capture = _get_snapshot_capture_handler()
 
 
 def _normalize_tags(metadata: dict[str, Any] | None, tags: dict[str, Any] | None) -> dict[str, str]:
@@ -43,110 +153,7 @@ def _normalize_tags(metadata: dict[str, Any] | None, tags: dict[str, Any] | None
     return result
 
 
-@query(
-    name="snapshot.capture",
-    description="Captura snapshot estrutural de um dominio",
-    tags=["snapshot", "observability"],
-    input_schema={
-        "type": "object",
-        "properties": {
-            "subject": {"type": "string"},
-            "target": {"type": "string"},
-            "depth": {"type": "integer"},
-            "include_extensions": {"type": "array", "items": {"type": "string"}},
-            "exclude_patterns": {"type": "array", "items": {"type": "string"}},
-            "metadata": {"type": "object"},
-            "tags": {"type": "object"},
-        },
-        "required": ["subject"],
-    },
-    output_schema={
-        "type": "object",
-        "properties": {
-            "snapshot_id": {"type": "string"},
-            "timestamp": {"type": "string"},
-            "subject": {"type": "string"},
-            "metadata": {"type": "object"},
-            "stats": {"type": "object"},
-            "structure": {"type": "object"},
-            "storage_path": {"type": "string"},
-        },
-    },
-)
-def snapshot_capture(request: dict[str, Any]) -> Result[dict[str, Any], str]:
-    """Handler RPC para captura de snapshot."""
-    if not request:
-        return Result.err("Request vazio")
-
-    subject_value = request.get("subject") or request.get("detalhe")
-    if not subject_value:
-        return Result.err("subject is required")
-
-    try:
-        subject = SnapshotSubject(subject_value)
-    except ValueError:
-        return Result.err(f"Unsupported subject: {subject_value}")
-
-    target = request.get("target") or request.get("path") or ""
-    if subject == SnapshotSubject.FILEOPS and not target:
-        return Result.err("target is required for fileops")
-    if not target:
-        target = "system"
-
-    depth = int(request.get("depth") or 5)
-    include_extensions = request.get("include_extensions")
-    if isinstance(include_extensions, str):
-        include_extensions = [include_extensions]
-    exclude_patterns = request.get("exclude_patterns")
-    if isinstance(exclude_patterns, str):
-        exclude_patterns = [exclude_patterns]
-    tags = _normalize_tags(request.get("metadata"), request.get("tags"))
-
-    try:
-        snapshot = capture_snapshot(
-            subject=subject,
-            target=str(target),
-            depth=depth,
-            include_extensions=include_extensions,
-            exclude_patterns=exclude_patterns,
-            tags=tags,
-        )
-        storage_path = save_snapshot(snapshot)
-        result = snapshot.to_dict()
-        result["snapshot_id"] = snapshot.metadata.snapshot_id
-        result["timestamp"] = snapshot.metadata.timestamp.isoformat()
-        result["subject"] = snapshot.metadata.subject.value
-        result["storage_path"] = str(storage_path)
-        return Result.ok(result)
-    except Exception as exc:
-        return Result.err(str(exc))
-
-
-@query(
-    name="snapshot.compare",
-    description="Compara dois snapshots e retorna diff",
-    tags=["snapshot", "observability"],
-    input_schema={
-        "type": "object",
-        "properties": {
-            "old_snapshot_id": {"type": "string"},
-            "new_snapshot_id": {"type": "string"},
-            "format": {"type": "string", "enum": ["json", "markdown", "html"]},
-        },
-        "required": ["old_snapshot_id", "new_snapshot_id"],
-    },
-    output_schema={
-        "type": "object",
-        "properties": {
-            "diff_id": {"type": "string"},
-            "timestamp": {"type": "string"},
-            "summary": {"type": "object"},
-            "changes": {"type": "array"},
-            "report_path": {"type": "string"},
-        },
-    },
-)
-def snapshot_compare(request: dict[str, Any]) -> Result[dict[str, Any], str]:
+def _snapshot_compare_wrapper(request: dict[str, Any]) -> Result[dict[str, Any], str]:
     """Handler RPC para comparacao de snapshots."""
     if not request:
         return Result.err("Request vazio")
@@ -177,38 +184,7 @@ def snapshot_compare(request: dict[str, Any]) -> Result[dict[str, Any], str]:
         return Result.err(str(exc))
 
 
-@query(
-    name="snapshot.list",
-    description="Lista snapshots disponiveis para um subject",
-    tags=["snapshot", "observability"],
-    input_schema={
-        "type": "object",
-        "properties": {
-            "subject": {"type": "string", "enum": ["fileops", "tasks", "health"]},
-        },
-        "required": ["subject"],
-    },
-    output_schema={
-        "type": "object",
-        "properties": {
-            "subject": {"type": "string"},
-            "total": {"type": "integer"},
-            "snapshots": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "snapshot_id": {"type": "string"},
-                        "timestamp": {"type": "string"},
-                        "target": {"type": "string"},
-                        "tag": {"type": "string"},
-                    },
-                },
-            },
-        },
-    },
-)
-def snapshot_list(request: dict[str, Any]) -> Result[dict[str, Any], str]:
+def _snapshot_list_wrapper(request: dict[str, Any]) -> Result[dict[str, Any], str]:
     """Handler RPC para listar snapshots."""
     if not request:
         return Result.err("Request vazio")
@@ -249,3 +225,78 @@ def snapshot_list(request: dict[str, Any]) -> Result[dict[str, Any], str]:
         })
     except Exception as exc:
         return Result.err(str(exc))
+
+
+# Registra handlers com tratamento para duplicatas (imports múltiplos em testes)
+try:
+    query(
+        name="snapshot.compare",
+        description="Compara dois snapshots e retorna diff",
+        tags=["snapshot", "observability"],
+        input_schema={
+            "type": "object",
+            "properties": {
+                "old_snapshot_id": {"type": "string"},
+                "new_snapshot_id": {"type": "string"},
+                "format": {"type": "string", "enum": ["json", "markdown", "html"]},
+            },
+            "required": ["old_snapshot_id", "new_snapshot_id"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "diff_id": {"type": "string"},
+                "timestamp": {"type": "string"},
+                "summary": {"type": "object"},
+                "changes": {"type": "array"},
+                "report_path": {"type": "string"},
+            },
+        },
+    )(_snapshot_compare_wrapper)
+except ValueError:
+    pass  # Já registrado
+
+try:
+    query(
+        name="snapshot.list",
+        description="Lista snapshots disponiveis para um subject",
+        tags=["snapshot", "observability"],
+        input_schema={
+            "type": "object",
+            "properties": {
+                "subject": {"type": "string", "enum": ["fileops", "tasks", "health"]},
+            },
+            "required": ["subject"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "subject": {"type": "string"},
+                "total": {"type": "integer"},
+                "snapshots": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "snapshot_id": {"type": "string"},
+                            "timestamp": {"type": "string"},
+                            "target": {"type": "string"},
+                            "tag": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        },
+    )(_snapshot_list_wrapper)
+except ValueError:
+    pass  # Já registrado
+
+# Exporta handlers como funções sincronizadas para compatibilidade
+def snapshot_compare(request: dict[str, Any]) -> Result[dict[str, Any], str]:
+    """Handler RPC para comparacao de snapshots."""
+    return _snapshot_compare_wrapper(request)
+
+
+def snapshot_list(request: dict[str, Any]) -> Result[dict[str, Any], str]:
+    """Handler RPC para listar snapshots."""
+    return _snapshot_list_wrapper(request)

@@ -1,6 +1,6 @@
 ---
 name: Test Issue
-description: Validate solution by running automated tests (unit, integration, lint, typecheck). Use this skill when a pull request has been created and needs validation before quality challenge.
+description: Valida solução executando testes automatizados (unit, integration, lint, typecheck). Use esta skill quando uma pull request foi criada e precisa de validação antes do desafio de qualidade.
 version: 1.0.0
 ---
 
