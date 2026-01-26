@@ -5,7 +5,7 @@ data: 2025-12-26
 
 # ADR009 — Cabeçalho UTF-8 obrigatório em arquivos Python
 
-**Status:** Aceito  
+**Status:** Aceito
 **Data:** 2025-12-26
 
 ## Contexto

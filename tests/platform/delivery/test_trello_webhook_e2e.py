@@ -18,7 +18,7 @@ class TestTrelloWebhookEndpoint:
     @pytest.fixture
     def app(self):
         """Fixture da aplicação FastAPI."""
-        from src.core.webhooks.infrastructure.github_webhook_server import app
+        from core.webhooks.infrastructure.github_webhook_server import app
         return app
 
     @pytest.fixture
@@ -201,7 +201,7 @@ class TestTrelloWebhookEndpointValidation:
     @pytest.fixture
     def app(self):
         """Fixture da aplicação FastAPI."""
-        from src.core.webhooks.infrastructure.github_webhook_server import app
+        from core.webhooks.infrastructure.github_webhook_server import app
         return app
 
     @pytest.fixture
@@ -274,7 +274,7 @@ class TestTrelloWebhookEndpointSecurity:
     @pytest.fixture
     def app(self):
         """Fixture da aplicação FastAPI."""
-        from src.core.webhooks.infrastructure.github_webhook_server import app
+        from core.webhooks.infrastructure.github_webhook_server import app
         return app
 
     @pytest.fixture
@@ -349,7 +349,7 @@ class TestTrelloWebhookEndpointE2E:
     @pytest.fixture
     def app(self):
         """Fixture da aplicação FastAPI."""
-        from src.core.webhooks.infrastructure.github_webhook_server import app
+        from core.webhooks.infrastructure.github_webhook_server import app
         return app
 
     @pytest.fixture

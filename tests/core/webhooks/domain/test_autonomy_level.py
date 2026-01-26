@@ -10,7 +10,7 @@ Cobre todos os DoDs relacionados ao autonomy_level:
 
 import pytest
 
-from src.core.webhooks.domain.autonomy_level import AutonomyLevel
+from core.webhooks.domain.autonomy_level import AutonomyLevel
 
 
 class TestAutonomyLevelEnum:
@@ -97,7 +97,7 @@ class TestAutonomyLevelMapping:
         }
 
         # Verifica que todos os níveis são válidos
-        from src.core.webhooks.domain.autonomy_level import AutonomyLevel
+        from core.webhooks.domain.autonomy_level import AutonomyLevel
 
         for list_name, autonomy_value in expected_mapping.items():
             level = AutonomyLevel(autonomy_value)
@@ -105,21 +105,21 @@ class TestAutonomyLevelMapping:
 
     def test_brainstorm_maps_to_analysis(self):
         """Lista 💡 Brainstorm deve mapear para ANALYSIS."""
-        from src.core.webhooks.domain.autonomy_level import AutonomyLevel
+        from core.webhooks.domain.autonomy_level import AutonomyLevel
 
         autonomy = "analysis"  # Valor esperado para Brainstorm
         assert AutonomyLevel(autonomy) == AutonomyLevel.ANALYSIS
 
     def test_a_fazer_maps_to_development(self):
         """Lista 📋 A Fazer deve mapear para DEVELOPMENT."""
-        from src.core.webhooks.domain.autonomy_level import AutonomyLevel
+        from core.webhooks.domain.autonomy_level import AutonomyLevel
 
         autonomy = "development"  # Valor esperado para "📋 A Fazer"
         assert AutonomyLevel(autonomy) == AutonomyLevel.DEVELOPMENT
 
     def test_publicar_maps_to_publish(self):
         """Lista 🚀 Publicar deve mapear para PUBLISH."""
-        from src.core.webhooks.domain.autonomy_level import AutonomyLevel
+        from core.webhooks.domain.autonomy_level import AutonomyLevel
 
         autonomy = "publish"  # Valor esperado para "🚀 Publicar"
         assert AutonomyLevel(autonomy) == AutonomyLevel.PUBLISH
@@ -134,7 +134,7 @@ class TestAutonomyLevelIntegration:
 
         Verifica que WebhookSource suporta TRELLO.
         """
-        from src.core.webhooks.domain import WebhookSource
+        from core.webhooks.domain import WebhookSource
 
         assert hasattr(WebhookSource, "TRELLO")
         assert WebhookSource.TRELLO.value == "trello"
@@ -145,7 +145,7 @@ class TestAutonomyLevelIntegration:
 
         Verifica que WebhookJob tem campo autonomy_level.
         """
-        from src.core.webhooks.domain import WebhookJob, WebhookEvent, WebhookSource
+        from core.webhooks.domain import WebhookJob, WebhookEvent, WebhookSource
         from datetime import datetime
 
         event = WebhookEvent(
@@ -177,7 +177,7 @@ class TestAutonomyLevelSkills:
 
         Verifica mapeamento de autonomy_level para skills.
         """
-        from src.core.webhooks.application.job_orchestrator import AUTONOMY_LEVEL_TO_SKILL
+        from core.webhooks.application.job_orchestrator import AUTONOMY_LEVEL_TO_SKILL
 
         expected_mapping = {
             "analysis": "analyze-issue",
@@ -190,21 +190,21 @@ class TestAutonomyLevelSkills:
 
     def test_analysis_maps_to_analyze_issue_skill(self):
         """ANALYSIS deve mapear para skill 'analyze-issue'."""
-        from src.core.webhooks.application.job_orchestrator import AUTONOMY_LEVEL_TO_SKILL
+        from core.webhooks.application.job_orchestrator import AUTONOMY_LEVEL_TO_SKILL
 
         skill = AUTONOMY_LEVEL_TO_SKILL.get("analysis")
         assert skill == "analyze-issue"
 
     def test_development_maps_to_resolve_issue_skill(self):
         """DEVELOPMENT deve mapear para skill 'resolve-issue'."""
-        from src.core.webhooks.application.job_orchestrator import AUTONOMY_LEVEL_TO_SKILL
+        from core.webhooks.application.job_orchestrator import AUTONOMY_LEVEL_TO_SKILL
 
         skill = AUTONOMY_LEVEL_TO_SKILL.get("development")
         assert skill == "resolve-issue"
 
     def test_publish_maps_to_publish_issue_skill(self):
         """PUBLISH deve mapear para skill 'publish-issue'."""
-        from src.core.webhooks.application.job_orchestrator import AUTONOMY_LEVEL_TO_SKILL
+        from core.webhooks.application.job_orchestrator import AUTONOMY_LEVEL_TO_SKILL
 
         skill = AUTONOMY_LEVEL_TO_SKILL.get("publish")
         assert skill == "publish-issue"
@@ -219,7 +219,7 @@ class TestAutonomyLevelEventTypes:
 
         Verifica mapeamento de event_types Trello para skills.
         """
-        from src.core.webhooks.application.job_orchestrator import EVENT_TYPE_TO_SKILL
+        from core.webhooks.application.job_orchestrator import EVENT_TYPE_TO_SKILL
 
         # Event types Trello devem estar mapeados
         assert "card.moved.💡 Brainstorm" in EVENT_TYPE_TO_SKILL
@@ -259,7 +259,7 @@ class TestAutonomyLevelEdgeCases:
 
     def test_unknown_list_defaults_to_development(self):
         """Lista desconhecida deve default para DEVELOPMENT."""
-        from src.core.webhooks.domain.autonomy_level import AutonomyLevel
+        from core.webhooks.domain.autonomy_level import AutonomyLevel
 
         # Simula valor padrão para lista desconhecida
         autonomy = "development"  # Valor padrão esperado
@@ -275,8 +275,8 @@ class TestAutonomyLevelDoD:
 
         Verifica que o evento de domínio existe.
         """
-        from src.core.domain_events.trello_events import TrelloWebhookReceivedEvent
-        from src.core.domain_events.trello_events import TrelloCardMovedToListEvent
+        from core.domain_events.trello_events import TrelloWebhookReceivedEvent
+        from core.domain_events.trello_events import TrelloCardMovedToListEvent
 
         # Verifica que os eventos existem e são classes
         assert TrelloWebhookReceivedEvent is not None
@@ -288,7 +288,7 @@ class TestAutonomyLevelDoD:
 
         Verifica que JobOrchestrator considera autonomy_level.
         """
-        from src.core.webhooks.application.job_orchestrator import JobOrchestrator
+        from core.webhooks.application.job_orchestrator import JobOrchestrator
 
         # Verifica que método aceita autonomy_level
         assert hasattr(JobOrchestrator, "_get_skill_for_event_type")
@@ -314,7 +314,7 @@ class TestAutonomyLevelDoD:
         ]
 
         # Verifica que todos os níveis de autonomia correspondentes existem
-        from src.core.webhooks.domain.autonomy_level import AutonomyLevel
+        from core.webhooks.domain.autonomy_level import AutonomyLevel
 
         expected_autonomy_levels = {
             "💡 Brainstorm": AutonomyLevel.ANALYSIS,
@@ -352,7 +352,7 @@ class TestAutonomyLevelDoD:
 
         Verifica que endpoint /webhook/trello existe.
         """
-        from src.core.webhooks.infrastructure.github_webhook_server import app
+        from core.webhooks.infrastructure.github_webhook_server import app
 
         routes = [route.path for route in app.routes]
         assert "/webhook/trello" in routes, "Endpoint /webhook/trello não encontrado"

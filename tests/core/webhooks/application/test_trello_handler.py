@@ -154,7 +154,7 @@ class TestListToAutonomyMapping:
 
     def test_mapping_values_are_valid(self):
         """Valores do mapeamento devem ser válidos."""
-        from src.core.webhooks.domain.autonomy_level import AutonomyLevel
+        from core.webhooks.domain.autonomy_level import AutonomyLevel
 
         for list_name, autonomy_value in LIST_TO_AUTONOMY.items():
             # Deve ser possível criar AutonomyLevel a partir do valor
@@ -240,7 +240,7 @@ class TestTrelloEventsDoD:
 
         Verifica que os valores mapeiam corretamente para AutonomyLevel.
         """
-        from src.core.webhooks.domain.autonomy_level import AutonomyLevel
+        from core.webhooks.domain.autonomy_level import AutonomyLevel
 
         expected_mapping = {
             "💡 Brainstorm": AutonomyLevel.ANALYSIS,
@@ -278,7 +278,7 @@ class TestTrelloEventsDoD:
 
         Verifica que endpoint /webhook/trello existe.
         """
-        from src.core.webhooks.infrastructure.github_webhook_server import app
+        from core.webhooks.infrastructure.github_webhook_server import app
 
         routes = [route.path for route in app.routes]
         assert "/webhook/trello" in routes, "Endpoint /webhook/trello não encontrado"

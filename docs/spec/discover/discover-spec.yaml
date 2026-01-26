@@ -1,8 +1,6 @@
----
 # SPEC: Discovery - Runtime Introspecção
 # Versão: 0.3.0
 # Descrição: Contrato de descoberta dinâmica de handlers Sky-RPC
----
 
 openapi: 3.1.0
 info:

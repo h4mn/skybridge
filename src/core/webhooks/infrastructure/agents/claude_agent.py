@@ -625,4 +625,3 @@ class ClaudeCodeAdapter(AgentFacade):
                                 break
 
         return None
-

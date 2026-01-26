@@ -38,30 +38,7 @@ repos:
       # 3. Headers UTF-8 (bloqueia commit se faltar)
       - id: check-utf8-headers
         name: 📝 UTF-8 headers check
-        entry: python -c "
-import sys
-from pathlib import Path
-
-errors = []
-for py_file in Path('src').rglob('*.py'):
-    content = py_file.read_text(encoding='utf-8', errors='ignore')
-    lines = content.split('\\n')[:3]
-    if not any('# -*- coding: utf-8 -*-' in line for line in lines):
-        if py_file.name != '__init__.py' or len(content) > 500:
-            errors.append(str(py_file))
-
-if errors:
-    print('\\n🚨 Missing UTF-8 header in {} files:'.format(len(errors)))
-    for error in errors[:10]:
-        print('  - {}'.format(error))
-    if len(errors) > 10:
-        print('  ... and {} more'.format(len(errors) - 10))
-    print('\\nAdd at the top of each file:')
-    print('# -*- coding: utf-8 -*-')
-    sys.exit(1)
-else:
-    print('✅ UTF-8 headers OK')
-"
+        entry: python scripts/quality/check_utf8.py
         language: system
         pass_filenames: false
         always_run: true

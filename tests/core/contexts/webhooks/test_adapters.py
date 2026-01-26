@@ -329,4 +329,3 @@ class TestInMemoryJobQueueDeduplication:
 
         # Não existe em delivery_ids
         assert await job_queue.exists_by_delivery("any-delivery") is False
-
