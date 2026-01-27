@@ -50,6 +50,11 @@ class ColorFormatter(logging.Formatter):
     Formatter com cores para console.
 
     Cores apenas no console, arquivo fica sem cores.
+
+    Suporta campos estruturados de request logging:
+    - status_code: HTTP status code com cor
+    - duration_ms: Tempo de processamento
+    - correlation_id: ID de correlação
     """
 
     # Mapeamento de nível para cor
@@ -67,6 +72,24 @@ class ColorFormatter(logging.Formatter):
 
     def __init__(self):
         super().__init__(self.BASE_FORMAT, datefmt=self.DATE_FORMAT)
+
+    def _get_status_color(self, status: int) -> str:
+        """
+        Retorna cor baseada no HTTP status code.
+
+        Args:
+            status: HTTP status code
+
+        Returns:
+            Código ANSI de cor
+        """
+        if 200 <= status < 300:
+            return Colors.INFO
+        elif 400 <= status < 500:
+            return Colors.WARNING
+        elif 500 <= status < 600:
+            return Colors.ERROR
+        return Colors.RESET
 
     def _pretty_format_value(self, value: Any, reset: str) -> str:
         """Formata valores complexos (dicts, lists) com pretty-print."""
@@ -110,8 +133,61 @@ class ColorFormatter(logging.Formatter):
         # Valor simples
         return f"{Colors.WHITE}{str(value)}{reset}"
 
+    def _format_structured_request(self, record: logging.LogRecord) -> str:
+        """
+        Formata logs de request HTTP com campos estruturados.
+
+        Formato esperado:
+        - status_code: int (HTTP status)
+        - duration_ms: float (tempo de processamento)
+        - correlation_id: str (ID de correlação)
+
+        Retorna formato colorido:
+        timestamp | INFO | skybridge.request | METHOD path → 200 | 15.2ms | corr_id
+        """
+        reset = Colors.RESET
+        level_color = self.LEVEL_COLORS.get(record.levelno, "")
+
+        # Extrai campos estruturados
+        status_code = getattr(record, "status_code", 0)
+        duration_ms = getattr(record, "duration_ms", 0)
+        correlation_id = getattr(record, "correlation_id", "unknown")
+
+        # Cor baseada no status
+        status_color = self._get_status_color(status_code)
+        status_str = f"{status_color}{status_code}{reset}"
+
+        # Formata timestamp
+        timestamp = f"{Colors.DIM}{self.formatTime(record, self.DATE_FORMAT)}{reset}"
+
+        # Formata nível
+        levelname = f"{level_color}{record.levelname}{reset}"
+
+        # Formata nome
+        name = f"{Colors.BLUE}{record.name}{reset}"
+
+        # Formata mensagem (METHOD path)
+        message = record.getMessage()
+
+        # Formata duração
+        duration_str = f"{Colors.WHITE}{duration_ms}ms{reset}"
+
+        # Formata correlation_id (abreviado)
+        corr_short = correlation_id[:8] if len(correlation_id) > 8 else correlation_id
+        corr_str = f"{Colors.DIM}{corr_short}{reset}"
+
+        # Monta linha formatada
+        return (
+            f"{timestamp}{Colors.PIPE} |{reset} {levelname:<8}{Colors.PIPE} |{reset} "
+            f"{name}{Colors.PIPE} |{reset} {message} → {status_str} | {duration_str} | {corr_str}"
+        )
+
     def format(self, record: logging.LogRecord) -> str:
         """Formata record com cores."""
+        # Detecta campos estruturados do RequestLoggingMiddleware
+        if hasattr(record, "status_code"):
+            return self._format_structured_request(record)
+
         # Pega cor baseada no nível
         level_color = self.LEVEL_COLORS.get(record.levelno, "")
         reset = Colors.RESET

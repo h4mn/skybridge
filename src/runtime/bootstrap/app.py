@@ -15,6 +15,7 @@ import yaml
 
 from runtime.config.config import get_config, get_fileops_config
 from runtime.observability.logger import get_logger, print_separator, Colors
+from runtime.delivery.middleware.request_log import RequestLoggingMiddleware
 from kernel import get_query_registry
 from kernel.registry.discovery import discover_modules
 from kernel.registry.skyrpc_registry import get_skyrpc_registry
@@ -379,8 +380,21 @@ class SkybridgeApp:
         }
 
     def _setup_middleware(self):
-        """Configura middlewares."""
-        # CORS
+        """
+        Configura middlewares.
+
+        ORDEM IMPORTANTE (RF002):
+        1º: CorrelationMiddleware - adiciona correlation_id
+        2º: RequestLoggingMiddleware - loga requests com correlation_id
+        3º: CORSMiddleware - deve ser o último (mais externo)
+        """
+        # 1º: Correlation ID
+        self.app.add_middleware(CorrelationMiddleware)
+
+        # 2º: Request Logging
+        self.app.add_middleware(RequestLoggingMiddleware)
+
+        # 3º: CORS (último - mais externo)
         self.app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
@@ -388,8 +402,6 @@ class SkybridgeApp:
             allow_methods=["*"],
             allow_headers=["*"],
         )
-        # Correlation ID
-        self.app.add_middleware(CorrelationMiddleware)
 
     def _register_queries(self):
         """Registra queries no registry."""
@@ -418,7 +430,6 @@ class SkybridgeApp:
         self.logger.info("Queries registradas", extra={
             "count": len(registry.list_all()),
             "fileops_mode": fileops_config.allowlist_mode,
-            "modules": modules,
         })
 
     def _setup_routes(self):

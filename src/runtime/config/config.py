@@ -6,10 +6,13 @@ Carrega de base.yaml + profiles + environment variables.
 """
 
 import os
+import subprocess
 import sys
 from dataclasses import dataclass
 from typing import Any
 from pathlib import Path
+
+from version import __version__
 
 
 # Diretório base para worktrees (configurável por ambiente)
@@ -170,6 +173,59 @@ def get_trello_kanban_lists_config() -> TrelloKanbanListsConfig:
     )
 
 
+def _detect_current_branch() -> str | None:
+    """
+    Detecta o branch atual do Git.
+
+    Returns:
+        Nome do branch atual ou None se não for possível detectar.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return None
+
+
+def _get_log_level_from_branch(branch: str | None) -> str:
+    """
+    Determina o log level baseado no nome do branch.
+
+    Conforme RF002.1:
+    - dev, feature/*, poc/*, hotfix/* → DEBUG
+    - main, release/* → INFO
+    - Outros → DEBUG (padrão)
+
+    Args:
+        branch: Nome do branch Git.
+
+    Returns:
+        "DEBUG" ou "INFO"
+    """
+    if not branch:
+        return "INFO"
+
+    branch_lower = branch.lower()
+
+    # Branches de desenvolvimento → DEBUG
+    if branch_lower in ("dev", "development") or branch_lower.startswith(("feature/", "poc/", "hotfix/")):
+        return "DEBUG"
+    # Branches de produção → INFO
+    elif branch_lower == "main" or branch_lower.startswith("release/"):
+        return "INFO"
+    # Padrão → DEBUG
+    else:
+        return "DEBUG"
+
+
 def _env_bool(key: str, default: bool = False) -> bool:
     """Lê boolean de env var."""
     value = os.getenv(key, "").lower()
@@ -223,14 +279,25 @@ def _env_policy(key: str, default: dict[str, list[str]]) -> dict[str, list[str]]
 
 
 def load_config() -> AppConfig:
-    """Carrega configuração de environment variables."""
+    """Carrega configuração de environment variables com detecção automática de log level (RF002.1)."""
+    # Detecção automática de log level baseado no branch Git
+    current_branch = _detect_current_branch()
+    auto_log_level = _get_log_level_from_branch(current_branch)
+
+    # Override manual via SKYBRIDGE_LOG_LEVEL tem precedência
+    log_level = os.getenv("SKYBRIDGE_LOG_LEVEL", auto_log_level)
+
+    # Log da detecção (apenas se não for override manual)
+    if not os.getenv("SKYBRIDGE_LOG_LEVEL"):
+        print(f"[CONFIG] Branch detected: {current_branch or 'unknown'} → Log level: {log_level}")
+
     return AppConfig(
         host=os.getenv("SKYBRIDGE_HOST", "0.0.0.0"),
         port=int(os.getenv("SKYBRIDGE_PORT", "8000")),
-        log_level=os.getenv("SKYBRIDGE_LOG_LEVEL", "INFO"),
+        log_level=log_level,
         debug=_env_bool("SKYBRIDGE_DEBUG", False),
         title=os.getenv("SKYBRIDGE_TITLE", "Skybridge API"),
-        version=os.getenv("SKYBRIDGE_VERSION", "0.1.0"),
+        version=os.getenv("SKYBRIDGE_VERSION", __version__),
         description=os.getenv("SKYBRIDGE_DESCRIPTION", "Ponte entre intenção humana e execução assistida por IA"),
         docs_url=os.getenv("SKYBRIDGE_DOCS_URL", "/docs"),
         redoc_url=os.getenv("SKYBRIDGE_REDOC_URL", "/redoc"),
