@@ -91,11 +91,38 @@ class SkybridgeServer:
         """
         Configura rotas estáticas para WebUI.
 
+        - / → redirect para /web/
         - /web/assets/* → assets estáticos
         - /web/* → SPA fallback (exceto /web/assets)
         - /web → redirect para /web/
         """
         web_dist = Path(__file__).parent.parent / "web" / "dist"
+
+        # Redirect / → /web/
+        @self.app.get("/")
+        async def root_redirect():
+            """Redireciona raiz para WebUI."""
+            return RedirectResponse(url="/web/")
+
+        # Redirect /web → /web/
+        @self.app.get("/web")
+        async def web_redirect():
+            """Redireciona /web para /web/."""
+            return RedirectResponse(url="/web/")
+
+        # /web/ retorna 404 quando dist não existe, ou index.html quando existe
+        @self.app.get("/web/")
+        async def webui_index():
+            """Retorna index.html ou 404."""
+            web_dist = Path(__file__).parent.parent / "web" / "dist"
+            if web_dist.exists():
+                return FileResponse(web_dist / "index.html")
+            # 404 se dist não existe
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=404,
+                content={"detail": "WebUI not built. Run 'cd apps/web && npm run build'"}
+            )
 
         if web_dist.exists():
             # Assets estáticos
@@ -103,7 +130,13 @@ class SkybridgeServer:
             if assets_dir.exists():
                 self.app.mount("/web/assets", StaticFiles(directory=assets_dir), name="assets")
 
-            # SPA fallback para rotas do React
+            # Rota /web/ retorna o index.html diretamente
+            @self.app.get("/web/")
+            async def webui_index():
+                """Retorna index.html para /web/."""
+                return FileResponse(web_dist / "index.html")
+
+            # SPA fallback para outras rotas do React
             @self.app.get("/web/{path:path}")
             async def webui_spa(path: str):
                 """Fallback para SPA - retorna index.html para rotas não-asset."""
@@ -113,12 +146,6 @@ class SkybridgeServer:
                     return FileResponse(file_path)
                 # Senão, retorna index.html (SPA fallback)
                 return FileResponse(web_dist / "index.html")
-
-            # Redirect /web → /web/
-            @self.app.get("/web")
-            async def web_redirect():
-                """Redireciona /web para /web/."""
-                return RedirectResponse(url="/web/")
 
     def run(
         self,
