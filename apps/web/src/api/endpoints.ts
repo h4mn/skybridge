@@ -107,3 +107,13 @@ export const logsApi = {
   get: (params: { tail?: number; level?: LogLevel }) =>
     apiClient.get<{ lines: string[] }>('/observability/logs', { params }),
 }
+
+export const observabilityApi = {
+  getLogFiles: () =>
+    apiClient.get<{ ok: boolean; files: Array<{ name: string; size: number; modified: string }> }>('/logs/files'),
+  streamLogs: (filename: string, tail: number = 50) =>
+    apiClient.get<{ ok: boolean; total: number; page: number; per_page: number; entries: Array<{ timestamp: string; level: string; logger: string; message: string; message_html: string }> }>(
+      `/logs/file/${filename}`,
+      { params: { page: 1, per_page: tail } }
+    ),
+}

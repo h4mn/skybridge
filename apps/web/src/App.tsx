@@ -25,6 +25,7 @@ function App() {
           <main className="container-fluid py-4">
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/worktrees" element={<Worktrees />} />
               <Route path="/logs" element={<Logs />} />

@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Card, Badge, Spinner } from 'react-bootstrap'
-import apiClient from '../api/client'
+import { observabilityApi } from '../api/endpoints'
 
 interface LogEntry {
   timestamp: string
@@ -10,85 +10,68 @@ interface LogEntry {
   message_html: string
 }
 
-export default function LogStream() {
+interface LogStreamProps {
+  paused?: boolean
+}
+
+export default function LogStream({ paused = false }: LogStreamProps) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const logContainerRef = useRef<HTMLDivElement>(null)
   const lastLogCountRef = useRef<number>(0)
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const filenameRef = useRef<string | null>(null)
+
+  // Função para buscar logs mais recentes (usando useCallback para manter referência estável)
+  const fetchLatestLogs = useCallback(async (filename: string) => {
+    try {
+      const response = await observabilityApi.streamLogs(filename, 50)
+
+      if (response.data.ok && response.data.entries.length > 0) {
+        const newLogs = response.data.entries
+
+        setLogs(prev => {
+          // Adiciona logs novos no início (mais recentes primeiro)
+          const updated = [...newLogs.reverse(), ...prev]
+          return updated.slice(0, 50) // Manter apenas os 50 mais recentes
+        })
+
+        setIsConnected(true)
+        setError(null)
+      } else {
+        setIsConnected(false)
+      }
+    } catch (err) {
+      console.error('[LogStream] Erro ao buscar logs:', err)
+      setError('Erro ao buscar logs')
+      setIsConnected(false)
+    }
+  }, [])
 
   useEffect(() => {
     console.log('[LogStream] Iniciando polling de logs...')
 
-    // Primeiro, busca o arquivo de log mais recente
-    const initLogFile = async () => {
-      try {
-        const filesResponse = await apiClient.get<{ ok: boolean; files: { name: string }[] }>('/logs/files')
-        if (filesResponse.data.ok && filesResponse.data.files.length > 0) {
-          const latestFile = filesResponse.data.files[0].name
-          console.log('[LogStream] Arquivo de log:', latestFile)
-          return latestFile
-        }
-      } catch (err) {
-        console.error('[LogStream] Erro ao buscar arquivo de log:', err)
-        setError('Erro ao carregar logs')
-        return null
-      }
-    }
-
-    // Função para buscar logs mais recentes
-    const fetchLatestLogs = async (filename: string) => {
-      try {
-        const response = await apiClient.get<{
-          ok: boolean
-          entries: any[]
-          total: number
-        }>(`/logs/file/${filename}`, {
-          params: { page: 1, per_page: 20 }
-        })
-
-        if (response.data.ok && response.data.entries.length > 0) {
-          const newLogs = response.data.entries
-          const currentCount = lastLogCountRef.current
-
-          // Se há novos logs, adiciona apenas os novos
-          if (newLogs.length !== currentCount) {
-            const logsToAdd = newLogs.slice(0, newLogs.length - currentCount)
-            lastLogCountRef.current = newLogs.length
-
-            setLogs(prev => {
-              const updated = [...logsToAdd.map((e: any) => ({
-                timestamp: e.timestamp,
-                level: e.level,
-                logger: e.logger,
-                message: e.message,
-                message_html: e.message_html
-              })), ...prev]
-              return updated.slice(0, 20)
-            })
-
-            setIsConnected(true)
-            setError(null)
-          }
-        }
-      } catch (err) {
-        console.error('[LogStream] Erro ao buscar logs:', err)
-        setError('Erro ao buscar logs')
-        setIsConnected(false)
-      }
-    }
-
     // Inicia o polling
     const startPolling = async () => {
-      const filename = await initLogFile()
-      if (!filename) return
+      // Busca arquivos de log primeiro
+      try {
+        const filesResponse = await observabilityApi.getLogFiles()
+        if (filesResponse.data.ok && filesResponse.data.files.length > 0) {
+          const latestFile = filesResponse.data.files[0].name
+          filenameRef.current = latestFile
+          console.log('[LogStream] Arquivo de log:', latestFile)
 
-      // Busca imediatamente
-      await fetchLatestLogs(filename)
+          // Busca logs imediatamente
+          await fetchLatestLogs(latestFile)
 
-      // Configura polling a cada 2 segundos
-      pollIntervalRef.current = setInterval(() => fetchLatestLogs(filename), 2000)
+          // Configura polling a cada 2 segundos
+          pollIntervalRef.current = setInterval(() => fetchLatestLogs(latestFile), 2000)
+        }
+      } catch (err) {
+        console.error('[LogStream] Erro ao buscar arquivos de log:', err)
+        setError('Erro ao carregar logs')
+      }
     }
 
     startPolling()
@@ -99,7 +82,20 @@ export default function LogStream() {
         clearInterval(pollIntervalRef.current)
       }
     }
-  }, [])
+  }, [fetchLatestLogs])
+
+  // Pausa/retoma o polling quando a prop paused muda
+  useEffect(() => {
+    if (paused && pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    } else if (!paused && filenameRef.current && !pollIntervalRef.current) {
+      // Retoma o polling
+      pollIntervalRef.current = setInterval(() => {
+        fetchLatestLogs(filenameRef.current!)
+      }, 2000)
+    }
+  }, [paused, fetchLatestLogs])
 
   // Auto-scroll para o topo quando novos logs chegam
   useEffect(() => {
