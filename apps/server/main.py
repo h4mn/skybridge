@@ -124,28 +124,48 @@ class SkybridgeServer:
                 content={"detail": "WebUI not built. Run 'cd apps/web && npm run build'"}
             )
 
-        if web_dist.exists():
-            # Assets estáticos
+        # Assets estáticos - rota específica avaliada ANTES do SPA genérico
+        @self.app.get("/web/assets/{path:path}")
+        async def webui_assets(path: str):
+            """Serve assets estáticos com MIME type correto."""
+            web_dist = Path(__file__).parent.parent / "web" / "dist"
             assets_dir = web_dist / "assets"
-            if assets_dir.exists():
-                self.app.mount("/web/assets", StaticFiles(directory=assets_dir), name="assets")
+            asset_path = assets_dir / path
 
-            # Rota /web/ retorna o index.html diretamente
-            @self.app.get("/web/")
-            async def webui_index():
-                """Retorna index.html para /web/."""
+            if asset_path.exists() and asset_path.is_file():
+                # Define MIME type correto
+                if path.endswith('.js') or path.endswith('.mjs'):
+                    return FileResponse(asset_path, media_type='application/javascript; charset=utf-8')
+                elif path.endswith('.css'):
+                    return FileResponse(asset_path, media_type='text/css; charset=utf-8')
+                else:
+                    return FileResponse(asset_path)
+
+            # 404 se asset não existe
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=404, content={"detail": "Asset not found"})
+
+        # SPA fallback para outras rotas do React (NÃO inclui assets devido à rota acima)
+        @self.app.get("/web/{path:path}")
+        async def webui_spa(path: str):
+            """Fallback para SPA - retorna index.html para rotas não-asset."""
+            web_dist = Path(__file__).parent.parent / "web" / "dist"
+
+            # Se for um arquivo que existe na raiz do dist, serve ele
+            file_path = web_dist / path
+            if file_path.exists() and file_path.is_file():
+                return FileResponse(file_path)
+
+            # Senão, retorna index.html (SPA fallback)
+            if web_dist.exists():
                 return FileResponse(web_dist / "index.html")
 
-            # SPA fallback para outras rotas do React
-            @self.app.get("/web/{path:path}")
-            async def webui_spa(path: str):
-                """Fallback para SPA - retorna index.html para rotas não-asset."""
-                # Se for um arquivo que existe, serve ele
-                file_path = web_dist / path
-                if file_path.exists() and file_path.is_file():
-                    return FileResponse(file_path)
-                # Senão, retorna index.html (SPA fallback)
-                return FileResponse(web_dist / "index.html")
+            # 404 se dist não existe
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=404,
+                content={"detail": "WebUI not built. Run 'cd apps/web && npm run build'"}
+            )
 
     def run(
         self,
@@ -234,7 +254,7 @@ def main():
     web_dist = Path(__file__).parent.parent / "web" / "dist"
     if web_dist.exists():
         print_separator("─", 60)
-        print(f"{Colors.GREEN}WebUI disponível em:{Colors.RESET}")
+        print(f"{Colors.CYAN}WebUI disponível em:{Colors.RESET}")
         if tunnel_url:
             print(f"  {Colors.CYAN}{tunnel_url}/web/{Colors.RESET}")
         else:

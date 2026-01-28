@@ -14,10 +14,9 @@ export default function LogStream() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [logFile, setLogFile] = useState<string>('')
   const logContainerRef = useRef<HTMLDivElement>(null)
   const lastLogCountRef = useRef<number>(0)
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     console.log('[LogStream] Iniciando polling de logs...')
@@ -28,7 +27,6 @@ export default function LogStream() {
         const filesResponse = await apiClient.get<{ ok: boolean; files: { name: string }[] }>('/logs/files')
         if (filesResponse.data.ok && filesResponse.data.files.length > 0) {
           const latestFile = filesResponse.data.files[0].name
-          setLogFile(latestFile)
           console.log('[LogStream] Arquivo de log:', latestFile)
           return latestFile
         }

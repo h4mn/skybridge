@@ -209,9 +209,10 @@ class ColorFormatter(logging.Formatter):
         json_data = None
         message_prefix = raw_message
 
-        # Procura por JSON no final da mensagem
+        # Procura por JSON no final da mensagem (apenas dicts, não listas)
+        # Listas como [123] são comuns em mensagens do uvicorn e não devem ser parseadas
         for i in range(len(raw_message) - 1, -1, -1):
-            if raw_message[i] in ("{", "["):
+            if raw_message[i] == "{":  # Apenas dicts, não listas []
                 try:
                     json_str = raw_message[i:]
                     json_data = json.loads(json_str)
@@ -236,11 +237,12 @@ class ColorFormatter(logging.Formatter):
         for key, value in vars(record).items():
             if key.startswith("_"):
                 continue
-            # Pula campos padrão do LogRecord
+            # Pula campos padrão do LogRecord e campos internos do uvicorn
             if key in ("name", "msg", "args", "levelname", "levelno", "pathname",
                       "filename", "module", "lineno", "funcName", "created", "msecs",
                       "relativeCreated", "thread", "threadName", "processName",
-                      "process", "getMessage", "exc_info", "exc_text", "stack_info"):
+                      "process", "getMessage", "exc_info", "exc_text", "stack_info",
+                      "color_message"):  # uvicorn color_message - nós já aplicamos cores
                 continue
 
             # Formata qualquer outro campo como extra

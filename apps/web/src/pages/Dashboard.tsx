@@ -145,8 +145,8 @@ export default function Dashboard() {
                       <td><small>{health?.timestamp || 'N/A'}</small></td>
                     </tr>
                     <tr>
-                      <td><strong>Serviço</strong></td>
-                      <td>{health?.service || 'N/A'}</td>
+                      <td><strong>Status</strong></td>
+                      <td><Badge bg={health?.status === 'healthy' ? 'success' : 'danger'}>{health?.status || 'N/A'}</Badge></td>
                     </tr>
                   </tbody>
                 </Table>
