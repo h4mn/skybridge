@@ -1,26 +1,47 @@
-import { Navbar, Nav, Container } from 'react-bootstrap'
-import { Link } from 'react-router-dom'
+import { Navbar, Container } from 'react-bootstrap'
+import { useLocation } from 'react-router-dom'
 
 /**
  * Header/Navbar principal do Skybridge WebUI.
+ * Mostra o título dinâmico baseado no contexto ativo.
  */
 export default function Header() {
+  const location = useLocation()
+
+  // Mapear caminho para nome do contexto
+  const getContextName = (path: string): string => {
+    const contextMap: Record<string, string> = {
+      '/dashboard': 'Dashboard',
+      '/dashboard/': 'Dashboard',
+      '/kanban': 'Kanban',
+      '/wiki': 'Wiki',
+      '/jobs': 'Jobs',
+      '/worktrees': 'Worktrees',
+      '/logs': 'Logs',
+    }
+
+    // Encontrar correspondência exata ou por prefixo
+    const exactMatch = contextMap[path]
+    if (exactMatch) return exactMatch
+
+    // Tentar correspondência por prefixo
+    for (const [key, value] of Object.entries(contextMap)) {
+      if (path.startsWith(key) && key !== '/') {
+        return value
+      }
+    }
+
+    return 'WebUI'
+  }
+
+  const contextName = getContextName(location.pathname)
+
   return (
-    <Navbar bg="dark" variant="dark" expand="lg" className="mb-4">
+    <Navbar bg="dark" variant="dark">
       <Container fluid>
-        <Navbar.Brand as={Link} to="/">
-          <strong>Skybridge</strong> WebUI
+        <Navbar.Brand>
+          <strong>Skybridge</strong> {contextName}
         </Navbar.Brand>
-        <Navbar.Toggle aria-controls="navbar-nav" />
-        <Navbar.Collapse id="navbar-nav">
-          <Nav className="me-auto">
-            <Nav.Link as={Link} to="/">Dashboard</Nav.Link>
-            <Nav.Link as={Link} to="/jobs">Jobs</Nav.Link>
-            <Nav.Link as={Link} to="/worktrees">Worktrees</Nav.Link>
-            <Nav.Link as={Link} to="/logs">Logs</Nav.Link>
-            <Nav.Link as={Link} to="/settings">Settings</Nav.Link>
-          </Nav>
-        </Navbar.Collapse>
       </Container>
     </Navbar>
   )

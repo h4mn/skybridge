@@ -10,6 +10,7 @@ from typing import TypedDict
 
 from kernel import Result
 from kernel.registry.decorators import query
+from version import __version__
 
 
 class HealthData(TypedDict):
@@ -44,7 +45,7 @@ def health_query() -> Result[HealthData, str]:
     try:
         return Result.ok({
             "status": "healthy",
-            "version": "0.1.0",
+            "version": __version__,
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "service": "Skybridge API",
         })
