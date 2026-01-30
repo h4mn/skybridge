@@ -242,9 +242,39 @@ class AgentFacade(ABC):
 
 ### 5.3) Adapters Específicos
 
+> **Nota:** A partir de ADR021 (2026-01-29), a implementação padrão é `ClaudeSDKAdapter` usando SDK oficial. O exemplo abaixo mantido para referência histórica da arquitetura.
+
+**Implementação Atual (SDK Oficial - ADR021):**
+```python
+class ClaudeSDKAdapter(AgentFacade):
+    """Adapter usando claude-agent-sdk oficial da Anthropic."""
+
+    async def spawn(self, job, skill, worktree_path, skybridge_context):
+        from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
+
+        # System prompt configurável via config/agent_prompts.py
+        system_prompt = get_system_prompt_template()
+        rendered = render_system_prompt(system_prompt, skybridge_context)
+
+        # SDK com opções nativas
+        options = ClaudeAgentOptions(
+            allowed_tools=["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
+            permission_mode="acceptEdits",
+            cwd=worktree_path,
+            system_prompt=rendered,
+        )
+
+        async with ClaudeSDKClient(options=options) as client:
+            await client.query(self._build_main_prompt(job))
+            result = await self._wait_for_result(client, timeout=self._get_timeout(skill))
+
+        return self._extract_result(result)
+```
+
+**Implementação Legada (Subprocess - DEPRECATED):**
 ```python
 class ClaudeCodeAdapter(AgentFacade):
-    """Adapter para Claude Code CLI."""
+    """Adapter para Claude Code CLI via subprocess (DEPRECATED - ver ADR021)."""
 
     def spawn(self, job, skill, worktree_path, skybridge_context):
         # System prompt configurável via config/agent_prompts.py

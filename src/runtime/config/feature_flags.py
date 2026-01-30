@@ -38,12 +38,10 @@ class FeatureFlags:
     Feature flags para controle de rollout gradual.
 
     Attributes:
-        use_sdk_adapter: Usa Claude Agent SDK ao invés de subprocess (ClaudeCodeAdapter)
-            - true: ClaudeSDKAdapter (SDK oficial, 4-5x mais rápido)
-            - false: ClaudeCodeAdapter (subprocess, fallback para rollback)
+        use_sdk_adapter: Usa Claude Agent SDK (implementação padrão desde ADR021)
     """
 
-    use_sdk_adapter: bool = False
+    use_sdk_adapter: bool = True
 
 
 def load_feature_flags() -> FeatureFlags:
@@ -54,7 +52,7 @@ def load_feature_flags() -> FeatureFlags:
         FeatureFlags com valores das env vars
     """
     return FeatureFlags(
-        use_sdk_adapter=_env_bool("USE_SDK_ADAPTER", False),
+        use_sdk_adapter=_env_bool("USE_SDK_ADAPTER", True),
     )
 
 

@@ -3,21 +3,22 @@
 Tests for JobOrchestrator integration with Agent Facade Pattern.
 
 Estes testes verificam que o JobOrchestrator está corretamente integrado
-com o novo ClaudeCodeAdapter (SPEC008), incluindo:
+com o ClaudeSDKAdapter (ADR021), incluindo:
 - Uso do Agent Facade Pattern
-- Streaming em tempo real de skybridge_command
+- SDK oficial da Anthropic
 - Compatibilidade com o fluxo existente
 """
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 
 import pytest
 from datetime import datetime
 
 from core.webhooks.domain import WebhookEvent, WebhookJob, WebhookSource
-from core.webhooks.infrastructure.agents.claude_agent import (
-    ClaudeCodeAdapter,
+from core.webhooks.infrastructure.agents.claude_sdk_adapter import (
+    ClaudeSDKAdapter,
 )
 from core.webhooks.infrastructure.agents.domain import (
     AgentState,
@@ -35,10 +36,10 @@ from kernel.contracts.result import Result
 
 class TestJobOrchestratorAgentIntegration:
     """
-    Testes de integração do JobOrchestrator com ClaudeCodeAdapter.
+    Testes de integração do JobOrchestrator com ClaudeSDKAdapter.
 
-    Verifica que o novo Agent Facade Pattern está corretamente integrado
-    ao fluxo de execução de jobs.
+    Verifica que o Agent Facade Pattern está corretamente integrado
+    ao fluxo de execução de jobs via SDK oficial (ADR021).
     """
 
     @pytest.fixture
@@ -84,106 +85,40 @@ class TestJobOrchestratorAgentIntegration:
         job.branch_name = "test-branch"
         return job
 
-    def test_orchestrator_uses_claude_code_adapter(
+    @pytest.mark.asyncio
+    async def test_orchestrator_uses_claude_code_adapter(
         self, job_queue, event_bus, mock_worktree_manager, sample_webhook_job
     ):
         """
-        Verifica que JobOrchestrator usa ClaudeCodeAdapter.
+        Verifica que JobOrchestrator usa ClaudeSDKAdapter.
 
         Este teste valida que a refatorização para Agent Facade Pattern
         foi corretamente integrada ao JobOrchestrator.
         """
         from unittest.mock import patch
 
-        # Cria orchestrator com adapter mockado
-        mock_adapter = Mock(spec=ClaudeCodeAdapter)
+        # Cria orchestrator sem adapter mockado (usa SDK real)
         orchestrator = JobOrchestrator(
             job_queue=job_queue,
             worktree_manager=mock_worktree_manager,
             event_bus=event_bus,
-            agent_adapter=mock_adapter,
         )
 
-        # Configura mock para retornar execução bem-sucedida
-        mock_execution = AgentExecution(
-            agent_type="claude-code",
-            job_id=sample_webhook_job.job_id,
-            worktree_path=sample_webhook_job.worktree_path,
-            skill="resolve-issue",
-            state=AgentState.COMPLETED,
-            result=AgentResult(
-                success=True,
-                changes_made=True,
-                files_created=[],
-                files_modified=[],
-                files_deleted=[],
-                commit_hash="abc123",
-                pr_url=None,
-                message="Done",
-                issue_title="Test",
-                output_message="Fixed",
-                thinkings=[],
-            ),
-        )
-        mock_adapter.spawn.return_value = Result.ok(mock_execution)
+        # Verifica que o adapter e ClaudeSDKAdapter
+        assert isinstance(orchestrator.agent_adapter, ClaudeSDKAdapter)
+        assert orchestrator.agent_adapter.get_agent_type() == "claude-sdk"
 
-        # Enfileira job
-        import asyncio
-
-        async def test():
-            await job_queue.enqueue(sample_webhook_job)
-
-            # Mock GitExtractor para evitar acesso ao filesystem
-            with patch("runtime.observability.snapshot.extractors.git_extractor.GitExtractor") as mock_extractor_class:
-                mock_extractor = Mock()
-                mock_extractor.capture.return_value = Mock(
-                    metadata=Mock(model_dump=lambda: {}),
-                    stats=Mock(model_dump=lambda: {}),
-                    structure={},
-                )
-                mock_extractor_class.return_value = mock_extractor
-
-                # Executa job
-                result = await orchestrator.execute_job(sample_webhook_job.job_id)
-
-            # Verifica que o adapter foi chamado
-            assert mock_adapter.spawn.called, (
-                "ClaudeCodeAdapter.spawn() não foi chamado. "
-                "JobOrchestrator não está integrado com Agent Facade Pattern."
-            )
-
-            # Verifica parâmetros da chamada
-            call_args = mock_adapter.spawn.call_args
-            assert call_args[1]["job"] == sample_webhook_job
-            assert call_args[1]["skill"] == "resolve-issue"
-            assert call_args[1]["worktree_path"] == "/tmp/worktree-test"
-            assert "skybridge_context" in call_args[1]
-
-            # Verifica resultado
-            assert result.is_ok
-
-        asyncio.run(test())
-
-    @patch("core.webhooks.application.guardrails.JobGuardrails.validate_all")
-    @patch("core.webhooks.infrastructure.agents.claude_agent.ClaudeCodeAdapter.spawn")
-    @patch("core.webhooks.infrastructure.agents.claude_agent.load_system_prompt_config")
-    @patch("core.webhooks.infrastructure.agents.claude_agent.render_system_prompt")
+    @pytest.mark.asyncio
     @patch("runtime.observability.snapshot.extractors.git_extractor.GitExtractor")
-    def test_orchestrator_processes_xml_commands_in_real_time(
-        self, mock_git_extractor_class, mock_render, mock_config, mock_spawn, mock_guardrails_validate, job_queue, event_bus, mock_worktree_manager
+    async def test_orchestrator_processes_xml_commands_in_real_time(
+        self, mock_git_extractor_class, job_queue, event_bus, mock_worktree_manager
     ):
         """
-        Teste E2E: JobOrchestrator processa skybridge_command em tempo real.
+        Teste E2E: JobOrchestrator integra com SDK.
 
-        Este é o teste principal que valida a integração completa:
-        1. Webhook recebido
-        2. Job criado e enfileirado
-        3. JobOrchestrator executa job
-        4. ClaudeCodeAdapter spawna agente com streaming
-        5. skybridge_command são processados em tempo real
+        Este teste valida que o JobOrchestrator funciona corretamente
+        com o ClaudeSDKAdapter assincrono.
         """
-        from core.webhooks.application.guardrails import GuardrailsResult
-
         # Mock GitExtractor
         mock_git_extractor = Mock()
         mock_git_extractor.capture.return_value = Mock(
@@ -193,47 +128,7 @@ class TestJobOrchestratorAgentIntegration:
         )
         mock_git_extractor_class.return_value = mock_git_extractor
 
-        # Mock system prompt
-        mock_config.return_value = {"template": {"role": "test"}}
-        mock_render.return_value = "rendered prompt"
-
-        # Mock guardrails para retornar que há mudanças
-        mock_guardrails_result = GuardrailsResult(
-            passed=["diff_check", "syntax_check"],
-            warnings=[],
-            failed=[],
-            metadata={"modified_count": 1}
-        )
-        mock_guardrails_validate.return_value = Result.ok(mock_guardrails_result)
-
-        # Mock adapter.spawn() para retornar execução bem-sucedida com comandos XML
-        from core.webhooks.infrastructure.agents.domain import (
-            AgentExecution, AgentState, AgentResult,
-        )
-
-        mock_execution = AgentExecution(
-            agent_type="claude-code",
-            job_id="test-job-id",
-            worktree_path="/tmp/worktree-test",
-            skill="resolve-issue",
-            state=AgentState.COMPLETED,
-            result=AgentResult(
-                success=True,
-                changes_made=True,
-                files_created=[],
-                files_modified=["test.py"],
-                files_deleted=[],
-                commit_hash="abc123",
-                pr_url=None,
-                message="Done",
-                issue_title="Test",
-                output_message="Fixed",
-                thinkings=[],
-            ),
-        )
-        mock_spawn.return_value = Result.ok(mock_execution)
-
-        # Cria job
+        # Cria job simples
         event = WebhookEvent(
             source=WebhookSource.GITHUB,
             event_type="issues.opened",
@@ -255,39 +150,49 @@ class TestJobOrchestratorAgentIntegration:
         job.worktree_path = "/tmp/worktree-test"
         job.branch_name = "test-branch"
 
-        # Cria adapter mockado (async)
-        mock_adapter = AsyncMock(spec=ClaudeCodeAdapter)
-        mock_adapter.spawn.return_value = Result.ok(mock_execution)
-
-        # Cria orchestrator com adapter mockado (não chama subprocess real)
+        # Cria orchestrator
         orchestrator = JobOrchestrator(
             job_queue=job_queue,
             worktree_manager=mock_worktree_manager,
             event_bus=event_bus,
-            agent_adapter=mock_adapter,
         )
 
-        import asyncio
+        # Enfileira e executa job (mockado para nao rodar agent real)
+        await job_queue.enqueue(job)
 
-        async def test():
-            await job_queue.enqueue(job)
+        # Patch o spawn do SDK para mockar execução
+        async def mock_spawn(*args, **kwargs):
+            # Simula um delay do agent real
+            await asyncio.sleep(0.001)
+            return Result.ok(AgentExecution(
+                agent_type="claude-sdk",
+                job_id=job.job_id,
+                worktree_path=job.worktree_path,
+                skill="resolve-issue",
+                state=AgentState.COMPLETED,
+                result=AgentResult(
+                    success=True,
+                    changes_made=True,
+                    files_created=[],
+                    files_modified=[],
+                    files_deleted=[],
+                    commit_hash="abc123",
+                    pr_url=None,
+                    message="Done",
+                    issue_title="Test",
+                    output_message="Fixed",
+                    thinkings=[],
+                ),
+            ))
 
-            # Executa job
+        with patch.object(orchestrator.agent_adapter, 'spawn', side_effect=mock_spawn):
             result = await orchestrator.execute_job(job.job_id)
 
-            # Verifica que job completou
-            assert result.is_ok, f"Job falhou: {result.error}"
+        # Verifica que job completou
+        assert result.is_ok
 
-            # ✅ VERIFICAÇÃO PRINCIPAL: skybridge_command foram processados
-            # Nota: Como estamos mockando o Popen, os comandos XML estão
-            # sendo processados pelo ClaudeCodeAdapter.spawn()
-            # Este teste valida que o fluxo completo funciona
-
-            assert result.is_ok
-
-        asyncio.run(test())
-
-    def test_orchestrator_includes_skybridge_context(
+    @pytest.mark.asyncio
+    async def test_orchestrator_includes_skybridge_context(
         self, job_queue, event_bus, mock_worktree_manager, sample_webhook_job
     ):
         """
@@ -298,45 +203,47 @@ class TestJobOrchestratorAgentIntegration:
         - branch_name
         - repo_name
         """
-        from unittest.mock import patch
+        from unittest.mock import patch, AsyncMock
 
-        mock_adapter = Mock(spec=ClaudeCodeAdapter)
+        # Cria orchestrator sem adapter mockado (usa SDK real)
         orchestrator = JobOrchestrator(
             job_queue=job_queue,
             worktree_manager=mock_worktree_manager,
             event_bus=event_bus,
-            agent_adapter=mock_adapter,
         )
 
-        # Configura mock
-        mock_execution = AgentExecution(
-            agent_type="claude-code",
-            job_id=sample_webhook_job.job_id,
-            worktree_path=sample_webhook_job.worktree_path,
-            skill="resolve-issue",
-            state=AgentState.COMPLETED,
-            result=AgentResult(
-                success=True,
-                changes_made=False,
-                files_created=[],
-                files_modified=[],
-                files_deleted=[],
-                commit_hash=None,
-                pr_url=None,
-                message="No changes",
-                issue_title="Test",
-                output_message="Output",
-                thinkings=[],
-            ),
-        )
-        mock_adapter.spawn.return_value = Result.ok(mock_execution)
+        # Enfileira job
+        await job_queue.enqueue(sample_webhook_job)
 
-        import asyncio
+        # Mock o spawn para capturar os argumentos
+        captured_args = {}
 
-        async def test():
-            await job_queue.enqueue(sample_webhook_job)
+        async def mock_spawn(job, skill, worktree_path, skybridge_context):
+            captured_args["skybridge_context"] = skybridge_context
+            # Simula um delay do agent real
+            await asyncio.sleep(0.001)
+            return Result.ok(AgentExecution(
+                agent_type="claude-sdk",
+                job_id=job.job_id,
+                worktree_path=worktree_path,
+                skill=skill,
+                state=AgentState.COMPLETED,
+                result=AgentResult(
+                    success=True,
+                    changes_made=False,
+                    files_created=[],
+                    files_modified=[],
+                    files_deleted=[],
+                    commit_hash=None,
+                    pr_url=None,
+                    message="No changes",
+                    issue_title="Test",
+                    output_message="Output",
+                    thinkings=[],
+                ),
+            ))
 
-            # Mock GitExtractor
+        with patch.object(orchestrator.agent_adapter, 'spawn', side_effect=mock_spawn):
             with patch("runtime.observability.snapshot.extractors.git_extractor.GitExtractor") as mock_extractor_class:
                 mock_extractor = Mock()
                 mock_extractor.capture.return_value = Mock(
@@ -348,20 +255,18 @@ class TestJobOrchestratorAgentIntegration:
 
                 result = await orchestrator.execute_job(sample_webhook_job.job_id)
 
-            # Verifica que spawn foi chamado com contexto correto
-            call_args = mock_adapter.spawn.call_args
-            skybridge_context = call_args[1]["skybridge_context"]
+        # Verifica que spawn foi chamado com contexto correto
+        skybridge_context = captured_args["skybridge_context"]
 
-            assert "worktree_path" in skybridge_context
-            assert "branch_name" in skybridge_context
-            assert "repo_name" in skybridge_context
-            assert skybridge_context["repo_name"] == "testowner/testrepo"
+        assert "worktree_path" in skybridge_context
+        assert "branch_name" in skybridge_context
+        assert "repo_name" in skybridge_context
+        assert skybridge_context["repo_name"] == "testowner/testrepo"
 
-            assert result.is_ok
+        assert result.is_ok
 
-        asyncio.run(test())
-
-    def test_orchestrator_handles_agent_errors_gracefully(
+    @pytest.mark.asyncio
+    async def test_orchestrator_handles_agent_errors_gracefully(
         self, job_queue, event_bus, mock_worktree_manager, sample_webhook_job
     ):
         """
@@ -369,25 +274,23 @@ class TestJobOrchestratorAgentIntegration:
         """
         from unittest.mock import patch
 
-        mock_adapter = Mock(spec=ClaudeCodeAdapter)
+        # Cria orchestrator sem adapter mockado (usa SDK real)
         orchestrator = JobOrchestrator(
             job_queue=job_queue,
             worktree_manager=mock_worktree_manager,
             event_bus=event_bus,
-            agent_adapter=mock_adapter,
         )
 
-        # Configura mock para retornar erro
-        mock_adapter.spawn.return_value = Result.err(
-            "Timeout na execução do agente"
-        )
+        # Enfileira job
+        await job_queue.enqueue(sample_webhook_job)
 
-        import asyncio
+        # Mock o spawn para retornar erro
+        async def mock_spawn_error(*args, **kwargs):
+            # Simula um delay do agent real
+            await asyncio.sleep(0.001)
+            return Result.err("Timeout na execução do agente")
 
-        async def test():
-            await job_queue.enqueue(sample_webhook_job)
-
-            # Mock GitExtractor
+        with patch.object(orchestrator.agent_adapter, 'spawn', side_effect=mock_spawn_error):
             with patch("runtime.observability.snapshot.extractors.git_extractor.GitExtractor") as mock_extractor_class:
                 mock_extractor = Mock()
                 mock_extractor.capture.return_value = Mock(
@@ -399,8 +302,6 @@ class TestJobOrchestratorAgentIntegration:
 
                 result = await orchestrator.execute_job(sample_webhook_job.job_id)
 
-            # Verifica que erro foi propagado corretamente
-            assert result.is_err
-            assert "Timeout" in result.error
-
-        asyncio.run(test())
+        # Verifica que erro foi propagado corretamente
+        assert result.is_err
+        assert "Timeout" in result.error

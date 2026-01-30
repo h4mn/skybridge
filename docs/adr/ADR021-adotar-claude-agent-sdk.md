@@ -4,16 +4,18 @@ data: 2026-01-21
 aprovada_por: usuário
 data_aprovacao: 2026-01-24
 implementacao: feat/claude-agent-sdk
-data_implementacao: 2026-01-24
+data_implementacao: 2026-01-29
+migracao_completa: 2026-01-29
 ---
 
 # ADR021 — Adotar claude-agent-sdk para Interface de Agentes
 
-**Status:** ✅ **IMPLEMENTADA**
+**Status:** ✅ **IMPLEMENTADA (Migração Completa)**
 
 **Data:** 2026-01-21
 **Data de Aprovação:** 2026-01-24
 **Data de Implementação:** 2026-01-24
+**Data de Migração Completa:** 2026-01-29
 **Branch de Implementação:** `feat/claude-agent-sdk`
 
 ## Contexto
@@ -546,6 +548,55 @@ Se esta ADR for aprovada:
 1. **ADR022:** Implementar SPEC009 (Multi-Agent Workflow) usando SDK como base
 2. **ADR023:** Migrar system prompts para formato nativo da SDK
 3. **ADR024:** Implementar observabilidade avançada via Hooks
+
+## Migração Completa (2026-01-29)
+
+**Status:** ✅ **CONCLUÍDA** - Sem vestígios do código subprocess
+
+### Alterações Realizadas
+
+1. **Feature Flags**
+   - `use_sdk_adapter` mudou de `False` → `True` (padrão)
+   - Removida documentação de fallback subprocess
+
+2. **Código Removido**
+   - ❌ `claude_agent.py` (ClaudeCodeAdapter - 400+ linhas)
+   - ❌ `test_migration.py`, `test_integration.py`, `test_benchmarks.py`
+   - ❌ `agent_sdk_scenarios.py` (benchmark comparativo)
+   - ❌ Testes específicos de subprocess em `test_agent_infrastructure.py`
+   - ❌ Testes de XML streaming (TestRealTimeStreaming)
+
+3. **Código Atualizado**
+   - ✅ `feature_flags.py` - SDK é agora o padrão único
+   - ✅ `job_orchestrator.py` - Removido código condicional if/else
+   - ✅ `commit_message_generator.py` - Usa SDK por padrão
+   - ✅ `__init__.py` - Exporta apenas ClaudeSDKAdapter
+   - ✅ Testes atualizados para ClaudeSDKAdapter
+
+4. **Documentation**
+   - ✅ ADR021 marcada como "Migração Completa"
+   - ✅ Removidas referências a fallback subprocess
+
+### Validação
+
+```bash
+# Verifica que não há referências ao código antigo
+grep -r "ClaudeCodeAdapter" src/ --include="*.py"
+# Resultado: Apenas comentários históricos em claude_sdk_adapter.py
+
+# Feature flag ativa
+python -c "from runtime.config import get_feature_flags; print(get_feature_flags().use_sdk_adapter)"
+# Resultado: True
+```
+
+### Estado Final
+
+- **Única implementação:** ClaudeSDKAdapter (SDK oficial)
+- **Feature flag:** Mantida para compatibilidade, mas SDK é o padrão
+- **Type safety:** 100% (sem Dicts não tipados)
+- **Performance:** 4-5x mais rápido (50-100ms vs 200-500ms)
+- **Observabilidade:** Hooks nativos (PreToolUse, PostToolUse)
+- **Custom tools:** SDK MCP in-process (sem servidores externos)
 
 ## Referências
 

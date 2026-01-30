@@ -56,9 +56,9 @@ class AgentFacade(ABC):
             Result com AgentExecution ou erro (mensagem)
 
         Example:
-            >>> from core.webhooks.infrastructure.agents import ClaudeCodeAdapter
-            >>> facade = ClaudeCodeAdapter()
-            >>> result = facade.spawn(job, "resolve-issue", worktree_path, context)
+            >>> from core.webhooks.infrastructure.agents import ClaudeSDKAdapter
+            >>> facade = ClaudeSDKAdapter()
+            >>> result = await facade.spawn(job, "resolve-issue", worktree_path, context)
             >>> if result.is_ok:
             ...     execution = result.value
             ...     # Agente executou com sucesso

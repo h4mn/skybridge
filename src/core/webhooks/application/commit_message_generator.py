@@ -54,11 +54,11 @@ class CommitMessageGenerator:
         Inicializa gerador.
 
         Args:
-            agent_adapter: Adapter do agente (opcional, cria ClaudeCodeAdapter se None)
+            agent_adapter: Adapter do agente (opcional, cria ClaudeSDKAdapter se None)
         """
         if agent_adapter is None:
-            from core.webhooks.infrastructure.agents.claude_agent import ClaudeCodeAdapter
-            agent_adapter = ClaudeCodeAdapter()
+            from core.webhooks.infrastructure.agents.claude_sdk_adapter import ClaudeSDKAdapter
+            agent_adapter = ClaudeSDKAdapter()
         self.agent_adapter = agent_adapter
 
     async def generate(self, job: "WebhookJob", worktree_path: str) -> Result[str, str]:
@@ -107,7 +107,7 @@ class CommitMessageGenerator:
 
         # Chama agente para gerar commit message
         # NOTA: Usamos uma abordagem simples chamando via API do Claude
-        # em vez de usar o ClaudeCodeAdapter completo para essa tarefa simples
+        # em vez de usar o adapter completo para essa tarefa simples
         commit_message = await self._call_agent_for_commit_message(prompt)
 
         if not commit_message:

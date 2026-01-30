@@ -12,6 +12,9 @@ Categorias:
 - queue_scenarios.py: Demos de sistema de fila
 - engine_scenarios.py: Demos que testam a própria engine/CLI
 - prd021_scenarios.py: Demos da reorganização de prompts e skills (PRD021)
+
+NOTA: agent_sdk_scenarios.py foi removido conforme ADR021 (migração completa para SDK).
+Os benchmarks comparativos não são mais necessários.
 """
 
 # Import de todos os cenários para registrar automaticamente
@@ -40,11 +43,6 @@ from runtime.demo.scenarios.engine_scenarios import (
     DemoEngineValidationDemo,
 )
 
-from runtime.demo.scenarios.agent_sdk_scenarios import (
-    AgentSDKE2EDemo,
-    AgentSDKBenchmarkDemo,
-)
-
 from runtime.demo.scenarios.prd021_scenarios import (
     PRD021StructureDemo,
     PRD021ImportDemo,
@@ -70,9 +68,6 @@ __all__ = [
     # Engine
     "CLITestSuiteDemo",
     "DemoEngineValidationDemo",
-    # Agent SDK (PRD019)
-    "AgentSDKE2EDemo",
-    "AgentSDKBenchmarkDemo",
     # PRD021 - Refatoração de Prompts e Skills
     "PRD021StructureDemo",
     "PRD021ImportDemo",

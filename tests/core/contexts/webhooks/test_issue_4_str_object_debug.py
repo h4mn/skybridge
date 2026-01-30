@@ -15,8 +15,8 @@ from unittest.mock import Mock, patch
 import pytest
 
 from core.webhooks.domain import WebhookEvent, WebhookJob, WebhookSource
-from core.webhooks.infrastructure.agents.claude_agent import (
-    ClaudeCodeAdapter,
+from core.webhooks.infrastructure.agents.claude_sdk_adapter import (
+    ClaudeSDKAdapter,
 )
 from core.webhooks.application.job_orchestrator import (
     JobOrchestrator,
@@ -148,7 +148,7 @@ class TestIssue4StrObjectDebug:
             mock_extractor_class.return_value = mock_extractor
 
             # Cria orchestrator com adapter REAL (não mockado)
-            adapter = ClaudeCodeAdapter()
+            adapter = ClaudeSDKAdapter()
             orchestrator = JobOrchestrator(
                 job_queue=job_queue,
                 worktree_manager=mock_worktree_manager,
@@ -261,16 +261,11 @@ class TestIssue4StrObjectDebug:
 
             print(f"[DEBUG]    main_prompt: {main_prompt[:100]}...")
 
-            # Passo 5: _build_command
-            print("[DEBUG] 5. _build_command()...")
-            try:
-                cmd = adapter._build_command(webhook_job.worktree_path, system_prompt)
-                print(f"[DEBUG]    cmd: {' '.join(cmd[:5])}...")
-            except Exception as e:
-                print(f"[DEBUG]    ERRO em _build_command: {e}")
-                raise
+            # Passo 5: Adapter SDK não usa _build_command (metodo privado do subprocess)
+            # O SDK usa ClaudeAgentOptions diretamente, entao pulamos esta validacao
+            print("[DEBUG] 5. _build_command()... [PULADO - SDK nao usa este metodo]")
 
-            # === TESTE DO SPAWN COMPLETO ===
+            # === TESTE DE REGRESSÃO FINAL ===
             print("\n[DEBUG] Tentando adapter.spawn() completo...")
             print("=" * 80)
 
@@ -349,11 +344,11 @@ class TestIssue4StrObjectDebug:
         self, webhook_job
     ):
         """
-        Testa especificamente o ClaudeCodeAdapter._build_system_prompt.
+        Testa especificamente o ClaudeSDKAdapter._build_system_prompt.
         """
-        print("\n[DEBUG] Testando ClaudeCodeAdapter._build_system_prompt()...")
+        print("\n[DEBUG] Testando ClaudeSDKAdapter._build_system_prompt()...")
 
-        adapter = ClaudeCodeAdapter()
+        adapter = ClaudeSDKAdapter()
 
         skybridge_context = {
             "worktree_path": webhook_job.worktree_path,
