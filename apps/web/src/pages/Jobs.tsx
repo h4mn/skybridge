@@ -29,7 +29,7 @@ export default function Jobs() {
   // Modal state
   const [selectedJob, setSelectedJob] = useState<WebhookJob | null>(null)
 
-  // Query para jobs
+  // Query para jobs (sem auto-refresh - atualiza apenas sob demanda)
   const {
     data: jobsData,
     isLoading,
@@ -41,7 +41,7 @@ export default function Jobs() {
       const res = await webhooksApi.listJobs()
       return res.data
     },
-    refetchInterval: 5000, // Atualiza a cada 5s
+    // refetchInterval removido - atualiza apenas via botão ou interação
   })
 
   const jobs = jobsData?.jobs ?? []
@@ -276,17 +276,17 @@ export default function Jobs() {
                   {currentItems.map((job) => (
                     <tr key={job.job_id}>
                       <td>
-                        <Badge bg={getStatusBadge(job.status)} className="fs-6">
+                        <Badge bg={getStatusBadge(job.status)}>
                           {getStatusIcon(job.status)} {job.status}
                         </Badge>
                       </td>
                       <td>
-                        <code className="text-primary" style={{ fontSize: '0.85em' }}>
-                          {job.job_id.slice(0, 8)}...
+                        <code className="text-primary" style={{ fontSize: '0.85em' }} title={job.job_id}>
+                          {job.job_id.length > 25 ? job.job_id.slice(0, 25) + '...' : job.job_id}
                         </code>
                       </td>
                       <td>
-                        <Badge bg="info" className="fs-6">
+                        <Badge bg="info">
                           {job.source}
                         </Badge>
                       </td>
@@ -374,7 +374,7 @@ export default function Jobs() {
                   <tr>
                     <th>Status</th>
                     <td>
-                      <Badge bg={getStatusBadge(selectedJob.status)} className="fs-6">
+                      <Badge bg={getStatusBadge(selectedJob.status)}>
                         {getStatusIcon(selectedJob.status)} {selectedJob.status}
                       </Badge>
                     </td>
@@ -382,7 +382,7 @@ export default function Jobs() {
                   <tr>
                     <th>Fonte</th>
                     <td>
-                      <Badge bg="info" className="fs-6">
+                      <Badge bg="info">
                         {selectedJob.source}
                       </Badge>
                     </td>

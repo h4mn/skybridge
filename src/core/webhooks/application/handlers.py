@@ -23,6 +23,9 @@ _job_queue: JobQueuePort | None = None
 # EventBus (singleton para Domain Events)
 _event_bus = None
 
+# AgentExecutionStore (singleton para persistência de execuções de agentes)
+_agent_execution_store = None
+
 # TrelloIntegrationService (opcional, singleton)
 _trello_service = None
 
@@ -80,8 +83,11 @@ def get_trello_kanban_service():
             from os import getenv
 
             trello_config = get_trello_config()
+            logger.info(f"TRELLO_API_KEY: {bool(trello_config.api_key)}, TRELLO_API_TOKEN: {bool(trello_config.api_token)}")
+
             if trello_config.api_key and trello_config.api_token:
                 board_id = getenv("TRELLO_BOARD_ID")
+                logger.info(f"TRELLO_BOARD_ID: {board_id}")
                 if board_id:
                     trello_adapter = TrelloAdapter(
                         trello_config.api_key,
@@ -93,8 +99,13 @@ def get_trello_kanban_service():
                         trello_adapter=trello_adapter,
                         kanban_config=kanban_config,
                     )
-        except Exception:
-            pass
+                    logger.info("TrelloService criado com sucesso")
+                else:
+                    logger.warning("TRELLO_BOARD_ID não encontrado")
+            else:
+                logger.warning("TRELLO_API_KEY ou TRELLO_API_TOKEN não configurados")
+        except Exception as e:
+            logger.error(f"Erro ao criar TrelloService: {e}")
     return _trello_kanban_service
 
 
@@ -139,6 +150,25 @@ def get_event_bus():
         _event_bus = InMemoryEventBus()
         logger.info("EventBus inicializado: InMemoryEventBus")
     return _event_bus
+
+
+def get_agent_execution_store():
+    """
+    Retorna instância singleton do AgentExecutionStore.
+
+    PRD: Página de Agents (Agent Spawns)
+    Persiste execuções de agentes em SQLite para consulta via API.
+
+    Returns:
+        Instância de AgentExecutionStore
+    """
+    global _agent_execution_store
+    if _agent_execution_store is None:
+        from infra.agents.agent_execution_store import AgentExecutionStore
+
+        _agent_execution_store = AgentExecutionStore()
+        logger.info("AgentExecutionStore inicializado")
+    return _agent_execution_store
 
 
 @command(
@@ -335,10 +365,12 @@ def receive_trello_webhook(args: dict) -> Result:
             from runtime.config.config import get_trello_kanban_lists_config
 
             kanban_config = get_trello_kanban_lists_config()
-            todo_list_name = kanban_config.todo
+            # Nomes das listas (não IDs) para comparação
+            todo_list_name = "📋 A Fazer"
+            in_progress_list_name = "🚧 Em Andamento"
 
             if list_after_name == todo_list_name:
-                logger.info(f"✅ Card detectado em '{todo_list_name}' - movendo para '{kanban_config.progress}'...")
+                logger.info(f"✅ Card detectado em '{todo_list_name}' - movendo para '{in_progress_list_name}'...")
 
                 # Card foi movido para "📋 A Fazer" - mover automaticamente para "🚧 Em Andamento"
                 handle_result = await trello_service.handle_card_moved_to_todo(
@@ -348,7 +380,7 @@ def receive_trello_webhook(args: dict) -> Result:
                     logger.error(f"❌ Erro ao processar card movido para '📋 A Fazer': {handle_result.error}")
                     return Result.err(handle_result.error)
 
-                logger.info(f"✅ Card movido automaticamente para '{kanban_config.progress}'")
+                logger.info(f"✅ Card movido automaticamente para '{in_progress_list_name}'")
 
                 # PRD020: Extrair issue_number do card e criar job
                 issue_number = extract_issue_number_from_card(card_name, card_desc)

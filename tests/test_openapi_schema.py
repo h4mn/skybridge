@@ -119,8 +119,8 @@ class OpenAPISchemaTests(unittest.TestCase):
         self.assertIn("/envelope", paths, "/envelope deve estar definido")
         self.assertIn("/discover", paths, "/discover deve estar definido")
         self.assertIn("/health", paths, "/health deve estar definido")
-        self.assertIn("/openapi", paths, "/openapi deve estar definido")
-        self.assertIn("/privacy", paths, "/privacy deve estar definido")
+        self.assertIn("/api/openapi", paths, "/api/openapi deve estar definido")
+        self.assertIn("/api/privacy", paths, "/api/privacy deve estar definido")
 
     def test_openapi_hybrid_placeholders(self):
         """

@@ -117,3 +117,96 @@ export const observabilityApi = {
       { params: { page: 1, per_page: tail } }
     ),
 }
+
+// =============================================================================
+// AGENTS EXECUTIONS
+// =============================================================================
+
+export enum AgentState {
+  CREATED = 'created',
+  RUNNING = 'running',
+  TIMED_OUT = 'timed_out',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
+export interface AgentResult {
+  success: boolean
+  changes_made: boolean
+  files_created: string[]
+  files_modified: string[]
+  files_deleted: string[]
+  commit_hash: string | null
+  pr_url: string | null
+  message: string
+  issue_title: string
+  output_message: string
+  thinkings: unknown[]
+}
+
+export interface AgentExecution {
+  agent_type: string
+  job_id: string
+  worktree_path: string
+  skill: string
+  state: AgentState
+  result: AgentResult | null
+  error_message: string | null
+  duration_ms: number | null
+  timeout_seconds: number
+  timestamps: {
+    created_at: string
+    started_at: string | null
+    completed_at: string | null
+  }
+}
+
+export interface AgentMetrics {
+  total: number
+  created: number
+  running: number
+  completed: number
+  failed: number
+  timed_out: number
+  success_rate: number | null
+}
+
+export interface AgentMessage {
+  timestamp?: string
+  type?: string
+  content: string
+}
+
+export interface AgentExecutionWithMessages extends AgentExecution {
+  messages?: string[]
+  stdout?: string
+}
+
+export const agentsApi = {
+  listExecutions: (limit: number = 100) =>
+    apiClient.get<{
+      ok: boolean
+      executions: AgentExecution[]
+      metrics: AgentMetrics
+    }>('/api/agents/executions', { params: { limit } }),
+
+  getExecution: (jobId: string) =>
+    apiClient.get<{
+      ok: boolean
+      execution: AgentExecution
+    }>(`/api/agents/executions/${jobId}`),
+
+  getMessages: (jobId: string) =>
+    apiClient.get<{
+      ok: boolean
+      job_id: string
+      messages: string[]
+      stdout: string
+    }>(`/api/agents/executions/${jobId}/messages`),
+
+  getMetrics: () =>
+    apiClient.get<{
+      ok: boolean
+      metrics: AgentMetrics
+    }>('/api/agents/metrics'),
+}

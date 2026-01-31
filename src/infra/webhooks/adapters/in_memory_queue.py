@@ -213,3 +213,61 @@ class InMemoryJobQueue(JobQueuePort):
         self._cleanup_expired_deliveries()
 
         return delivery_id in self._delivery_ids
+
+    async def list_jobs(
+        self,
+        limit: int = 100,
+        status_filter: str | None = None,
+    ) -> list[dict[str, object]]:
+        """
+        Lista jobs da fila para o WebUI.
+
+        Args:
+            limit: Número máximo de jobs a retornar
+            status_filter: Filtrar por status (opcional)
+
+        Returns:
+            Lista de dicionários com dados dos jobs no formato esperado pelo frontend
+        """
+        jobs_list = []
+        count = 0
+
+        # Itera sobre os jobs em ordem reversa (mais recentes primeiro)
+        for job in reversed(list(self._jobs.values())):
+            if count >= limit:
+                break
+
+            # Aplica filtro de status se especificado
+            if status_filter and job.status.value != status_filter.lower():
+                continue
+
+            jobs_list.append({
+                "job_id": job.job_id,
+                "source": job.event.source.value,
+                "event_type": job.event.event_type,
+                "status": job.status.value.upper(),
+                "created_at": job.created_at.isoformat(),
+                "worktree_path": job.worktree_path,
+            })
+            count += 1
+
+        return jobs_list
+
+    async def update_metadata(self, job_id: str, metadata: dict[str, object]) -> None:
+        """
+        Atualiza metadata de um job.
+
+        Args:
+            job_id: ID do job
+            metadata: Novo metadata (será mesclado com o existente)
+        """
+        job = self._jobs.get(job_id)
+        if job:
+            # Atualiza worktree_path se presente no metadata
+            if "worktree_path" in metadata:
+                job.worktree_path = str(metadata["worktree_path"])
+            # Atualiza branch_name se presente
+            if "branch_name" in metadata:
+                job.branch_name = str(metadata["branch_name"])
+            # Mescla com metadata existente
+            job.metadata.update(metadata)

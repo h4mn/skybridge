@@ -19,7 +19,6 @@ export default function LogStream({ paused = false }: LogStreamProps) {
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const logContainerRef = useRef<HTMLDivElement>(null)
-  const lastLogCountRef = useRef<number>(0)
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const filenameRef = useRef<string | null>(null)
 

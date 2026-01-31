@@ -13,6 +13,10 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 import uvicorn
+import subprocess
+import shutil
+import signal
+import asyncio
 
 # Load .env
 load_dotenv()
@@ -73,6 +77,60 @@ def get_log_config() -> dict:
             },
         }
     }
+
+
+def ensure_webui_built() -> bool:
+    """
+    Verifica se o WebUI foi built, e tenta buildar se necessário.
+
+    Returns:
+        True se WebUI está pronto ou build foi bem-sucedido, False caso contrário
+    """
+    web_dist = Path(__file__).parent.parent / "web" / "dist"
+    web_src = Path(__file__).parent.parent / "web"
+
+    # Verifica se dist existe e tem index.html
+    if web_dist.exists() and (web_dist / "index.html").exists():
+        return True
+
+    logger = get_logger()
+    logger.info("WebUI não encontrado. Tentando build automático...")
+
+    # Verifica se npm está disponível
+    if not shutil.which("npm"):
+        logger.warning("npm não encontrado. WebUI não será disponível.")
+        return False
+
+    # Verifica se o diretório web existe
+    if not web_src.exists():
+        logger.warning(f"Diretório {web_src} não encontrado.")
+        return False
+
+    try:
+        # Executa npm run build no diretório web (usa shell=True para Windows)
+        result = subprocess.run(
+            "npm run build",
+            cwd=web_src,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',  # UTF-8 para lidar com caracteres especiais
+            errors='replace',  # Substitui caracteres inválidos em vez de falhar
+            shell=True,  # Necessário no Windows para encontrar npm
+            timeout=180  # 3 minutos max
+        )
+
+        if result.returncode == 0 and web_dist.exists():
+            logger.info("WebUI build concluído com sucesso!")
+            return True
+        else:
+            logger.warning(f"WebUI build falhou: {result.stderr}")
+            return False
+    except subprocess.TimeoutExpired:
+        logger.warning("WebUI build expirou (timeout de 180s)")
+        return False
+    except Exception as e:
+        logger.warning(f"Erro ao buildar WebUI: {e}")
+        return False
 
 
 class SkybridgeServer:
@@ -189,6 +247,8 @@ class SkybridgeServer:
             port=port,
             log_config=log_config,
             access_log=access_log,
+            loop="asyncio",  # Força uso do asyncio event loop
+            timeout_graceful_shutdown=10,  # Dá 10s para shutdown gracioso
         )
 
 
@@ -200,6 +260,9 @@ def main():
     # Banner de entrada
     print_banner("Skybridge Server", __version__)
     logger.info(f"Iniciando Skybridge Server v{__version__}")
+
+    # Garante que WebUI está built (antes do Ngrok e servidor)
+    webui_ready = ensure_webui_built()
 
     # Ngrok integration
     ngrok_config = load_ngrok_config()
@@ -249,18 +312,6 @@ def main():
 
     # Cria e executa servidor unificado
     server = SkybridgeServer()
-
-    # Imprime informações do WebUI
-    web_dist = Path(__file__).parent.parent / "web" / "dist"
-    if web_dist.exists():
-        print_separator("─", 60)
-        print(f"{Colors.CYAN}WebUI disponível em:{Colors.RESET}")
-        if tunnel_url:
-            print(f"  {Colors.CYAN}{tunnel_url}/web/{Colors.RESET}")
-        else:
-            print(f"  {Colors.CYAN}http://{config.host}:{config.port}/web/{Colors.RESET}")
-        print_separator("─", 60)
-        print()
 
     # Executa servidor
     server.run(

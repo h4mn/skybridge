@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
 import { Card, Row, Col, Spinner, Alert, Badge, Table, ProgressBar, Collapse, Button } from 'react-bootstrap'
 import { healthApi, webhooksApi, observabilityApi, type JobMetrics } from '../api/endpoints'
 import LogStream from '../components/LogStream'
@@ -10,7 +9,6 @@ import LogStream from '../components/LogStream'
  * Objetivo: RF001 - Dashboard Principal com Métricas
  */
 export default function Dashboard() {
-  const navigate = useNavigate()
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [logStreamPaused, setLogStreamPaused] = useState(false)
 

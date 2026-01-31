@@ -39,6 +39,9 @@ build/
 *.swo
 *~
 
+# Playwright MCP
+.playwright-mcp/
+
 # Testes
 .pytest_cache/
 .coverage

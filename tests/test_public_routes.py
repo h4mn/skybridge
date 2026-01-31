@@ -25,14 +25,14 @@ class PublicRoutesTests(unittest.TestCase):
     def setUpClass(cls):
         cls.client = TestClient(get_app().app)
     def test_openapi_public(self):
-        response = self.client.get("/openapi")
+        response = self.client.get("/api/openapi")
         self.assertEqual(response.status_code, 200)
         self.assertIn("openapi: 3.1.0", response.text)
         self.assertIn("/ticket:", response.text)
         self.assertIn("/envelope:", response.text)
 
     def test_privacy_public(self):
-        response = self.client.get("/privacy")
+        response = self.client.get("/api/privacy")
         self.assertEqual(response.status_code, 200)
         self.assertIn("Política de Privacidade", response.text)
 
@@ -62,7 +62,7 @@ class PublicRoutesTests(unittest.TestCase):
 
         # Verifica que as rotas públicas estão documentadas
         paths = openapi_spec.get("paths", {})
-        public_routes = ["/openapi", "/privacy"]
+        public_routes = ["/api/openapi", "/api/privacy"]
 
         for route in public_routes:
             self.assertIn(route, paths, f"Public route '{route}' not documented in OpenAPI spec. "

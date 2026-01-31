@@ -1,7 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { Container } from 'react-bootstrap'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import Sidebar, { SidebarSection } from './components/Sidebar'
 import Header from './components/Header'
 import ContextualNavbar from './components/ContextualNavbar'
@@ -9,6 +8,8 @@ import Dashboard from './pages/Dashboard'
 import Jobs from './pages/Jobs'
 import Worktrees from './pages/Worktrees'
 import Logs from './pages/Logs'
+import Events from './pages/Events'
+import Agents from './pages/Agents'
 import Kanban from './pages/Kanban'
 import Wiki from './pages/Wiki'
 import axios from 'axios'
@@ -36,7 +37,9 @@ const sidebarSections: SidebarSection[] = [
     title: 'Operações',
     items: [
       { id: 'jobs', label: 'Jobs', icon: '⚡', path: '/jobs' },
+      { id: 'agents', label: 'Agents', icon: '🤖', path: '/agents' },
       { id: 'worktrees', label: 'Worktrees', icon: '🌲', path: '/worktrees' },
+      { id: 'events', label: 'Eventos', icon: '🎭', path: '/events' },
       { id: 'logs', label: 'Logs', icon: '📋', path: '/logs' },
     ]
   }
@@ -54,15 +57,13 @@ function App() {
 
 function AppContent() {
   const location = useLocation()
-  const [version, setVersion] = useState<string>('')
 
-  // Buscar versão da API e atualizar título da página
+  // Atualizar título da página com versão da API
   useEffect(() => {
     const fetchVersion = async () => {
       try {
         const response = await axios.get('/api/health')
         const serverVersion = response.data?.version || '0.0.0'
-        setVersion(serverVersion)
         document.title = `Skybridge v${serverVersion}`
       } catch (error) {
         console.error('Erro ao buscar versão:', error)
@@ -90,7 +91,9 @@ function AppContent() {
               <Route path="/kanban" element={<Kanban />} />
               <Route path="/wiki" element={<Wiki />} />
               <Route path="/jobs" element={<Jobs />} />
+              <Route path="/agents" element={<Agents />} />
               <Route path="/worktrees" element={<Worktrees />} />
+              <Route path="/events" element={<Events />} />
               <Route path="/logs" element={<Logs />} />
               {/* Rotas futuras - redirect para Dashboard */}
               <Route path="/settings" element={<Navigate to="/dashboard" replace />} />

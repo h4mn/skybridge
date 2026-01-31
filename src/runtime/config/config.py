@@ -110,17 +110,20 @@ class TrelloConfig:
     Environment Variables:
         TRELLO_API_KEY: Chave de API do Trello (obter em https://trello.com/app-key)
         TRELLO_API_TOKEN: Token de autenticação do usuário (obter em https://trello.com/app-key)
+        TRELLO_BOARD_ID: ID do board do Trello (obter na URL do board)
 
     Example:
         export TRELLO_API_KEY="sua_api_key_aqui"
         export TRELLO_API_TOKEN="seu_token_aqui"
+        export TRELLO_BOARD_ID="seu_board_id_aqui"
     """
     api_key: str | None
     api_token: str | None
+    board_id: str | None = None
 
     def is_valid(self) -> bool:
-        """Verifica se ambas as credenciais estão presentes."""
-        return bool(self.api_key and self.api_token)
+        """Verifica se todas as credenciais estão presentes."""
+        return bool(self.api_key and self.api_token and self.board_id)
 
 
 @dataclass
@@ -392,6 +395,7 @@ def load_trello_config() -> TrelloConfig:
     return TrelloConfig(
         api_key=os.getenv("TRELLO_API_KEY"),
         api_token=os.getenv("TRELLO_API_TOKEN"),
+        board_id=os.getenv("TRELLO_BOARD_ID"),
     )
 
 

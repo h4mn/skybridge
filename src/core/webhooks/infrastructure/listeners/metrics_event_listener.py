@@ -142,7 +142,7 @@ class MetricsEventListener:
         except Exception as e:
             logger.error(
                 f"Erro ao processar evento {event.event_type}: {e}",
-                exc_info=True,
+                # exc_info removido - SkybridgeLogger não suporta
             )
 
     def _cleanup_old_timestamps(self) -> None:

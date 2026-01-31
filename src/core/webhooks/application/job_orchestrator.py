@@ -173,9 +173,17 @@ class JobOrchestrator:
         snapshot["status"] = status
         snapshot["updated_at"] = datetime.utcnow().isoformat()
 
+        # Encoder customizado para serializar datetime e outros tipos não-JSON
+        class SnapshotEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                # Deixa o encoder base tentar outros tipos
+                return super().default(obj)
+
         snapshot_path = sky_dir / "snapshot.json"
         snapshot_path.write_text(
-            json.dumps(snapshot, indent=2, ensure_ascii=False),
+            json.dumps(snapshot, indent=2, ensure_ascii=False, cls=SnapshotEncoder),
             encoding="utf-8"
         )
 
@@ -336,6 +344,9 @@ class JobOrchestrator:
             return worktree_result
 
         worktree_path = worktree_result.value
+
+        # Persiste worktree_path no metadata do job para consulta posterior
+        await self.job_queue.update_metadata(job_id, {"worktree_path": worktree_path})
 
         # Passo 2: Capturar snapshot inicial
         from runtime.observability.snapshot.extractors.git_extractor import (

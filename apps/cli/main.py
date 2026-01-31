@@ -21,7 +21,7 @@ from rich.json import JSON
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from runtime.config.config import get_config
-from skybridge import __version__
+from version import __version__
 
 app = typer.Typer(
     name="sb",
@@ -230,6 +230,89 @@ def rpc_reload(
             console.print(f"[red]Removidos:[/red] {', '.join(result['removed'])}")
     else:
         console.print(f"[red]Erro no reload:[/red] {result}")
+        raise typer.Exit(1)
+
+
+# Agent commands
+agent_app = typer.Typer(
+    name="agent",
+    help="Comandos para interagir com agentes",
+)
+app.add_typer(agent_app, name="agent")
+
+
+@agent_app.command("issue")
+def agent_issue(
+    titulo: str = typer.Option(..., "--titulo", "-t", help="Título da issue"),
+    desc: str = typer.Option(..., "--desc", "-d", help="Descrição da issue"),
+    labels: str = typer.Option("automated", "--labels", "-l", help="Labels separadas por vírgula"),
+    url: Optional[str] = typer.Option(None, "--url", "-u", help="URL base da API"),
+):
+    """
+    Cria uma nova issue no GitHub configurado.
+
+    A issue será criada no repositório configurado (GITHUB_REPO).
+    Usa o token GITHUB_TOKEN para autenticação.
+    """
+    base_url = get_base_url(url)
+
+    # Prepara labels
+    label_list = [l.strip() for l in labels.split(",")]
+
+    # Prepara payload
+    payload = {
+        "title": titulo,
+        "body": desc,
+        "labels": label_list,
+    }
+
+    console.print(f"[dim]Criando issue no GitHub...[/dim]")
+    console.print(f"[dim]Título:[/dim] {titulo}")
+    console.print(f"[dim]Labels:[/dim] {', '.join(label_list)}")
+
+    # 1. Obter ticket
+    ticket_response = requests.get(f"{base_url}/ticket", params={"method": "github.createissue"})
+    if ticket_response.status_code != 200:
+        console.print(f"[red]Erro ao obter ticket:[/red] {ticket_response.text}")
+        raise typer.Exit(1)
+
+    ticket_data = ticket_response.json()
+    if not ticket_data.get("ok"):
+        console.print(f"[red]Erro ao obter ticket:[/red] {ticket_data}")
+        raise typer.Exit(1)
+
+    ticket_id = ticket_data["ticket"]["id"]
+
+    # 2. Preparar envelope
+    envelope = {
+        "ticket_id": ticket_id,
+        "detail": {
+            "context": "github",
+            "action": "create_issue",
+            "payload": payload,
+        },
+    }
+
+    # 3. Executar envelope
+    env_response = requests.post(
+        f"{base_url}/envelope",
+        json=envelope,
+        headers={"Content-Type": "application/json"},
+    )
+
+    if env_response.status_code != 200:
+        console.print(f"[red]Erro na execução:[/red] {env_response.text}")
+        raise typer.Exit(1)
+
+    result = env_response.json()
+    if result.get("ok"):
+        issue_data = result.get("result")
+        console.print(f"[green]✓ Issue criada com sucesso![/green]")
+        console.print(f"  [cyan]Número:[/cyan] #{issue_data.get('issue_number')}")
+        console.print(f"  [cyan]URL:[/cyan] {issue_data.get('issue_url')}")
+        console.print(f"  [dim]Labels:[/dim] {', '.join(issue_data.get('labels', []))}")
+    else:
+        console.print(f"[red]Erro:[/red] {result.get('error')}")
         raise typer.Exit(1)
 
 

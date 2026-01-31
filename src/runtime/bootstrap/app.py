@@ -9,9 +9,11 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from contextlib import asynccontextmanager
 import threading
 import uuid
 import yaml
+import asyncio
 
 from runtime.config.config import get_config, get_fileops_config
 from runtime.observability.logger import get_logger, print_separator, Colors
@@ -22,138 +24,171 @@ from kernel.registry.skyrpc_registry import get_skyrpc_registry
 from infra.fileops.filesystem_adapter import create_filesystem_adapter
 from core.fileops.application.queries.read_file import ReadFileQuery, set_read_file_query
 
-# Webhook worker (PRD013)
+# Webhook worker (PRD013) - Variáveis globais para gerenciamento no lifespan
 _webhook_worker_thread = None
+_webhook_worker_instance = None
+_trello_listener = None
 
 
-def start_webhook_worker():
-    """Inicia worker em thread separada."""
-    import asyncio
-    from runtime.background.webhook_worker import main as worker_main
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Gerenciador de lifecycle da aplicação FastAPI.
+
+    Responsável por:
+    - Iniciar o webhook worker no startup
+    - Encerrar graciosamente o worker no shutdown
+    """
+    global _webhook_worker_thread, _webhook_worker_instance, _trello_listener
+
     from runtime.config.config import get_webhook_config
-
-    webhook_config = get_webhook_config()
-
-    if "github" not in webhook_config.enabled_sources:
-        return
+    from runtime.observability.logger import get_logger, Colors
 
     logger = get_logger()
-    logger.info(f"Iniciando worker de {Colors.WHITE}Webhook{Colors.RESET} em thread de background")
-
-    # Run worker in new event loop
-    asyncio.run(worker_main())
-
-
-def start_webhook_worker_sync():
-    """Inicia worker de forma síncrona (para rodar em thread)."""
-    import asyncio
-    from runtime.background.webhook_worker import WebhookWorker
-    from core.webhooks.application.job_orchestrator import (
-        JobOrchestrator,
-    )
-    from core.webhooks.application.worktree_manager import (
-        WorktreeManager,
-    )
-    from core.webhooks.application.handlers import get_job_queue
-    from runtime.config.config import get_webhook_config
-    from infra.domain_events.in_memory_event_bus import InMemoryEventBus
-
     webhook_config = get_webhook_config()
 
-    if "github" not in webhook_config.enabled_sources:
-        return
+    # Log para confirmar que lifespan está sendo usado
+    logger.info("Lifespan handler iniciado - gerenciando webhook worker")
 
-    logger = get_logger()
-    logger.info(f"Iniciando worker de {Colors.WHITE}Webhook{Colors.RESET}")
-
-    job_queue = get_job_queue()
-    worktree_manager = WorktreeManager(webhook_config.worktree_base_path, webhook_config.base_branch)
-
-    # PRD018 ARCH-09: EventBus para Domain Events
-    event_bus = InMemoryEventBus()
-
-    # PRD018 ARCH-08: Inicializa TrelloEventListener
-    try:
-        from core.webhooks.infrastructure.listeners.trello_event_listener import (
-            TrelloEventListener,
-        )
-        from runtime.config.config import get_trello_config
-        from core.kanban.application.trello_integration_service import (
-            TrelloIntegrationService,
-        )
-        from infra.kanban.adapters.trello_adapter import TrelloAdapter
+    # ========== STARTUP ==========
+    if "github" in webhook_config.enabled_sources:
+        from kernel import get_event_bus
+        from core.webhooks.application.job_orchestrator import JobOrchestrator
+        from core.webhooks.application.worktree_manager import WorktreeManager
+        from core.webhooks.application.handlers import get_job_queue
+        from core.webhooks.application.guardrails import JobGuardrails
+        from core.webhooks.application.commit_message_generator import CommitMessageGenerator
+        from core.webhooks.application.git_service import GitService
+        from runtime.background.webhook_worker import WebhookWorker
         from os import getenv
 
-        trello_config = get_trello_config()
-        trello_service = None
+        logger.info(f"Iniciando worker de {Colors.WHITE}Webhook{Colors.RESET} (lifespan)")
 
-        if trello_config.api_key and trello_config.api_token:
-            board_id = getenv("TRELLO_BOARD_ID")
-            if board_id:
-                trello_adapter = TrelloAdapter(
-                    trello_config.api_key,
-                    trello_config.api_token,
-                    board_id
-                )
-                trello_service = TrelloIntegrationService(trello_adapter)
+        job_queue = get_job_queue()
+        worktree_manager = WorktreeManager(webhook_config.worktree_base_path, webhook_config.base_branch)
+        event_bus = get_event_bus()
 
-        trello_listener = TrelloEventListener(event_bus, trello_service)
-        # Listener será iniciado depois, junto com o worker
-    except Exception as e:
-        logger.warning(f"TrelloEventListener não criado: {e}")
-        trello_listener = None
-
-    # PRD018 Fase 3: Inicializa serviços de commit/push/PR
-    from core.webhooks.application.guardrails import JobGuardrails
-    from core.webhooks.application.commit_message_generator import CommitMessageGenerator
-    from core.webhooks.application.git_service import GitService
-    from os import getenv
-
-    guardrails = JobGuardrails()
-    commit_message_generator = CommitMessageGenerator()
-    git_service = GitService()
-
-    # GitHub client (opcional - requer GITHUB_TOKEN)
-    github_client = None
-    github_token = getenv("GITHUB_TOKEN")
-    if github_token:
+        # TrelloEventListener (PRD018 ARCH-08)
         try:
-            from infra.github.github_api_client import create_github_client
-            github_client = create_github_client(github_token)
-            logger.info("GitHubAPIClient inicializado (commit/push/PR habilitado)")
+            from core.webhooks.infrastructure.listeners.trello_event_listener import (
+                TrelloEventListener,
+            )
+            from core.kanban.application.trello_integration_service import (
+                TrelloIntegrationService,
+            )
+            from infra.kanban.adapters.trello_adapter import TrelloAdapter
+            from runtime.config.config import get_trello_config
+
+            trello_config = get_trello_config()
+            trello_service = None
+
+            if trello_config.api_key and trello_config.api_token:
+                board_id = getenv("TRELLO_BOARD_ID")
+                if board_id:
+                    trello_adapter = TrelloAdapter(
+                        trello_config.api_key,
+                        trello_config.api_token,
+                        board_id
+                    )
+                    trello_service = TrelloIntegrationService(trello_adapter)
+
+            _trello_listener = TrelloEventListener(event_bus, trello_service)
         except Exception as e:
-            logger.warning(f"GitHubAPIClient não criado: {e}")
-    else:
-        logger.info("GITHUB_TOKEN não configurado - PR automático desabilitado")
+            logger.warning(f"TrelloEventListener não criado: {e}")
+            _trello_listener = None
 
-    orchestrator = JobOrchestrator(
-        job_queue,
-        worktree_manager,
-        event_bus=event_bus,
-        guardrails=guardrails,
-        commit_message_generator=commit_message_generator,
-        git_service=git_service,
-        github_client=github_client,
-        enable_auto_commit=True,
-        enable_auto_pr=github_client is not None,
-    )
-    worker = WebhookWorker(job_queue, orchestrator)
+        # Commit/PR services (PRD018 Fase 3)
+        guardrails = JobGuardrails()
+        commit_message_generator = CommitMessageGenerator()
+        git_service = GitService()
 
-    # Create new event loop for this thread
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+        github_client = None
+        github_token = getenv("GITHUB_TOKEN")
+        if github_token:
+            try:
+                from infra.github.github_api_client import create_github_client
+                github_client = create_github_client(github_token)
+                logger.info("GitHubAPIClient inicializado (commit/push/PR habilitado)")
+            except Exception as e:
+                logger.warning(f"GitHubAPIClient não criado: {e}")
+        else:
+            logger.info("GITHUB_TOKEN não configurado - PR automático desabilitado")
 
-    # Inicia TrelloEventListener antes do worker
-    if trello_listener:
-        loop.run_until_complete(trello_listener.start())
-        logger.info("TrelloEventListener iniciado e inscrito no EventBus")
+        orchestrator = JobOrchestrator(
+            job_queue,
+            worktree_manager,
+            event_bus=event_bus,
+            guardrails=guardrails,
+            commit_message_generator=commit_message_generator,
+            git_service=git_service,
+            github_client=github_client,
+            enable_auto_commit=True,
+            enable_auto_pr=github_client is not None,
+        )
+        _webhook_worker_instance = WebhookWorker(job_queue, orchestrator)
 
-    try:
-        loop.run_until_complete(worker.start())
-    finally:
-        loop.close()
+        # Inicia TrelloEventListener
+        if _trello_listener:
+            await _trello_listener.start()
+            logger.info("TrelloEventListener iniciado e inscrito no EventBus")
 
+        # Inicia worker em thread separada
+        async def run_worker():
+            """Corrotina para rodar o worker."""
+            await _webhook_worker_instance.start()
 
+        # Cria e inicia thread com event loop próprio
+        def run_worker_in_thread():
+            """Executa worker em thread com event loop separado."""
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(run_worker())
+            finally:
+                # Cancela todas as tasks pendentes antes de fechar
+                pending = asyncio.all_tasks(loop)
+                for task in pending:
+                    task.cancel()
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                loop.close()
+
+        _webhook_worker_thread = threading.Thread(
+            target=run_worker_in_thread,
+            daemon=True,
+            name="webhook-worker"
+        )
+        _webhook_worker_thread.start()
+        logger.info(f"Thread do worker de {Colors.WHITE}Webhook{Colors.RESET} iniciada")
+
+    # Yield para permitir que a aplicação rode
+    yield
+
+    # ========== SHUTDOWN ==========
+    logger.info("Iniciando shutdown graciosos dos recursos...")
+
+    # Para o webhook worker
+    if _webhook_worker_instance:
+        logger.info("Enviando sinal de shutdown para o webhook worker...")
+        _webhook_worker_instance.stop()
+
+    # Aguarda a thread do worker terminar (com timeout)
+    if _webhook_worker_thread and _webhook_worker_thread.is_alive():
+        logger.info("Aguardando thread do worker terminar...")
+        _webhook_worker_thread.join(timeout=5.0)
+        if _webhook_worker_thread.is_alive():
+            logger.warning("Thread do worker não terminou em 5 segundos (daemon thread será encerrada)")
+        else:
+            logger.info("Thread do worker encerrada graciosamente")
+
+    # Para o TrelloEventListener
+    if _trello_listener:
+        try:
+            await _trello_listener.stop()
+            logger.info("TrelloEventListener parado")
+        except Exception as e:
+            logger.warning(f"Erro ao parar TrelloEventListener: {e}")
+
+    logger.info("Shutdown concluído")
 
 
 class CorrelationMiddleware(BaseHTTPMiddleware):
@@ -185,38 +220,35 @@ class SkybridgeApp:
     def __init__(self):
         self.config = get_config()
         self.logger = get_logger(level=self.config.log_level)
+
+        # CRÍTICO: Criar EventBus global ANTES de qualquer outra coisa
+        # Isso garante que endpoints SSE e worker compartilhem o mesmo EventBus
+        from infra.domain_events.in_memory_event_bus import InMemoryEventBus
+        from kernel import set_event_bus, get_event_bus
+        try:
+            event_bus = get_event_bus()
+            self.logger.info(f"EventBus já existe: {type(event_bus).__name__}")
+        except RuntimeError:
+            # EventBus ainda não foi criado, criar agora
+            event_bus = InMemoryEventBus()
+            set_event_bus(event_bus)
+            self.logger.info("EventBus criado e registrado globalmente (startup)")
+
         self.app = FastAPI(
             title=self.config.title,
             version=self.config.version,
             description=self.config.description,
             docs_url=self.config.docs_url,
             redoc_url=self.config.redoc_url,
+            lifespan=lifespan,  # PRD013: usa lifespan para gerenciar worker
         )
+        self.logger.info("FastAPI configurado com lifespan handler para gerenciamento de webhook worker")
         # Override FastAPI's auto OpenAPI to use our manual YAML
         self.app.openapi = self._custom_openapi
         self._setup_middleware()
         self._register_queries()
         self._setup_routes()
-        self._start_webhook_worker()  # PRD013: inicia worker
-
-    def _start_webhook_worker(self):
-        """Inicia worker em thread separada."""
-        from runtime.config.config import get_webhook_config
-
-        webhook_config = get_webhook_config()
-
-        if "github" in webhook_config.enabled_sources:
-            global _webhook_worker_thread
-
-            # Usa daemon=True para thread não bloquear shutdown
-            _webhook_worker_thread = threading.Thread(
-                target=start_webhook_worker_sync,
-                daemon=True,
-                name="webhook-worker"
-            )
-            _webhook_worker_thread.start()
-
-            self.logger.info(f"Thread do worker de {Colors.WHITE}Webhook{Colors.RESET} iniciada")
+        # Worker agora é gerenciado pelo lifespan, não mais aqui
 
     def _custom_openapi(self):
         """

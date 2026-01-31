@@ -184,7 +184,7 @@ class TrelloEventListener:
         except Exception as e:
             logger.error(
                 f"Erro ao processar IssueReceivedEvent para issue #{event.issue_number}: {e}",
-                exc_info=True,
+                # exc_info removido - SkybridgeLogger não suporta
             )
 
     async def _on_job_completed(self, event: JobCompletedEvent) -> None:
@@ -216,7 +216,7 @@ class TrelloEventListener:
         except Exception as e:
             logger.error(
                 f"Erro ao processar JobCompletedEvent para job {event.job_id}: {e}",
-                exc_info=True,
+                # exc_info removido - SkybridgeLogger não suporta
             )
 
     async def _on_job_failed(self, event: JobFailedEvent) -> None:
@@ -244,7 +244,7 @@ class TrelloEventListener:
         except Exception as e:
             logger.error(
                 f"Erro ao processar JobFailedEvent para job {event.job_id}: {e}",
-                exc_info=True,
+                # exc_info removido - SkybridgeLogger não suporta
             )
 
     async def _on_pr_created(self, event: PRCreatedEvent) -> None:
@@ -304,7 +304,7 @@ O PR foi criado automaticamente e está aguardando revisão.
         except Exception as e:
             logger.error(
                 f"Erro ao processar PRCreatedEvent para PR #{event.pr_number}: {e}",
-                exc_info=True,
+                # exc_info removido - SkybridgeLogger não suporta
             )
 
     async def _find_card_by_issue(self, issue_number: int):

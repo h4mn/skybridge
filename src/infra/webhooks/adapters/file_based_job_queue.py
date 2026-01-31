@@ -532,6 +532,108 @@ class FileBasedJobQueue(JobQueuePort):
                 continue
         return total_size / (1024 * 1024)
 
+    async def list_jobs(
+        self,
+        limit: int = 100,
+        status_filter: str | None = None,
+    ) -> list[dict[str, object]]:
+        """
+        Lista jobs da fila para o WebUI.
+
+        Args:
+            limit: Número máximo de jobs a retornar
+            status_filter: Filtrar por status (opcional)
+
+        Returns:
+            Lista de dicionários com dados dos jobs no formato esperado pelo frontend
+        """
+        jobs_list = []
+        count = 0
+
+        # Buscar em todos os diretórios (processing, completed, failed)
+        for dir_path in [self.processing_dir, self.completed_dir, self.failed_dir, self.jobs_dir]:
+            if not dir_path.exists():
+                continue
+
+            # Lista arquivos ordenados por data de modificação (mais recentes primeiro)
+            job_files = sorted(
+                dir_path.glob("*.json"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+
+            for job_file in job_files:
+                if count >= limit:
+                    break
+
+                try:
+                    job_data = json.loads(job_file.read_text(encoding="utf-8"))
+                    job_status = job_data.get("status", "pending")
+
+                    # Aplica filtro de status se especificado
+                    if status_filter and job_status != status_filter.lower():
+                        continue
+
+                    # Determina source e event_type
+                    event_data = job_data.get("event", {})
+                    source = event_data.get("source", "unknown")
+                    event_type = event_data.get("event_type", "unknown")
+
+                    jobs_list.append({
+                        "job_id": job_data.get("job_id", ""),
+                        "source": source,
+                        "event_type": event_type,
+                        "status": job_status.upper(),
+                        "created_at": job_data.get("created_at", ""),
+                        "worktree_path": job_data.get("worktree_path"),
+                    })
+                    count += 1
+
+                except Exception:
+                    continue
+
+            if count >= limit:
+                break
+
+        return jobs_list
+
+    async def update_metadata(self, job_id: str, metadata: dict[str, object]) -> None:
+        """
+        Atualiza metadata de um job.
+
+        Busca o job em todos os diretórios e atualiza o arquivo.
+
+        Args:
+            job_id: ID do job
+            metadata: Novo metadata (será mesclado com o existente)
+        """
+        # Buscar job em todos os diretórios
+        for dir_path in [self.jobs_dir, self.processing_dir, self.completed_dir, self.failed_dir]:
+            job_file = dir_path / f"{job_id}.json"
+            if job_file.exists():
+                try:
+                    job_data = json.loads(job_file.read_text(encoding="utf-8"))
+
+                    # Atualiza worktree_path se presente no metadata
+                    if "worktree_path" in metadata:
+                        job_data["worktree_path"] = str(metadata["worktree_path"])
+
+                    # Atualiza branch_name se presente
+                    if "branch_name" in metadata:
+                        job_data["branch_name"] = str(metadata["branch_name"])
+
+                    # Mescla com metadata existente
+                    if "metadata" not in job_data:
+                        job_data["metadata"] = {}
+                    job_data["metadata"].update(metadata)
+
+                    # Salva atualizações
+                    job_file.write_text(json.dumps(job_data, indent=2), encoding="utf-8")
+                    return
+
+                except Exception:
+                    continue
+
 
 # Import para manter compatibilidade
 InMemoryJobQueue = FileBasedJobQueue

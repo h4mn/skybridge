@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
 
-  // Base URL com /web/ explícito
+  // Base URL com /web/ explícito (modo absolute)
   base: '/web/',
 
   server: {

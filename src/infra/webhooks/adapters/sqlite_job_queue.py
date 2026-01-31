@@ -765,3 +765,113 @@ class SQLiteJobQueue(JobQueuePort):
             raise QueueError(f"Falha ao limpar fila: {e}")
         finally:
             conn.close()
+
+    async def list_jobs(
+        self,
+        limit: int = 100,
+        status_filter: str | None = None,
+    ) -> list[dict[str, object]]:
+        """
+        Lista jobs da fila para o WebUI.
+
+        Args:
+            limit: Número máximo de jobs a retornar
+            status_filter: Filtrar por status (opcional)
+
+        Returns:
+            Lista de dicionários com dados dos jobs no formato esperado pelo frontend:
+            - job_id: ID do job
+            - source: Fonte do webhook (github, trello)
+            - event_type: Tipo do evento
+            - status: Status do job
+            - created_at: Data de criação (ISO string)
+            - worktree_path: Caminho do worktree (se disponível, obtido do metadata)
+        """
+        conn = self._get_connection()
+
+        try:
+            cursor = conn.cursor()
+
+            # Query base
+            query = """
+                SELECT id, event_source, event_type, status, created_at, metadata
+                FROM jobs
+            """
+            params: list[str] = []
+
+            # Adiciona filtro de status se especificado
+            if status_filter:
+                query += " WHERE status = ?"
+                params.append(status_filter.lower())
+
+            # Ordena por data de criação (mais recentes primeiro)
+            query += " ORDER BY created_at DESC LIMIT ?"
+            params.append(str(limit))
+
+            cursor.execute(query, params)
+
+            jobs_list = []
+            for row in cursor.fetchall():
+                # Extrai worktree_path do metadata se disponível
+                metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+                worktree_path = metadata.get("worktree_path")
+
+                jobs_list.append({
+                    "job_id": row["id"],
+                    "source": row["event_source"],
+                    "event_type": row["event_type"],
+                    "status": row["status"].upper() if row["status"] else "PENDING",
+                    "created_at": row["created_at"],
+                    "worktree_path": worktree_path,
+                })
+
+            return jobs_list
+
+        except Exception as e:
+            logger.error(f"Erro ao listar jobs: {e}")
+            raise QueueError(f"Falha ao listar jobs: {e}")
+        finally:
+            conn.close()
+
+    async def update_metadata(self, job_id: str, metadata: dict[str, object]) -> None:
+        """
+        Atualiza metadata de um job.
+
+        Útil para persistir informações como worktree_path após o worktree ser criado.
+
+        Args:
+            job_id: ID do job
+            metadata: Novo metadata (será mesclado com o existente)
+        """
+        conn = self._get_connection()
+
+        try:
+            cursor = conn.cursor()
+
+            # Primeiro, obtém o metadata atual
+            cursor.execute("SELECT metadata FROM jobs WHERE id = ?", (job_id,))
+            row = cursor.fetchone()
+
+            if row:
+                # Mescla metadata existente com o novo
+                existing_metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+                existing_metadata.update(metadata)
+
+                # Atualiza
+                cursor.execute(
+                    """
+                    UPDATE jobs
+                    SET metadata = ?
+                    WHERE id = ?
+                    """,
+                    (json.dumps(existing_metadata), job_id),
+                )
+
+                conn.commit()
+                logger.info(f"Metadata do job {job_id} atualizado")
+
+        except Exception as e:
+            conn.rollback()
+            raise QueueError(f"Falha ao atualizar metadata do job {job_id}: {e}")
+        finally:
+            conn.close()

@@ -139,7 +139,7 @@ class NotificationEventListener:
         except Exception as e:
             logger.error(
                 f"Erro ao processar JobCompletedEvent para job {event.job_id}: {e}",
-                exc_info=True,
+                # exc_info removido - SkybridgeLogger não suporta
             )
 
     async def _on_job_failed(self, event: JobFailedEvent) -> None:
@@ -185,7 +185,7 @@ class NotificationEventListener:
         except Exception as e:
             logger.error(
                 f"Erro ao processar JobFailedEvent para job {event.job_id}: {e}",
-                exc_info=True,
+                # exc_info removido - SkybridgeLogger não suporta
             )
 
     async def _send_discord_notification(

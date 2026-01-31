@@ -414,6 +414,7 @@ def print_ngrok_urls(
     if reserved_domain:
         print_separator("─", width)
         print(f"  {Colors.YELLOW}URL:{Colors.RESET} {Colors.CYAN}{base_url}{Colors.RESET}")
+        print_separator("─", 60)
     print()
 
 
