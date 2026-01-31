@@ -227,61 +227,62 @@ class ClaudeSDKAdapter(AgentFacade):
 
                 try:
                     # Timeout aplicado ao stream completo
+                    # BUG FIX: Usar asyncio.timeout() (Python 3.11+) ao invés de
+                    # asyncio.wait_for() que não funciona com async for diretamente
                     logger.info(
                         f"[SPAWN-STREAM] Iniciando loop async for com timeout={execution.timeout_seconds}s",
                         extra={"job_id": job.job_id},
                     )
 
-                    async for msg in asyncio.wait_for(
-                        client.receive_response(),
-                        timeout=execution.timeout_seconds,
-                    ):
-                        msg_count += 1
-                        msg_type = msg.__class__.__name__
-                        msg_subtype = getattr(msg, 'subtype', None)
+                    # Python 3.11+: usa asyncio.timeout() context manager
+                    async with asyncio.timeout(execution.timeout_seconds):
+                        async for msg in client.receive_response():
+                            msg_count += 1
+                            msg_type = msg.__class__.__name__
+                            msg_subtype = getattr(msg, 'subtype', None)
 
-                        # INFO para visibilidade - mostra cada mensagem recebida
-                        logger.info(
-                            f"[SPAWN-STREAM #{msg_count}] {msg_type} (subtype: {msg_subtype})",
-                            extra={
-                                "job_id": job.job_id,
-                                "msg_count": msg_count,
-                                "msg_type": msg_type,
-                                "msg_subtype": str(msg_subtype),
-                                "has_content": hasattr(msg, "content"),
-                            },
-                        )
-
-                        # Captura stdout durante o stream (AssistantMessage)
-                        if hasattr(msg, "content"):
-                            content_blocks = len(msg.content) if msg.content else 0
-                            for block in msg.content:
-                                if hasattr(block, "text"):
-                                    stdout_parts.append(block.text)
-
+                            # INFO para visibilidade - mostra cada mensagem recebida
                             logger.info(
-                                f"[SPAWN-STREAM #{msg_count}] {msg_type} processou {content_blocks} blocos",
-                                extra={"job_id": job.job_id, "content_blocks": content_blocks},
-                            )
-
-                        # Captura ResultMessage quando aparecer (múltiplas formas de detecção)
-                        is_result_message = (
-                            msg_type == "ResultMessage" or
-                            msg_subtype in ['success', 'error'] or
-                            hasattr(msg, 'is_error')
-                        )
-
-                        if is_result_message:
-                            result_message = msg
-                            logger.info(
-                                f"[SPAWN-4] ResultMessage capturada após {msg_count} mensagens - is_error={getattr(msg, 'is_error', None)}",
+                                f"[SPAWN-STREAM #{msg_count}] {msg_type} (subtype: {msg_subtype})",
                                 extra={
                                     "job_id": job.job_id,
-                                    "is_error": getattr(msg, 'is_error', None),
-                                    "duration_ms": getattr(msg, 'duration_ms', None),
+                                    "msg_count": msg_count,
+                                    "msg_type": msg_type,
+                                    "msg_subtype": str(msg_subtype),
+                                    "has_content": hasattr(msg, "content"),
                                 },
                             )
-                            break  # Stream termina aqui
+
+                            # Captura stdout durante o stream (AssistantMessage)
+                            if hasattr(msg, "content"):
+                                content_blocks = len(msg.content) if msg.content else 0
+                                for block in msg.content:
+                                    if hasattr(block, "text"):
+                                        stdout_parts.append(block.text)
+
+                                logger.info(
+                                    f"[SPAWN-STREAM #{msg_count}] {msg_type} processou {content_blocks} blocos",
+                                    extra={"job_id": job.job_id, "content_blocks": content_blocks},
+                                )
+
+                            # Captura ResultMessage quando aparecer (múltiplas formas de detecção)
+                            is_result_message = (
+                                msg_type == "ResultMessage" or
+                                msg_subtype in ['success', 'error'] or
+                                hasattr(msg, 'is_error')
+                            )
+
+                            if is_result_message:
+                                result_message = msg
+                                logger.info(
+                                    f"[SPAWN-4] ResultMessage capturada após {msg_count} mensagens - is_error={getattr(msg, 'is_error', None)}",
+                                    extra={
+                                        "job_id": job.job_id,
+                                        "is_error": getattr(msg, 'is_error', None),
+                                        "duration_ms": getattr(msg, 'duration_ms', None),
+                                    },
+                                )
+                                break  # Stream termina aqui
 
                     # Log após o loop completar
                     logger.info(
@@ -289,7 +290,9 @@ class ClaudeSDKAdapter(AgentFacade):
                         extra={"job_id": job.job_id, "has_result": result_message is not None},
                     )
 
-                except asyncio.TimeoutError:
+                except (asyncio.TimeoutError, TimeoutError) as timeout_err:
+                    # asyncio.timeout() (Python 3.11+) levanta TimeoutError built-in
+                    # asyncio.wait_for() levanta asyncio.TimeoutError
                     error_msg = f"Timeout no stream ({execution.timeout_seconds}s) após {msg_count} mensagens"
                     logger.error(
                         f"[SPAWN-ERROR] {error_msg}",
@@ -646,7 +649,14 @@ class ClaudeSDKAdapter(AgentFacade):
         Returns:
             AgentResult com resultado estruturado
         """
+        from runtime.observability.logger import get_logger
+        logger = get_logger()
+
         if result_message is None:
+            logger.warning(
+                "[EXTRACT-RESULT] ResultMessage é None, retornando resultado sem sucesso",
+                extra={"has_result": False},
+            )
             return AgentResult(
                 success=False,
                 changes_made=False,
@@ -662,8 +672,22 @@ class ClaudeSDKAdapter(AgentFacade):
             )
 
         # Extrai informações da ResultMessage
-        is_success = not result_message.is_error
+        # CORREÇÃO: is_error pode virar como True/False ou None
+        # Se is_error é None ou não está presente, consideramos como sucesso
+        is_error_value = getattr(result_message, 'is_error', None)
+        is_success = is_error_value is not True  # Só é falha se for explicitamente True
+
         result_text = result_message.result if hasattr(result_message, "result") else ""
+
+        logger.info(
+            f"[EXTRACT-RESULT] Extraindo resultado da ResultMessage",
+            extra={
+                "is_error_value": str(is_error_value),
+                "is_success": is_success,
+                "has_result": hasattr(result_message, "result"),
+                "result_text_length": len(result_text) if isinstance(result_text, str) else 0,
+            },
+        )
 
         # Tenta parsear JSON do resultado
         files_created = []
