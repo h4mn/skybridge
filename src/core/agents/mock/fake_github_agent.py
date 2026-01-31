@@ -91,7 +91,7 @@ result = process.extract("file_ops", choices, limit=3)
 - [ ] Testes unitários
 
 **TAG:** MOCK/TESTE - Gerado automaticamente para testes""",
-            labels=["feature", "enhancement", "good-first-issue", "MOCK/TESTE"],
+            labels=["feature", "enhancement", "good-first-issue", "MOCK/TESTE", "auto-generated"],
         )
 
     @staticmethod
@@ -122,7 +122,7 @@ if await job_queue.exists_by_delivery(delivery_id):
 ```
 
 **TAG:** MOCK/TESTE - Gerado automaticamente para testes""",
-            labels=["bug", "webhooks", "priority-high", "MOCK/TESTE"],
+            labels=["bug", "webhooks", "priority-high", "MOCK/TESTE", "auto-generated"],
         )
 
     @staticmethod
@@ -156,7 +156,7 @@ Job completo → Trello Card marcado DONE
 - [ ] Erros não quebram o fluxo
 
 **TAG:** MOCK/TESTE - Gerado automaticamente para testes""",
-            labels=["feature", "integration", "trello", "MOCK/TESTE"],
+            labels=["feature", "integration", "trello", "MOCK/TESTE", "auto-generated"],
         )
 
     @staticmethod
@@ -190,7 +190,7 @@ TrelloService.on(AgentCompleted) → mark_card_complete
 - Adicionar novos listeners sem mudar orquestrador
 
 **TAG:** MOCK/TESTE - Gerado automaticamente para testes""",
-            labels=["refactor", "architecture", "tech-debt", "MOCK/TESTE"],
+            labels=["refactor", "architecture", "tech-debt", "MOCK/TESTE", "auto-generated"],
         )
 
     @staticmethod
@@ -231,7 +231,7 @@ class RateLimiter:
 - [ ] Circuit breaker após 5 falhas
 
 **TAG:** MOCK/TESTE - Gerado automaticamente para testes""",
-            labels=["feature", "performance", "rate-limiting", "MOCK/TESTE"],
+            labels=["feature", "performance", "rate-limiting", "MOCK/TESTE", "auto-generated"],
         )
 
 
