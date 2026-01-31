@@ -254,7 +254,7 @@ class ClaudeSDKAdapter(AgentFacade):
                             )
 
                             # Captura stdout durante o stream (AssistantMessage)
-                            if hasattr(msg, "content"):
+                            if hasattr(msg, "content") and msg.content is not None:
                                 content_blocks = len(msg.content) if msg.content else 0
                                 for block in msg.content:
                                     if hasattr(block, "text"):
@@ -266,10 +266,13 @@ class ClaudeSDKAdapter(AgentFacade):
                                 )
 
                             # Captura ResultMessage quando aparecer (múltiplas formas de detecção)
+                            # BUG FIX: hasattr(msg, 'is_error') retorna True para qualquer Mock
+                            # SOLUÇÃO: Verificar se is_error é explicitamente True ou False
+                            is_error_value = getattr(msg, 'is_error', None)
                             is_result_message = (
                                 msg_type == "ResultMessage" or
                                 msg_subtype in ['success', 'error'] or
-                                hasattr(msg, 'is_error')
+                                is_error_value in [True, False]  # ← Detecta apenas se for bool
                             )
 
                             if is_result_message:
