@@ -13,7 +13,7 @@ import {
   Pagination,
   Accordion,
 } from 'react-bootstrap'
-import { agentsApi, AgentState, type AgentExecution, type AgentMetrics } from '../api/endpoints'
+import { agentsApi, AgentState, type AgentExecution } from '../api/endpoints'
 
 /**
  * Página Agents - Lista e gerencia execuções de agentes.
@@ -250,7 +250,7 @@ export default function Agents() {
           ) : (
             <>
               <Accordion defaultActiveKey="-1">
-                {currentItems.map((exec, index) => (
+                {currentItems.map((exec) => (
                   <Accordion.Item
                     key={exec.job_id}
                     eventKey={exec.job_id}

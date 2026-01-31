@@ -151,39 +151,125 @@ export default function Jobs() {
         </Alert>
       )}
 
-      {/* Métricas Summary */}
+      {/* Métricas Summary - Clicáveis para filtrar */}
       {jobsData?.metrics && (
         <Card className="mb-4 bg-light">
           <Card.Body>
             <div className="row text-center">
-              <div className="col-md-2">
+              <div
+                className="col-md-2"
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  setStatusFilter(statusFilter === JobStatus.PENDING ? 'all' : JobStatus.PENDING)
+                  setCurrentPage(1)
+                }}
+                role="button"
+                title={statusFilter === JobStatus.PENDING ? 'Limpar filtro' : 'Filtrar pendentes'}
+              >
                 <div className="text-muted small">Na Fila</div>
-                <div className="h4 mb-0">{jobsData.metrics.queue_size ?? 0}</div>
-              </div>
-              <div className="col-md-2">
-                <div className="text-muted small">Processando</div>
-                <div className="h4 mb-0 text-primary">{jobsData.metrics.processing ?? 0}</div>
-              </div>
-              <div className="col-md-2">
-                <div className="text-muted small">Concluídos</div>
-                <div className="h4 mb-0 text-success">{jobsData.metrics.total_completed ?? 0}</div>
-              </div>
-              <div className="col-md-2">
-                <div className="text-muted small">Falharam</div>
-                <div className="h4 mb-0 text-danger">{jobsData.metrics.total_failed ?? 0}</div>
-              </div>
-              <div className="col-md-2">
-                <div className="text-muted small">Total</div>
-                <div className="h4 mb-0">{jobsData.metrics.total_enqueued ?? 0}</div>
-              </div>
-              <div className="col-md-2">
-                <div className="text-muted small">Taxa Sucesso</div>
-                <div className="h4 mb-0">
-                  {jobsData.metrics.total_enqueued > 0
-                    ? ((jobsData.metrics.total_completed / jobsData.metrics.total_enqueued) * 100).toFixed(1)
-                    : '0.0'}%
+                <div className={`h4 mb-0 ${statusFilter === JobStatus.PENDING ? 'text-primary' : ''}`}>
+                  {jobsData.metrics.queue_size ?? 0}
                 </div>
+                {statusFilter === JobStatus.PENDING && <small className="text-primary">●</small>}
               </div>
+              <div
+                className="col-md-2"
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  setStatusFilter(statusFilter === JobStatus.PROCESSING ? 'all' : JobStatus.PROCESSING)
+                  setCurrentPage(1)
+                }}
+                role="button"
+                title={statusFilter === JobStatus.PROCESSING ? 'Limpar filtro' : 'Filtrar processando'}
+              >
+                <div className="text-muted small">Processando</div>
+                <div className={`h4 mb-0 text-primary ${statusFilter === JobStatus.PROCESSING ? 'fw-bold' : ''}`}>
+                  {jobsData.metrics.processing ?? 0}
+                </div>
+                {statusFilter === JobStatus.PROCESSING && <small className="text-primary">●</small>}
+              </div>
+              <div
+                className="col-md-2"
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  setStatusFilter(statusFilter === JobStatus.COMPLETED ? 'all' : JobStatus.COMPLETED)
+                  setCurrentPage(1)
+                }}
+                role="button"
+                title={statusFilter === JobStatus.COMPLETED ? 'Limpar filtro' : 'Filtrar concluídos'}
+              >
+                <div className="text-muted small">Concluídos</div>
+                <div className={`h4 mb-0 text-success ${statusFilter === JobStatus.COMPLETED ? 'fw-bold' : ''}`}>
+                  {jobsData.metrics.total_completed ?? 0}
+                </div>
+                {statusFilter === JobStatus.COMPLETED && <small className="text-success">●</small>}
+              </div>
+              <div
+                className="col-md-2"
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  setStatusFilter(statusFilter === JobStatus.FAILED ? 'all' : JobStatus.FAILED)
+                  setCurrentPage(1)
+                }}
+                role="button"
+                title={statusFilter === JobStatus.FAILED ? 'Limpar filtro' : 'Filtrar falharam'}
+              >
+                <div className="text-muted small">Falharam</div>
+                <div className={`h4 mb-0 text-danger ${statusFilter === JobStatus.FAILED ? 'fw-bold' : ''}`}>
+                  {jobsData.metrics.total_failed ?? 0}
+                </div>
+                {statusFilter === JobStatus.FAILED && <small className="text-danger">●</small>}
+              </div>
+              <div
+                className="col-md-2"
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  setStatusFilter(statusFilter === JobStatus.TIMED_OUT ? 'all' : JobStatus.TIMED_OUT)
+                  setCurrentPage(1)
+                }}
+                role="button"
+                title={statusFilter === JobStatus.TIMED_OUT ? 'Limpar filtro' : 'Filtrar timeouts'}
+              >
+                <div className="text-muted small">Timeout</div>
+                <div className={`h4 mb-0 text-warning ${statusFilter === JobStatus.TIMED_OUT ? 'fw-bold' : ''}`}>
+                  {/* Timeout count via filtered jobs */}
+                  {jobs.filter((j) => j.status === JobStatus.TIMED_OUT).length}
+                </div>
+                {statusFilter === JobStatus.TIMED_OUT && <small className="text-warning">●</small>}
+              </div>
+              <div
+                className="col-md-2"
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  setStatusFilter('all')
+                  setCurrentPage(1)
+                }}
+                role="button"
+                title="Mostrar todos"
+              >
+                <div className="text-muted small">Total</div>
+                <div className={`h4 mb-0 ${statusFilter === 'all' ? 'fw-bold' : ''}`}>
+                  {jobsData.metrics.total_enqueued ?? 0}
+                </div>
+                {statusFilter === 'all' && <small className="text-muted">●</small>}
+              </div>
+            </div>
+            <div className="text-center mt-2">
+              <small className="text-muted">
+                {statusFilter !== 'all' ? (
+                  <>
+                    Filtrando: <strong>{statusFilter}</strong> · Clique para limpar
+                  </>
+                ) : (
+                  <>
+                    Clique em uma métrica para filtrar · Taxa de Sucesso: <strong>
+                      {jobsData.metrics.total_enqueued > 0
+                        ? ((jobsData.metrics.total_completed / jobsData.metrics.total_enqueued) * 100).toFixed(1)
+                        : '0.0'}%
+                    </strong>
+                  </>
+                )}
+              </small>
             </div>
           </Card.Body>
         </Card>
