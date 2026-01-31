@@ -1,5 +1,5 @@
 ---
-status: em_refatoracao
+status: implementada
 data: 2026-01-21
 aprovada_por: usuário
 data_aprovacao: 2026-01-24
@@ -7,17 +7,20 @@ implementacao: feat/claude-agent-sdk
 data_implementacao: 2026-01-29
 migracao_completa: 2026-01-29
 refatoracao_streams: 2026-01-31
+refatoracao_logs_2026: 2026-01-31
+alinhamento_oficial: 2026-01-31
 ---
 
 # ADR021 — Adotar claude-agent-sdk para Interface de Agentes
 
-**Status:** ✅ **IMPLEMENTADA (Streams Refatorados)**
+**Status:** ✅ **IMPLEMENTADA (Alinhada com Boas Práticas Oficiais)**
 
 **Data:** 2026-01-21
 **Data de Aprovação:** 2026-01-24
 **Data de Implementação:** 2026-01-24
 **Data de Migração Completa:** 2026-01-29
 **Branch de Implementação:** `feat/claude-agent-sdk`
+**Data de Alinhamento Oficial:** 2026-01-31
 
 ## Contexto
 
@@ -738,6 +741,87 @@ async def spawn(self, job, skill, worktree_path, skybridge_context):
 - [claude-agent-sdk-python](https://github.com/anthropics/claude-agent-sdk-python)
 - [Documentação Oficial Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/python)
 - [PoC SDK](../../src/core/agents/sdk_poc/README.md)
+
+---
+
+## ✅ ALINHAMENTO COM BOAS PRÁTICAS OFICIAIS (2026-01-31)
+
+### Decisão
+
+**A partir de 2026-01-31, a Skybridge segue ESTRITAMENTE a documentação oficial do Claude Agent SDK para o fluxo de agentes.**
+
+Qualquer divergência entre nossa implementação e as boas práticas oficiais deve ser tratada como **bug** e corrigida para alinhar com a documentação oficial em:
+
+- https://platform.claude.com/docs/en/agent-sdk/python
+- https://github.com/anthropics/claude-agent-sdk-python
+
+### Análise Comparativa: Skybridge vs Oficial
+
+| Aspecto | Implementação Skybridge | Documentação Oficial | Status |
+|---------|-------------------------|---------------------|--------|
+| **Método de stream** | `client.receive_response()` | `client.receive_response()` ✅ | ✅ **CORRETO - alinhado** |
+| **Loop de stream** | `async for msg in asyncio.wait_for(...)` | `async for message in client.receive_response()` | ✅ Alinhado |
+| **Detecção de término** | `msg_type == "ResultMessage"` + `subtype` | `message.subtype in ['success', 'error']` | ✅ Melhorado em 2026-01-31 |
+| **Logs** | `logger.debug()` (invisível) | N/A (não especificado) | ✅ Melhorado para `logger.info()` |
+| **Hooks** | `await broadcast_raw()` sem timeout | Hooks devem ser non-blocking | ✅ Timeout adicionado em 2026-01-31 |
+| **Timeout** | `asyncio.wait_for(stream, timeout)` | `asyncio.wait_for()` ou timeout nas options | ✅ Alinhado |
+
+### Mudanças Aplicadas (2026-01-31)
+
+#### 1. Logs Visíveis (DEBUG → INFO)
+
+**Problema:** Logs críticos em `DEBUG` não eram visíveis em produção.
+
+**Solução:**
+```python
+# Antes
+logger.debug(f"[SPAWN-STREAM] Mensagem #{msg_count}: {msg_type}")
+
+# Depois
+logger.info(f"[SPAWN-STREAM #{msg_count}] {msg_type} (subtype: {msg_subtype})")
+```
+
+#### 2. Detecção Robusta de ResultMessage
+
+**Problema:** Verificava apenas `msg_type == "ResultMessage"`.
+
+**Solução (alinhado com oficial):**
+```python
+is_result_message = (
+    msg_type == "ResultMessage" or
+    msg_subtype in ['success', 'error'] or  # ← Oficial
+    hasattr(msg, 'is_error')
+)
+```
+
+#### 3. Hooks Non-Blocking
+
+**Problema:** `await console_manager.broadcast_raw()` podia travar o stream.
+
+**Solução:**
+```python
+await asyncio.wait_for(
+    console_manager.broadcast_raw(...),
+    timeout=1.0,  # ← Previne deadlock
+)
+```
+
+### DoD Final - Alinhamento Oficial
+
+- [x] Logs INFO em pontos críticos (visibilidade garantida)
+- [x] Detecção de ResultMessage com `subtype in ['success', 'error']`
+- [x] Hooks com timeout (non-blocking)
+- [x] Contexto completo em logs (`msg_count`, `msg_subtype`, `content_blocks`)
+- [x] **Uso de `receive_response()` alinhado com exemplos oficiais**
+- [x] **Loop `async for` com `asyncio.wait_for()` para timeout**
+
+### Referências Oficiais para Revisão
+
+1. **Streaming Mode:** https://platform.claude.com/docs/en/agent-sdk/en/api/agent-sdk/python
+2. **Monitor Progress:** https://platform.claude.com/docs/en/agent-sdk/en/api/agent-sdk/python
+3. **Complete Checkpointing:** https://platform.claude.com/docs/en/agent-sdk/file-checkpointing
+
+---
 
 ---
 
