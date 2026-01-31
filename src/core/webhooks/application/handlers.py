@@ -20,9 +20,6 @@ logger = logging.getLogger(__name__)
 # Singleton global do job queue (compartilhado entre handler e worker)
 _job_queue: JobQueuePort | None = None
 
-# EventBus (singleton para Domain Events)
-_event_bus = None
-
 # AgentExecutionStore (singleton para persistência de execuções de agentes)
 _agent_execution_store = None
 
@@ -140,16 +137,15 @@ def get_event_bus():
 
     PRD018 ARCH-07/09: EventBus para Domain Events desacoplando componentes.
 
+    Uses the global EventBus from kernel to ensure all components
+    (webhook processor, TrelloEventListener, etc.) share the same instance.
+
     Returns:
         Instância de EventBus
     """
-    global _event_bus
-    if _event_bus is None:
-        from infra.domain_events.in_memory_event_bus import InMemoryEventBus
+    from kernel import get_event_bus as kernel_get_event_bus
 
-        _event_bus = InMemoryEventBus()
-        logger.info("EventBus inicializado: InMemoryEventBus")
-    return _event_bus
+    return kernel_get_event_bus()
 
 
 def get_agent_execution_store():
