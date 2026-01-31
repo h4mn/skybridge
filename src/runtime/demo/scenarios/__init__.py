@@ -11,7 +11,9 @@ Categorias:
 - e2e_scenarios.py: Demos end-to-end completas
 - queue_scenarios.py: Demos de sistema de fila
 - engine_scenarios.py: Demos que testam a própria engine/CLI
+- prd020_scenarios.py: Demos do fluxo bidirecional GitHub ↔ Trello (PRD020)
 - prd021_scenarios.py: Demos da reorganização de prompts e skills (PRD021)
+- spec009_e2e_demo.py: Demo interativa do workflow multi-agente (SPEC009)
 
 NOTA: agent_sdk_scenarios.py foi removido conforme ADR021 (migração completa para SDK).
 Os benchmarks comparativos não são mais necessários.
@@ -52,6 +54,10 @@ from runtime.demo.scenarios.spec009_e2e_demo import (
     SPEC009InteractiveDemo,
 )
 
+from runtime.demo.scenarios.prd020_scenarios import (
+    TrelloToGitHubAnalysisDemo,
+)
+
 __all__ = [
     # Trello
     "TrelloFlowDemo",
@@ -73,4 +79,6 @@ __all__ = [
     "PRD021ImportDemo",
     # SPEC009 - Workflow Multi-Agente
     "SPEC009InteractiveDemo",
+    # PRD020 - Fluxo Bidirecional GitHub ↔ Trello
+    "TrelloToGitHubAnalysisDemo",
 ]

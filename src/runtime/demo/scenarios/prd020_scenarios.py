@@ -162,26 +162,24 @@ Este card demonstra o fluxo de **análise sem modificações**.
 
     async def _move_to_brainstorm(self, adapter, kanban_config) -> Result[None, str]:
         """Move card para lista 💡 Brainstorm."""
-        from infra.kanban.adapters.trello_adapter import TrelloAdapter
-
-        # Busca ID da lista Brainstorm
-        lists = await adapter.get_lists()
-        if lists.is_err:
-            return Result.err(lists.error)
-
-        brainstorm_list = None
-        for lst in lists.unwrap():
-            if "Brainstorm" in lst.name or "💡" in lst.name:
-                brainstorm_list = lst
+        # Busca nome da lista Brainstorm a partir da config
+        list_names = kanban_config.get_list_names()
+        brainstorm_list_name = None
+        for name in list_names:
+            if "Brainstorm" in name or "💡" in name:
+                brainstorm_list_name = name
                 break
 
-        if not brainstorm_list:
-            return Result.err("Lista 💡 Brainstorm não encontrada")
+        if not brainstorm_list_name:
+            return Result.err("Lista 💡 Brainstorm não encontrada na config")
 
-        # Move card
-        result = await adapter.move_card(self.card_id, brainstorm_list.id)
+        # Move card usando move_card_to_list (que busca ID automaticamente)
+        result = await adapter.move_card_to_list(
+            card_id=self.card_id,
+            target_list_name=brainstorm_list_name,
+        )
         if result.is_ok:
-            self.log_success(f"Card movido para: {brainstorm_list.name}")
+            self.log_success(f"Card movido para: {brainstorm_list_name}")
             return Result.ok(None)
         return result
 
