@@ -154,6 +154,55 @@ class TrelloKanbanListsConfig:
     review_list: str = ""  # ⚔️ Desafio / 👀 Em Revisão
     done_list: str = ""  # 🚀 Publicar / ✅ Pronto
 
+    # Mapeamento de labels do GitHub para Trello
+    label_mapping: dict = None
+
+    # Flag para controlar auto-configuração de listas
+    auto_create_lists: bool = False
+
+    def __post_init__(self):
+        """Inicializa valores padrão após criação do dataclass."""
+        if self.label_mapping is None:
+            self.label_mapping = {
+                "bug": ("bug", "red"),
+                "feature": ("feature", "green"),
+                "enhancement": ("melhoria", "blue"),
+                "documentation": ("docs", "orange"),
+                "good-first-issue": ("bom-para-iniciar", "yellow"),
+            }
+
+    @property
+    def todo(self) -> str:
+        """Nome da lista 'A Fazer' (para compatibilidade com código legado)."""
+        return "📋 A Fazer"
+
+    @property
+    def progress(self) -> str:
+        """Nome da lista 'Em Andamento' (para compatibilidade com código legado)."""
+        return "🚧 Em Andamento"
+
+    def get_list_names(self) -> list[str]:
+        """Retorna lista de nomes das listas Kanban em ordem."""
+        return [
+            "🧠 Brainstorm",
+            "📥 Issues",
+            "📋 A Fazer",
+            "🚧 Em Andamento",
+            "👀 Em Revisão",
+            "🚀 Publicar",
+        ]
+
+    def get_list_colors(self) -> dict[str, str]:
+        """Retorna mapeamento de nome da lista para cor (hex)."""
+        return {
+            "🧠 Brainstorm": "#E6F7FF",
+            "📥 Issues": "#FFF7E6",
+            "📋 A Fazer": "#FFFBF0",
+            "🚧 Em Andamento": "#E6F7FF",
+            "👀 Em Revisão": "#F6FFED",
+            "🚀 Publicar": "#F0F5FF",
+        }
+
 
 def get_trello_kanban_lists_config() -> TrelloKanbanListsConfig:
     """
