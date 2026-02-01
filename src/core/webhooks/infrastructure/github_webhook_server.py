@@ -45,7 +45,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+# Carrega .env na ordem correta (ADR024): workspace primeiro, raiz depois
+# Este é um servidor standalone que não passa pelo middleware de workspace
+try:
+    from runtime.config.config import load_workspace_env
+    load_workspace_env("core")  # Usa workspace core por padrão
+except ImportError:
+    # Fallback durante import se módulos não disponíveis
+    from dotenv import load_dotenv
+    load_dotenv()  # Carrega .env da raiz (fallback)
 
 
 # FileBasedJobQueue substitui InMemoryJobQueue (drop-in replacement)

@@ -80,10 +80,10 @@ class WorkspaceMiddleware:
                 detail=f"Workspace '{workspace_id}' not found or disabled"
             )
 
-        # 3. Carrega .env do workspace (se existir)
-        env_path = Path(workspace.path) / ".env"
-        if env_path.exists():
-            load_dotenv(env_path, override=True)
+        # 3. Carrega .env do workspace na ordem correta (ADR024)
+        # Usa função centralizada que respeita prioridade: workspace > raiz
+        from runtime.config.config import load_workspace_env
+        load_workspace_env(workspace_id)
 
         # 4. Injeta no contexto da requisição
         request.state.workspace = workspace_id

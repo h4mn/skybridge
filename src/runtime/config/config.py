@@ -651,3 +651,76 @@ def get_workspace_diffs_dir(workspace_id: str | None = None) -> Path:
         Path: workspace/{workspace_id}/diffs/
     """
     return get_workspace_path(workspace_id) / "diffs"
+
+
+# ============================================================================
+# Funções de Carregamento de .env (ADR024)
+# ============================================================================
+
+def load_workspace_env(workspace_id: str | None = None) -> None:
+    """
+    Carrega variáveis de ambiente do .env na ordem correta (ADR024).
+
+    Ordem de prioridade:
+    1. workspace/{workspace_id}/.env (operacional principal)
+    2. .env da raiz (fallback/backup/apenas segurança)
+
+    DOC: ADR024 - .env do workspace tem prioridade sobre .env da raiz
+    DOC: .env da raiz é APENAS backup/segurança, não deve ser usado operacionalmente
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+    """
+    from dotenv import load_dotenv
+
+    if workspace_id is None:
+        from runtime.workspace.workspace_context import get_current_workspace
+        workspace_id = get_current_workspace()
+
+    base_path = get_base_path()
+
+    # 1. Tenta carregar .env do workspace (OPERACIONAL)
+    workspace_env = base_path / "workspace" / workspace_id / ".env"
+    if workspace_env.exists():
+        load_dotenv(workspace_env, override=True)
+        return
+
+    # 2. Fallback: carrega .env da raiz (BACKUP/SEGURANÇA)
+    root_env = base_path / ".env"
+    if root_env.exists():
+        load_dotenv(root_env, override=False)
+
+
+def ensure_workspace_env(workspace_id: str | None = None) -> None:
+    """
+    Garante que o .env do workspace existe, criando se necessário.
+
+    Se o .env do workspace não existir, cria um com comentários explicativos.
+    Se .env da raiz existir, oferece para copiar (mas não copia automaticamente).
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+    """
+    if workspace_id is None:
+        from runtime.workspace.workspace_context import get_current_workspace
+        workspace_id = get_current_workspace()
+
+    base_path = get_base_path()
+    workspace_env = base_path / "workspace" / workspace_id / ".env"
+
+    if not workspace_env.exists():
+        # Criar .env do workspace com instruções
+        workspace_env.parent.mkdir(parents=True, exist_ok=True)
+        workspace_env.write_text(
+            f"# Segredos operacionais do workspace '{workspace_id}'\n"
+            f"# DOC: ADR024 - Este .env tem PRIORIDADE sobre .env da raiz\n"
+            f"# \n"
+            f"# Para copiar segredos do .env da raiz (backup), use:\n"
+            f"#       cp ../../.env .env\n"
+            f"# \n"
+            f"# Ou configure manualmente abaixo:\n"
+            f"GITHUB_TOKEN=\n"
+            f"ANTHROPIC_API_KEY=\n"
+            f"# ... outras vars ...\n",
+            encoding="utf-8"
+        )

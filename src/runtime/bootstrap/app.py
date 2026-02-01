@@ -70,6 +70,10 @@ async def lifespan(app: FastAPI):
         initializer = WorkspaceInitializer(workspace_base)
         initializer.create_core()
 
+        # Garante que workspace/core/.env existe (ADR024)
+        from runtime.config.config import ensure_workspace_env
+        ensure_workspace_env("core")
+
     # Registrar workspace core no banco se necessário
     if workspaces_db.exists():
         workspaces_repo = WorkspaceRepository(workspaces_db)

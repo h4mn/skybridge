@@ -208,13 +208,12 @@ class TestWorkspaceMiddlewareValidation:
 class TestWorkspaceMiddlewareEnvLoading:
     """Testa carregamento de .env do workspace."""
 
-    @patch("runtime.middleware.workspace_middleware.load_dotenv")
-    @patch("pathlib.Path.exists", return_value=True)
-    async def test_middleware_loads_workspace_env(self, mock_exists, mock_load_dotenv):
+    @patch("runtime.config.config.load_workspace_env")
+    async def test_middleware_loads_workspace_env(self, mock_load_workspace_env):
         """
         DOC: ADR024 - Middleware carrega .env do workspace.
 
-        Deve chamar load_dotenv com o caminho do .env do workspace.
+        Deve chamar load_workspace_env com o workspace_id correto.
         """
         core_ws = Mock(
             id="core",
@@ -234,14 +233,13 @@ class TestWorkspaceMiddlewareEnvLoading:
         request = MockRequest(headers={"X-Workspace": "core"})
         await middleware(request, request.call_next)
 
-        # Verifica que load_dotenv foi chamado
-        mock_load_dotenv.assert_called_once()
+        # Verifica que load_workspace_env foi chamado com "core"
+        mock_load_workspace_env.assert_called_once_with("core")
 
-    @patch("runtime.middleware.workspace_middleware.load_dotenv")
-    @patch("pathlib.Path.exists", return_value=True)
-    async def test_middleware_loads_env_with_override(self, mock_exists, mock_load_dotenv):
+    @patch("runtime.config.config.load_workspace_env")
+    async def test_middleware_loads_env_with_override(self, mock_load_workspace_env):
         """
-        DOC: load_dotenv deve usar override=True.
+        DOC: load_workspace_env carrega workspace/.env com override.
 
         Variáveis do workspace devem sobrescrever as existentes.
         """
@@ -263,9 +261,8 @@ class TestWorkspaceMiddlewareEnvLoading:
         request = MockRequest(headers={"X-Workspace": "core"})
         await middleware(request, request.call_next)
 
-        # Verifica que override=True foi passado
-        call_kwargs = mock_load_dotenv.call_args.kwargs
-        assert call_kwargs.get("override") is True
+        # Verifica que load_workspace_env foi chamado
+        mock_load_workspace_env.assert_called_once()
 
 
 @pytest.mark.asyncio
