@@ -12,34 +12,34 @@ export default function Dashboard() {
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [logStreamPaused, setLogStreamPaused] = useState(false)
 
-  // Query para health check
-  const { data: health, isLoading: healthLoading, error: healthError } = useQuery({
+  // Query para health check (sem auto-refresh - apenas na montagem)
+  const { data: health, isLoading: healthLoading, error: healthError, refetch: refetchHealth } = useQuery({
     queryKey: ['health'],
     queryFn: async () => {
       const res = await healthApi.get()
       return res.data
     },
-    refetchInterval: 5000,
+    // refetchInterval removido - atualiza apenas via botão ou reload
   })
 
-  // Query para jobs
-  const { data: jobsData, isLoading: jobsLoading, error: jobsError } = useQuery({
+  // Query para jobs (sem auto-refresh)
+  const { data: jobsData, isLoading: jobsLoading, error: jobsError, refetch: refetchJobs } = useQuery({
     queryKey: ['webhook-jobs'],
     queryFn: async () => {
       const res = await webhooksApi.listJobs()
       return res.data
     },
-    refetchInterval: 5000,
+    // refetchInterval removido - atualiza apenas via botão ou reload
   })
 
-  // Query para logs files
-  const { data: logsData, isLoading: logsLoading } = useQuery({
+  // Query para logs files (sem auto-refresh)
+  const { data: logsData, isLoading: logsLoading, refetch: refetchLogs } = useQuery({
     queryKey: ['logs-files'],
     queryFn: async () => {
       const res = await observabilityApi.getLogFiles()
       return res.data
     },
-    refetchInterval: 10000,
+    // refetchInterval removido - atualiza apenas via botão ou reload
   })
 
   // Métricas
@@ -89,11 +89,21 @@ export default function Dashboard() {
   const logFilesCount = logsData?.files?.length ?? 0
   const currentLogFile = logsData?.files?.[0]?.name ?? null
 
+  // Handler para refresh manual de todas as métricas
+  const handleRefreshAll = async () => {
+    await Promise.all([refetchHealth(), refetchJobs(), refetchLogs()])
+  }
+
   return (
     <div>
-      <small className="text-muted d-block mb-3">
-        Última atualização: {lastUpdate}
-      </small>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <small className="text-muted">
+          Última atualização: {lastUpdate}
+        </small>
+        <Button variant="outline-primary" size="sm" onClick={handleRefreshAll}>
+          🔄 Atualizar
+        </Button>
+      </div>
 
       {(healthError || jobsError) && (
         <Alert variant="warning">

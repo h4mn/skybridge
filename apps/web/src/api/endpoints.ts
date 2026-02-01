@@ -188,13 +188,13 @@ export const agentsApi = {
       ok: boolean
       executions: AgentExecution[]
       metrics: AgentMetrics
-    }>('/api/agents/executions', { params: { limit } }),
+    }>('/agents/executions', { params: { limit } }),
 
   getExecution: (jobId: string) =>
     apiClient.get<{
       ok: boolean
       execution: AgentExecution
-    }>(`/api/agents/executions/${jobId}`),
+    }>(`/agents/executions/${jobId}`),
 
   getMessages: (jobId: string) =>
     apiClient.get<{
@@ -202,11 +202,11 @@ export const agentsApi = {
       job_id: string
       messages: string[]
       stdout: string
-    }>(`/api/agents/executions/${jobId}/messages`),
+    }>(`/agents/executions/${jobId}/messages`),
 
   getMetrics: () =>
     apiClient.get<{
       ok: boolean
       metrics: AgentMetrics
-    }>('/api/agents/metrics'),
+    }>('/agents/metrics'),
 }

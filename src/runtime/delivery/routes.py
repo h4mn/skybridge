@@ -1688,7 +1688,7 @@ def create_rpc_router() -> APIRouter:
 
     # ========== Agents Endpoints (Página de Agents) ==========
 
-    @router.get("/api/agents/executions")
+    @router.get("/agents/executions")
     async def list_agent_executions(
         limit: int = Query(100, ge=1, le=1000, description="Número máximo de execuções a retornar"),
     ):
@@ -1725,7 +1725,7 @@ def create_rpc_router() -> APIRouter:
                 content={"ok": True, "executions": [], "metrics": {}},
             )
 
-    @router.get("/api/agents/executions/{job_id}")
+    @router.get("/agents/executions/{job_id}")
     async def get_agent_execution(job_id: str):
         """
         Retorna detalhes de uma execução de agente.
@@ -1761,7 +1761,7 @@ def create_rpc_router() -> APIRouter:
                 content={"ok": False, "error": str(e)},
             )
 
-    @router.get("/api/agents/executions/{job_id}/messages")
+    @router.get("/agents/executions/{job_id}/messages")
     async def get_agent_execution_messages(job_id: str):
         """
         Retorna mensagens capturadas do stream de uma execução.
@@ -1804,7 +1804,7 @@ def create_rpc_router() -> APIRouter:
                 content={"ok": False, "error": str(e)},
             )
 
-    @router.get("/api/agents/metrics")
+    @router.get("/agents/metrics")
     async def get_agent_metrics():
         """
         Retorna métricas de execuções de agentes.

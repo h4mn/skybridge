@@ -40,7 +40,7 @@ export default function Worktrees() {
       const res = await webhooksApi.listWorktrees()
       return res.data
     },
-    refetchInterval: 10000, // Atualiza a cada 10s
+    // refetchInterval removido - atualiza apenas via botão ou interação
   })
 
   // Mutation para deletar worktree (agora requer senha)

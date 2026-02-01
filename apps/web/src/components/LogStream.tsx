@@ -66,6 +66,7 @@ export default function LogStream({ paused = false }: LogStreamProps) {
 
           // Configura polling a cada 2 segundos
           pollIntervalRef.current = setInterval(() => fetchLatestLogs(latestFile), 2000)
+          console.log('[LogStream] Polling configurado: intervalo 2s')
         }
       } catch (err) {
         console.error('[LogStream] Erro ao buscar arquivos de log:', err)
@@ -75,10 +76,13 @@ export default function LogStream({ paused = false }: LogStreamProps) {
 
     startPolling()
 
-    // Cleanup ao desmontar
+    // Cleanup ao desmontar - CRÍTICO: deve parar o polling
     return () => {
+      console.log('[LogStream] LIMPANDO: parando polling...')
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current)
+        pollIntervalRef.current = null
+        console.log('[LogStream] Polling PARADO')
       }
     }
   }, [fetchLatestLogs])
@@ -86,10 +90,12 @@ export default function LogStream({ paused = false }: LogStreamProps) {
   // Pausa/retoma o polling quando a prop paused muda
   useEffect(() => {
     if (paused && pollIntervalRef.current) {
+      console.log('[LogStream] PAUSANDO polling (usuário clicou em pausar)')
       clearInterval(pollIntervalRef.current)
       pollIntervalRef.current = null
     } else if (!paused && filenameRef.current && !pollIntervalRef.current) {
       // Retoma o polling
+      console.log('[LogStream] RETOMANDO polling')
       pollIntervalRef.current = setInterval(() => {
         fetchLatestLogs(filenameRef.current!)
       }, 2000)
