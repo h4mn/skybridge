@@ -65,7 +65,7 @@ class MetricsEventListener:
         # Subscribe to all job events
         job_events = [JobStartedEvent, JobCompletedEvent, JobFailedEvent]
         for event_cls in job_events:
-            sub_id = self.event_bus.subscribe(
+            sub_id = await self.event_bus.subscribe(
                 event_cls,
                 self._on_any_event,
             )
@@ -74,7 +74,7 @@ class MetricsEventListener:
         # Subscribe to issue events
         issue_events = [IssueReceivedEvent]
         for event_cls in issue_events:
-            sub_id = self.event_bus.subscribe(
+            sub_id = await self.event_bus.subscribe(
                 event_cls,
                 self._on_any_event,
             )

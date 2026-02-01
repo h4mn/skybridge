@@ -63,14 +63,14 @@ class NotificationEventListener:
         Deve ser chamado durante a inicialização da aplicação.
         """
         # Subscribe to JobCompletedEvent
-        sub_id = self.event_bus.subscribe(
+        sub_id = await self.event_bus.subscribe(
             JobCompletedEvent,
             self._on_job_completed,
         )
         self._subscription_ids.append(sub_id)
 
         # Subscribe to JobFailedEvent
-        sub_id = self.event_bus.subscribe(
+        sub_id = await self.event_bus.subscribe(
             JobFailedEvent,
             self._on_job_failed,
         )

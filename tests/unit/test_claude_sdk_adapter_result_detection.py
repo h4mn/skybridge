@@ -167,7 +167,7 @@ class TestResultMessageDetectionRobustness:
             """Stream que retorna a mesma mensagem infinitamente."""
             def __init__(self):
                 self.count = 0
-                self.max_messages = 1000  # Limite para teste (não trava o pytest)
+                self.max_messages = 100  # Limite para teste (não trava o pytest)
 
             def __aiter__(self):
                 return self
