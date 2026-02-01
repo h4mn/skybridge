@@ -184,7 +184,7 @@ WEBHOOK_ENABLED_SOURCES=github,discord,youtube,stripe
 from pathlib import Path
 
 # Diretório base para worktrees (configurável por ambiente)
-WORKTREES_BASE_PATH = Path("B:/_repositorios/skybridge-worktrees")
+WORKTREES_BASE_PATH = Path("B:/_repositorios/skybridge-auto")
 
 # Garante que o diretório existe
 WORKTREES_BASE_PATH.mkdir(parents=True, exist_ok=True)
@@ -340,17 +340,17 @@ job = {
 
 # 3. Worktree criado (nome único com job_id suffix)
 # Formato: {WORKTREES_BASE_PATH}/skybridge-{webhook_type}-{event_type}-{issue_id}-{short_id}
-worktree_path = "B:\\_repositorios\\skybridge-worktrees\\skybridge-github-issues-225-abc123"
+worktree_path = "B:\\_repositorios\\skybridge-auto\\skybridge-github-issues-225-abc123"
 branch_name = "webhook/github/issue/225/abc123"
 
-git worktree add B:\_repositorios\skybridge-worktrees\skybridge-github-issues-225-abc123 -b webhook/github/issue/225/abc123
+git worktree add B:\_repositorios\skybridge-auto\skybridge-github-issues-225-abc123 -b webhook/github/issue/225/abc123
 
 # 4. GitExtractor captura snapshot inicial
 initial_snapshot = git_extractor.capture(worktree_path)
 # Salva: branch=webhook/github/issue/225/abc12345, hash=abc123, staged=[], unstaged=[]
 
 # 5. Subagente trabalha
-cd B:\_repositorios\skybridge-worktrees\skybridge-github-issues-225-abc123
+cd B:\_repositorios\skybridge-auto\skybridge-github-issues-225-abc123
 [agente lê issue, implementa solução, testa]
 git add .
 git commit -m "fix: resolve issue #225"
@@ -364,7 +364,7 @@ can_remove, message, status = git_extractor.validate_worktree(worktree_path)
 
 if can_remove:
     # ✅ Worktree limpo, pode remover
-    git worktree remove B:\_repositorios\skybridge-worktrees\skybridge-github-issues-225-abc123
+    git worktree remove B:\_repositorios\skybridge-auto\skybridge-github-issues-225-abc123
 else:
     # ⚠️ Worktree sujo, mantém para investigação
     notify(f"⚠️ {message}")
@@ -386,8 +386,8 @@ PR criada, worktree limpo, zero resíduo
 Conforme **SPEC008 seção 8.1.1**, o worktree path é configurável via `config.py`:
 
 - **Formato:** `{WORKTREES_BASE_PATH}/skybridge-{webhook_type}-{event_type}-{issue_id}-{short_id}`
-- **Exemplo:** `B:\_repositorios\skybridge-worktrees\skybridge-github-issues-225-abc123`
-- **Configuração:** `WORKTREES_BASE_PATH` definido em `config.py` (padrão: `B:/_repositorios/skybridge-worktrees`)
+- **Exemplo:** `B:\_repositorios\skybridge-auto\skybridge-github-issues-225-abc123`
+- **Configuração:** `WORKTREES_BASE_PATH` definido em `config.py` (padrão: `B:/_repositorios/skybridge-auto`)
 - **Sufixo:** Primeiros 6 caracteres do job_id garantem unicidade
 
 ### Branch Git
@@ -525,7 +525,7 @@ config = load_system_prompt_config()  # Lê system_prompt.json
 
 # Contexto do job
 context = {
-    "worktree_path": "B:\\_repositorios\\skybridge-worktrees\\skybridge-github-issues-225-abc123",
+    "worktree_path": "B:\\_repositorios\\skybridge-auto\\skybridge-github-issues-225-abc123",
     "issue_number": 225,
     "issue_title": "Fix version alignment",
     "repo_name": "h4mn/skybridge",
@@ -542,7 +542,7 @@ rendered = render_system_prompt(config, context)
 **Contexto passado ao subagente (JSON):**
 ```json
 {
-  "worktree_path": "B:\\_repositorios\\skybridge-worktrees\\skybridge-github-issues-225-abc123",
+  "worktree_path": "B:\\_repositorios\\skybridge-auto\\skybridge-github-issues-225-abc123",
   "issue_number": 225,
   "issue_title": "Fix: alinhar versões da CLI e API",
   "repo_name": "h4mn/skybridge",
@@ -847,7 +847,7 @@ Todos os eventos devem ser logados com formato estruturado (JSON):
   "correlation_id": "gh-webhook-abc123",
   "source": "github",
   "issue_number": 225,
-  "worktree_path": "B:\\_repositorios\\skybridge-worktrees\\skybridge-github-issue-225-cf560ba0",
+  "worktree_path": "B:\\_repositorios\\skybridge-auto\\skybridge-github-issue-225-cf560ba0",
   "agent_type": "claude-code",
   "metadata": {
     "issue_title": "Fix version alignment",
@@ -1243,7 +1243,7 @@ tests/core/contexts/webhooks/
 ### B. Exemplo de Validação GitExtractor
 
 ```python
-result = safe_worktree_cleanup("B:\\_repositorios\\skybridge-worktrees\\skybridge-github-issues-225-abc123", dry_run=True)
+result = safe_worktree_cleanup("B:\\_repositorios\\skybridge-auto\\skybridge-github-issues-225-abc123", dry_run=True)
 
 # Saída: Worktree limpo
 {

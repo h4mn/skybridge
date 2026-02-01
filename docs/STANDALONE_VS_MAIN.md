@@ -94,7 +94,7 @@ class InMemoryJobQueue(JobQueuePort):
 ### Opção A: Standalone (kanban)
 
 ```bash
-cd B:\_repositorios\skybridge-worktrees\kanban
+cd B:\_repositorios\skybridge-auto\kanban
 
 # 1. Configure .env
 # GITHUB_TOKEN=seu_token
@@ -107,11 +107,11 @@ cd B:\_repositorios\skybridge-worktrees\kanban
 # NGROK_DOMAIN=cunning-dear-primate.ngrok-free.app
 
 # 2. Inicie o servidor
-PYTHONPATH=B:/_repositorios/skybridge-worktrees/kanban/src \
+PYTHONPATH=B:/_repositorios/skybridge-auto/kanban/src \
 python src/core/webhooks/infrastructure/github_webhook_server.py
 
 # 3. Execute o demo
-PYTHONPATH=B:/_repositorios/skybridge-worktrees/kanban/src \
+PYTHONPATH=B:/_repositorios/skybridge-auto/kanban/src \
 python src/core/kanban/testing/demo_github_to_trello.py
 ```
 

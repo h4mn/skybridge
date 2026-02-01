@@ -74,7 +74,7 @@ Se faltar informações:
 
 ```bash
 # Formato: skybridge-{source}-{event_type}-{issue_id}-{short_id}
-WORKTREE_PATH="B:/_repositorios/skybridge-worktrees/skybridge-github-issues-${ISSUE_NUMBER}-${SHORT_ID}"
+WORKTREE_PATH="B:/_repositorios/skybridge-auto/skybridge-github-issues-${ISSUE_NUMBER}-${SHORT_ID}"
 BRANCH_NAME="webhook/github/issue/${ISSUE_NUMBER}/${SHORT_ID}"
 
 # Criar worktree
@@ -367,8 +367,8 @@ Antes de postar webhook para testador, verifique:
 
 ```bash
 # 1. Criar worktree
-git worktree add B:/_repositorios/skybridge-worktrees/skybridge-github-issues-123-abc123 -b webhook/github/issue/123/abc123
-cd B:/_repositorios/skybridge-worktrees/skybridge-github-issues-123-abc123
+git worktree add B:/_repositorios/skybridge-auto/skybridge-github-issues-123-abc123 -b webhook/github/issue/123/abc123
+cd B:/_repositorios/skybridge-auto/skybridge-github-issues-123-abc123
 
 # 2. Snapshot inicial
 python -c "from skybridge.platform.observability.snapshot import FileOpsExtractor; FileOpsExtractor().capture('.', 5).save()"

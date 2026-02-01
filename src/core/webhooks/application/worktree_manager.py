@@ -42,7 +42,7 @@ class WorktreeManager:
         Inicializa manager.
 
         Args:
-            base_path: Caminho base para worktrees (ex: "../skybridge-worktrees")
+            base_path: Caminho base para worktrees (ex: "../skybridge-auto")
             base_branch: Branch base para criar worktrees (padrão: "dev")
         """
         self.base_path = Path(base_path)
@@ -59,7 +59,7 @@ class WorktreeManager:
             Result com caminho do worktree criado ou erro
 
         Example:
-            >>> manager = WorktreeManager("../skybridge-worktrees")
+            >>> manager = WorktreeManager("../skybridge-auto")
             >>> result = manager.create_worktree(job)
             >>> if result.is_ok:
             ...     worktree_path = result.value

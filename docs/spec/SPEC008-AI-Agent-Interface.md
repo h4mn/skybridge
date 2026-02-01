@@ -546,7 +546,7 @@ config = load_system_prompt_config()  # Lê system_prompt.json
 
 # Contexto do job
 context = {
-    "worktree_path": "B:\\_repositorios\\skybridge-worktrees\\github-issues-225-abc123",
+    "worktree_path": "B:\\_repositorios\\skybridge-auto\\github-issues-225-abc123",
     "issue_number": 225,
     "issue_title": "Fix version alignment",
     "repo_name": "skybridge",
@@ -565,7 +565,7 @@ rendered = render_system_prompt(config, context)
 You are an autonomous AI agent that executes development tasks through natural language inference.
 
 INSTRUCTIONS:
-- Work in an isolated Git worktree at B:\_repositorios\skybridge-worktrees\github-issues-225-abc123
+- Work in an isolated Git worktree at B:\_repositorios\skybridge-auto\github-issues-225-abc123
 - Communicate with Skybridge via XML commands: <skybridge_command>...</skybridge_command>
 - NEVER use heuristics - always use inference to analyze and solve problems
 - Maintain internal log at .sky/agent.log
@@ -634,7 +634,7 @@ O diretório base para worktrees é **configurável** via `config.py`:
 
 ```python
 # config.py
-WORKTREES_BASE_PATH = Path("B:/_repositorios/skybridge-worktrees")
+WORKTREES_BASE_PATH = Path("B:/_repositorios/skybridge-auto")
 ```
 
 **Padrão de Nomenclatura:**
@@ -647,7 +647,7 @@ WORKTREES_BASE_PATH = Path("B:/_repositorios/skybridge-worktrees")
 
 | Componente | Fonte | Exemplo | Descrição |
 |------------|-------|---------|-----------|
-| `WORKTREES_BASE_PATH` | `config.WORKTREES_BASE_PATH` | `B:\_repositorios\skybridge-worktrees` | Diretório configurável |
+| `WORKTREES_BASE_PATH` | `config.WORKTREES_BASE_PATH` | `B:\_repositorios\skybridge-auto` | Diretório configurável |
 | `webhook_type` | Tipo de webhook | `github` | GitHub, GitLab, Discord |
 | `event_type` | Tipo de evento | `issues` | issues, pr, discussion |
 | `issue_id` | ID da issue/PR | `225` | Identificador único |
@@ -657,9 +657,9 @@ WORKTREES_BASE_PATH = Path("B:/_repositorios/skybridge-worktrees")
 
 | Cenário | Path Resultante |
 |---------|-----------------|
-| GitHub Issue #225, job abc123def | `B:\_repositorios\skybridge-worktrees\skybridge-github-issues-225-abc123` |
-| GitHub PR #456, job xyz789ghi | `B:\_repositorios\skybridge-worktrees\skybridge-github-pr-456-xyz789` |
-| Discord message, job msg123 | `B:\_repositorios\skybridge-worktrees\skybridge-discord-message-msg123` |
+| GitHub Issue #225, job abc123def | `B:\_repositorios\skybridge-auto\skybridge-github-issues-225-abc123` |
+| GitHub PR #456, job xyz789ghi | `B:\_repositorios\skybridge-auto\skybridge-github-pr-456-xyz789` |
+| Discord message, job msg123 | `B:\_repositorios\skybridge-auto\skybridge-discord-message-msg123` |
 
 **Requisitos:**
 
@@ -707,7 +707,7 @@ def generate_worktree_path(
 from pathlib import Path
 
 # Diretório base para worktrees (configurável por ambiente)
-WORKTREES_BASE_PATH = Path("B:/_repositorios/skybridge-worktrees")
+WORKTREES_BASE_PATH = Path("B:/_repositorios/skybridge-auto")
 
 # Garante que o diretório existe
 WORKTREES_BASE_PATH.mkdir(parents=True, exist_ok=True)
@@ -741,13 +741,13 @@ A tabela abaixo define timeouts **recomendados por tipo de tarefa**. Se não esp
 
 ```bash
 # Usa timeout recomendado para skill (ex: 300s para bug fix simples)
-claude --print --cwd B:\_repositorios\skybridge-worktrees\skybridge-github-issues-225-abc123 --skill resolve-issue
+claude --print --cwd B:\_repositorios\skybridge-auto\skybridge-github-issues-225-abc123 --skill resolve-issue
 
 # Override com timeout específico
-claude --print --cwd B:\_repositorios\skybridge-worktrees\skybridge-github-issues-225-abc123 --timeout 900
+claude --print --cwd B:\_repositorios\skybridge-auto\skybridge-github-issues-225-abc123 --timeout 900
 
 # Usa global padrão (600s) se não especificado
-claude --print --cwd B:\_repositorios\skybridge-worktrees\skybridge-github-issues-225-abc123
+claude --print --cwd B:\_repositorios\skybridge-auto\skybridge-github-issues-225-abc123
 ```
 
 ## 9) Protocolo de Comunicação
@@ -924,7 +924,7 @@ Cada execução de agente DEVE gerar logs com **issue_title, output_message, thi
 ```json
 {
   "timestamp": "2026-01-10T10:30:00Z",
-  "worktree_path": "B:\_repositorios\skybridge-worktrees\skybridge-github-issues-225-abc123",
+  "worktree_path": "B:\_repositorios\skybridge-auto\skybridge-github-issues-225-abc123",
   "git": {
     "branch": "webhook/github/issue/225/abc123",
     "hash": "parent_hash",
@@ -943,7 +943,7 @@ Cada execução de agente DEVE gerar logs com **issue_title, output_message, thi
 ```json
 {
   "timestamp": "2026-01-10T10:31:00Z",
-  "worktree_path": "B:\_repositorios\skybridge-worktrees\skybridge-github-issues-225-abc123",
+  "worktree_path": "B:\_repositorios\skybridge-auto\skybridge-github-issues-225-abc123",
   "git": {
     "branch": "webhook/github/issue/225/abc123",
     "hash": "abc123",
@@ -1060,7 +1060,7 @@ Orchestrator DEVE validar **após execução**:
     // Thinkings até o momento da falha (DEVE ser sempre preservado)
   ],
   "worktree_preserved": true,
-  "worktree_path": "B:\_repositorios\skybridge-worktrees\skybridge-github-issues-225-abc123",
+  "worktree_path": "B:\_repositorios\skybridge-auto\skybridge-github-issues-225-abc123",
   "worktree_retention_hours": 24
 }
 ```
@@ -1162,7 +1162,7 @@ Mudanças breaking no bounded context `webhooks/` requerem:
 # Entrada via stdin
 SYSTEM_PROMPT=$(get_system_prompt_template | render -context)
 echo "Resolve issue #225: Fix version alignment" | claude --print \
-  --cwd B:\_repositorios\skybridge-worktrees\skybridge-github-issues-225-abc123 \
+  --cwd B:\_repositorios\skybridge-auto\skybridge-github-issues-225-abc123 \
   --system-prompt "${SYSTEM_PROMPT}" \
   --output-format json \
   --permission-mode bypass \

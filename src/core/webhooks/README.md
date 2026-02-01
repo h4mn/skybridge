@@ -86,7 +86,7 @@ Environment variables:
 export WEBHOOK_GITHUB_SECRET="whsec_abc123..."
 
 # Worktree base path
-export WEBHOOK_WORKTREE_BASE_PATH="../skybridge-worktrees"
+export WEBHOOK_WORKTREE_BASE_PATH="../skybridge-auto"
 
 # Enabled sources
 export WEBHOOK_ENABLED_SOURCES="github,discord,youtube"

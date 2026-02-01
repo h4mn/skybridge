@@ -30,7 +30,6 @@ from core.webhooks.infrastructure.agents.domain import (
     AgentResult,
 )
 from kernel.contracts.result import Result
-from runtime.config import get_agent_config
 from runtime.prompts import (
     render_system_prompt,
     load_system_prompt_config,
@@ -72,20 +71,35 @@ class ClaudeSDKAdapter(AgentFacade):
     def __init__(
         self,
         allowed_tools: list[str] | None = None,
-        permission_mode: str = "bypassPermissions",
+        permission_mode: str = "acceptEdits",
         custom_tools: list[Any] | None = None,
     ):
         """
         Inicializa adapter.
 
+        PLAN.md Fase 3: Permissões restritas para agentes em worktrees.
+
         Args:
-            allowed_tools: Lista de tools permitidas (default: todas)
-            permission_mode: Modo de permissão (default: bypassPermissions)
+            allowed_tools: Lista de tools permitidas (default: restritivo)
+            permission_mode: Modo de permissão (default: acceptEdits)
             custom_tools: Lista de custom tools decoradas com @tool
         """
+        # PLAN.md Fase 3: Se vazio, usa lista restritiva padrão (SEM Bash direto)
+        if allowed_tools is None:
+            allowed_tools = ["Read", "Grep", "Write", "Glob", "Edit"]
+
         self.allowed_tools = allowed_tools
         self.permission_mode = permission_mode
-        self.custom_tools = custom_tools or []
+
+        # PLAN.md Fase 2+3: Adicionar safe_git como custom tool
+        from core.webhooks.infrastructure.agents.safe_git_tool import safe_git_tool
+
+        if custom_tools is None:
+            custom_tools = [safe_git_tool]
+        else:
+            custom_tools.append(safe_git_tool)
+
+        self.custom_tools = custom_tools
 
     def get_agent_type(self) -> str:
         """Retorna tipo de agente."""
@@ -135,10 +149,12 @@ class ClaudeSDKAdapter(AgentFacade):
             Result com AgentExecution ou erro
         """
         from runtime.observability.logger import get_logger
+        from runtime.config import get_agent_config
         from claude_agent_sdk import ClaudeSDKClient
         from claude_agent_sdk.types import ClaudeAgentOptions
 
         logger = get_logger()
+        agent_config = get_agent_config()
 
         # Prepara system prompt com template
         system_prompt = self._build_system_prompt(job, skill, skybridge_context)
@@ -160,7 +176,17 @@ class ClaudeSDKAdapter(AgentFacade):
         execution.mark_running()
 
         try:
-            # Configura opções do SDK com hooks de observabilidade
+            # Prepara environment variables para o SDK
+            # Isso permite usar Z.AI ou outros endpoints compatíveis com Anthropic
+            env_vars = {}
+            if agent_config.anthropic_auth_token:
+                env_vars["ANTHROPIC_AUTH_TOKEN"] = agent_config.anthropic_auth_token
+            if agent_config.anthropic_base_url:
+                env_vars["ANTHROPIC_BASE_URL"] = agent_config.anthropic_base_url
+            if agent_config.anthropic_default_sonnet_model:
+                env_vars["ANTHROPIC_DEFAULT_SONNET_MODEL"] = agent_config.anthropic_default_sonnet_model
+
+            # Configura opções do SDK com hooks de observabilidade e env vars
             options = ClaudeAgentOptions(
                 system_prompt=system_prompt,
                 permission_mode=self.permission_mode,  # type: ignore
@@ -168,6 +194,7 @@ class ClaudeSDKAdapter(AgentFacade):
                 allowed_tools=self.allowed_tools or [],
                 hooks=self._build_hooks_config(job, logger),
                 max_turns=50,  # Limita turnos para evitar loop infinito
+                env=env_vars,  # Passa ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, etc
             )
 
             # Cria diretório .sky/ para log interno do agente

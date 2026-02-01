@@ -104,7 +104,7 @@ class TestIssue4StrObjectDebug:
         print(f"[DEBUG] job.event.payload type: {type(job.event.payload)}")
 
         # Simula worktree criado
-        job.worktree_path = "B:\\_repositorios\\skybridge-worktrees\\skybridge-github-5-test123"
+        job.worktree_path = "B:\\_repositorios\\skybridge-auto\\skybridge-github-5-test123"
         job.branch_name = "webhook/github/issue/5/test123"
 
         return job

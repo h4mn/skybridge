@@ -17,9 +17,10 @@ from version import __version__
 
 # Diretório base para worktrees (configurável por ambiente)
 # Conforme SPEC008 seção 8.1.1
+# PLAN.md: Mudado de skybridge-worktrees para skybridge-auto (mais curto e alinhado com branch auto)
 WORKTREES_BASE_PATH = Path(os.getenv(
     "WORKTREES_BASE_PATH",
-    "B:/_repositorios/skybridge-worktrees"
+    "B:/_repositorios/skybridge-auto"
 ))
 
 # Garante que o diretório existe
@@ -98,8 +99,17 @@ class WebhookConfig:
 
 @dataclass(frozen=True)
 class AgentConfig:
-    """Configuração de agentes autônomos."""
+    """Configuração de agentes autônomos.
+
+    Environment Variables:
+        ANTHROPIC_AUTH_TOKEN: Token de autenticação Anthropic/Z.AI/GLM
+        ANTHROPIC_BASE_URL: Base URL para API compatível (opcional)
+        ANTHROPIC_DEFAULT_SONNET_MODEL: Modelo padrão (opcional)
+    """
     claude_code_path: str  # Caminho para executável do Claude Code CLI
+    anthropic_auth_token: str | None = None  # Token Z.AI/GLM (opcional)
+    anthropic_base_url: str | None = None  # Base URL Z.AI/GLM (opcional)
+    anthropic_default_sonnet_model: str | None = None  # Modelo alternativo (opcional)
 
 
 @dataclass(frozen=True)
@@ -436,6 +446,9 @@ def load_agent_config() -> AgentConfig:
     default_path = "claude"
     return AgentConfig(
         claude_code_path=os.getenv("CLAUDE_CODE_PATH", default_path),
+        anthropic_auth_token=os.getenv("ANTHROPIC_AUTH_TOKEN"),
+        anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL"),
+        anthropic_default_sonnet_model=os.getenv("ANTHROPIC_DEFAULT_SONNET_MODEL"),
     )
 
 

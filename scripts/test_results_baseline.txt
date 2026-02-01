@@ -1,7 +1,7 @@
 ============================= test session starts =============================
 platform win32 -- Python 3.11.9, pytest-9.0.1, pluggy-1.6.0 -- B:\Programas\Python\Python311\python.exe
 cachedir: .pytest_cache
-rootdir: B:\_repositorios\skybridge-worktrees\kanban
+rootdir: B:\_repositorios\skybridge-auto\kanban
 configfile: pytest.ini
 plugins: anyio-4.12.0, langsmith-0.4.49, asyncio-0.21.1, cov-4.1.0
 asyncio: mode=Mode.STRICT

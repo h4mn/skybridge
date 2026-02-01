@@ -261,7 +261,7 @@ class TestSnapshotFileReading:
     """Testa leitura de arquivos de snapshot reais do disco."""
 
     @pytest.mark.skipif(
-        not Path("B:\\_repositorios\\skybridge-worktrees\\skybridge-github-42-e733937c\\.sky\\snapshot.json").exists(),
+        not Path("B:\\_repositorios\\skybridge-auto\\skybridge-github-42-e733937c\\.sky\\snapshot.json").exists(),
         reason="Arquivo de snapshot de teste não encontrado"
     )
     def test_real_snapshot_file_is_valid(self):
@@ -271,7 +271,7 @@ class TestSnapshotFileReading:
         Este teste usa o arquivo criado manualmente para validação
         do WebUI.
         """
-        snapshot_path = Path("B:\\_repositorios\\skybridge-worktrees\\skybridge-github-42-e733937c\\.sky\\snapshot.json")
+        snapshot_path = Path("B:\\_repositorios\\skybridge-auto\\skybridge-github-42-e733937c\\.sky\\snapshot.json")
 
         # Lê o snapshot do disco
         snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
