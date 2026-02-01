@@ -156,6 +156,18 @@ class SkybridgeServer:
         """
         web_dist = Path(__file__).parent.parent / "web" / "dist"
 
+        # Favicon Skybridge (ponte vermelha)
+        @self.app.get("/favicon.svg")
+        async def favicon():
+            """Serve favicon SVG com a ponte vermelha."""
+            web_dist = Path(__file__).parent.parent / "web" / "dist"
+            favicon_path = web_dist / "favicon.svg"
+            if favicon_path.exists():
+                return FileResponse(favicon_path, media_type="image/svg+xml")
+            # 404 se favicon não existe
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=404, content={"detail": "Favicon not found"})
+
         # Redirect / → /web/
         @self.app.get("/")
         async def root_redirect():
