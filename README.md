@@ -9,7 +9,7 @@ Prova de conceito mínima validando a estrutura do ADR002.
 pip install -r requirements.txt
 
 # Rodar API
-python -m apps.api.main
+python -m apps.server.main
 
 # Testar health endpoint
 curl http://localhost:8000/qry/health

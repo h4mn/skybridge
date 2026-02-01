@@ -344,7 +344,7 @@ def get_project_version() -> str:
 
 ```bash
 # Teste 1: Aplicação inicia corretamente
-python -m apps.api.main &
+python -m apps.server.main &
 # Verificar console: deve mostrar versão correta
 
 # Teste 2: Testes passam

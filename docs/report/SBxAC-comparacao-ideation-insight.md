@@ -302,7 +302,7 @@
       "cwe": "CWE-770",
       "owasp": "API4:2023 - Unrestricted Resource Consumption",
       "files_affected": [
-        "src/apps/api/main.py"
+        "src/apps/server/main.py"
       ],
       "tags": ["rate-limiting", "dos"],
       "suggested_solution": "Implement token bucket rate limiter..."

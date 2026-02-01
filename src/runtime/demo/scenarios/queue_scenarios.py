@@ -43,7 +43,7 @@ class QueueE2EDemo(BaseDemo):
     5. Verifica métricas finais em /metrics
 
     PRÉ-REQUISITOS:
-    - API Skybridge rodando (python -m apps.api.main)
+    - API Skybridge rodando (python -m apps.server.main)
     - Ngrok ativo e configurado no GitHub webhook
     - GITHUB_TOKEN configurado
     - GITHUB_REPO configurado
@@ -99,7 +99,7 @@ class QueueE2EDemo(BaseDemo):
             async with httpx.AsyncClient() as client:
                 response = await client.get("http://127.0.0.1:8000/health", timeout=2.0)
                 if response.status_code != 200:
-                    return Result.err("API não está saudável - execute: python -m apps.api.main")
+                    return Result.err("API não está saudável - execute: python -m apps.server.main")
 
             # Verifica configs GitHub
             github_token = getenv("GITHUB_TOKEN")
@@ -113,7 +113,7 @@ class QueueE2EDemo(BaseDemo):
 
             return Result.ok(None)
         except Exception:
-            return Result.err("API não está rodando - execute: python -m apps.api.main")
+            return Result.err("API não está rodando - execute: python -m apps.server.main")
 
     async def run(self, context: DemoContext) -> DemoResult:
         import httpx

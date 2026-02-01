@@ -72,7 +72,7 @@ NGROK_DOMAIN=cunning-dear-primate.ngrok-free.app
 ### 5. Rodar Skybridge
 
 ```bash
-python -m apps.api.main
+python -m apps.server.main
 ```
 
 **Saída esperada (com domínio reservado):**
@@ -125,7 +125,7 @@ class NgrokConfig:
 
 ### Startup com Domínio Reservado
 
-`apps/api/main.py`:
+`apps/server/main.py`:
 
 ```python
 if ngrok_config.domain:
@@ -199,7 +199,7 @@ else:
 - [x] Obter authtoken do dashboard
 - [x] Reservar domínio gratuito (ex: `cunning-dear-primate.ngrok-free.app`)
 - [x] Configurar `.env` com `NGROK_ENABLED`, `NGROK_AUTH_TOKEN`, `NGROK_DOMAIN`
-- [x] Testar `python -m apps.api.main`
+- [x] Testar `python -m apps.server.main`
 - [x] Validar URL fixa em múltiplos restarts
 - [ ] Documentar URL no README (quando tivermos produção)
 

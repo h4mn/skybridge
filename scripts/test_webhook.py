@@ -69,6 +69,6 @@ try:
 
 except requests.exceptions.ConnectionError:
     print("❌ Erro: Não foi possível conectar à API")
-    print("💡 Certifique-se de que a API está rodando: python -m apps.api.main")
+    print("💡 Certifique-se de que a API está rodando: python -m apps.server.main")
 except Exception as e:
     print(f"❌ Erro: {e}")

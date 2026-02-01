@@ -37,7 +37,7 @@ Durante a implementação da integração GitHub → Trello, identificamos difer
 | `kanban/src/` | ❌ Não existe (estrutura simplificada) |
 
 **Impacto:**
-- `apps/api/main.py` na main importa `from skybridge import __version__`
+- `apps/server/main.py` na main importa `from skybridge import __version__`
 - Na kanban, esse import falha
 
 **Solução temporária:**
@@ -67,7 +67,7 @@ class InMemoryJobQueue(JobQueuePort):
 
 ### 3. Ngrok Integration
 
-**Na main:** `apps/api/main.py` inicia ngrok automaticamente
+**Na main:** `apps/server/main.py` inicia ngrok automaticamente
 
 **No standalone:** `github_webhook_server.py` precisa do mesmo código
 
@@ -121,11 +121,11 @@ python src/core/kanban/testing/demo_github_to_trello.py
 cd B:\_repositorios\skybridge
 
 # 1. A worktree kanban será mergeada na main
-# 2. apps/api/main.py já tem ngrok integrado
+# 2. apps/server/main.py já tem ngrok integrado
 # 3. JobOrchestrator já tem TrelloIntegrationService
 # 4. Basta configurar .env e rodar
 
-python -m apps.api.main
+python -m apps.server.main
 ```
 
 ## ⚠️ Limitações Atuais
@@ -158,7 +158,7 @@ python -m apps.api.main
 ### Para Merge da Kanban → Main
 
 - [ ] Remover `github_webhook_server.py` standalone (código duplicado)
-- [ ] Atualizar `apps/api/main.py` para importar de estrutura nova
+- [ ] Atualizar `apps/server/main.py` para importar de estrutura nova
 - [ ] Criar módulo `version.py` para substituir `skybridge/__init__.py`
 - [ ] Atualizar ADR020 com nova arquitetura
 - [ ] Testar integração completa na main

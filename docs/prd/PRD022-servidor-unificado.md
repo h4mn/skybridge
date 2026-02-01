@@ -18,7 +18,7 @@ O Skybridge atualmente opera com múltiplos pontos de entrada e estratégias de 
 ```
 Estrutura ATUAL (fragmentada):
 
-apps/api/main.py           ← API FastAPI (porta 8000)
+apps/server/main.py           ← API FastAPI (porta 8000)
 apps/webui/main.py         ← WebUI (porta 3000, se rodar separado)
 Logging inconsistente:
   - Uvicorn access_log (formato fixo)

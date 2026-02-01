@@ -20,7 +20,7 @@ abolida: ADR010
 
 ## Contexto
 
-O Skybridge está em transição de uma arquitetura fragmentada (`apps/api/main.py`, `apps/web/`) para um servidor unificado (`apps.server.main`). Durante essa transição, identificamos inconsistência nos padrões de rotas:
+O Skybridge está em transição de uma arquitetura fragmentada (`apps.api.main`, `apps/web/`) para um servidor unificado (`apps.server.main`). Durante essa transição, identificamos inconsistência nos padrões de rotas:
 
 ```
 ATUAL (inconsistente):

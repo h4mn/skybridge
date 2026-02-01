@@ -85,7 +85,7 @@ Sem um PoC rodando, permanecemos apenas no papel.
 
 ## 6. Critérios de Sucesso
 
-- [ ] `python -m apps.api.main` inicia sem erros
+- [ ] `python -m apps.server.main` inicia sem erros
 - [ ] `GET http://localhost:8000/qry/health` retorna 200 com JSON válido
 - [ ] Ngrok expõe URL pública acessível
 - [ ] Logs mostram correlation_id
@@ -108,10 +108,10 @@ Sem um PoC rodando, permanecemos apenas no papel.
 - Kernel base (`src/skybridge/kernel/`)
 - Platform bootstrap (`src/skybridge/platform/`)
 - Health query handler (`src/skybridge/core/contexts/...` ou `shared/`)
-- API app (`apps/api/`)
+- API unificada (`apps/server/`)
 - Ngrok script (`scripts/ngrok.py` ou similar)
 - Config base (`config/base.yaml`)
-- README com instruções (`README.md` na raiz ou em `apps/api/`)
+- README com instruções (`README.md` na raiz)
 
 ## 9. Próximos Passos
 
