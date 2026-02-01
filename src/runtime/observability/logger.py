@@ -393,16 +393,8 @@ def print_separator(char: str = "─", width: int = 60) -> None:
 
 def print_banner(title: str, version: str | None = None) -> None:
     """Imprime um banner de entrada bonito estilo Claude."""
-    width = 60
-
-    print()
-    print_separator("═", width)
-    print(f"{Colors.BOLD}{Colors.CYAN}{' ' * ((width - len(title)) // 2)}{title}{Colors.RESET}")
-    if version:
-        version_text = f"v{version}"
-        print(f"{Colors.DIM}{' ' * ((width - len(version_text)) // 2)}{version_text}{Colors.RESET}")
-    print_separator("═", width)
-    print()
+    # Banner removido - CLI agora tem seu próprio banner
+    pass
 
 
 def print_ngrok_urls(

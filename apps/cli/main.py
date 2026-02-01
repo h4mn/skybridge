@@ -195,12 +195,25 @@ def serve(
 
     Executa apps.server.main com os argumentos fornecidos.
     """
+    from rich.text import Text
+    from rich.panel import Panel
+
     cmd = [sys.executable, "-m", "apps.server.main"]
     if args:
         cmd.extend(args)
 
-    console.print(f"[dim]Iniciando servidor...[/dim]")
-    console.print(f"[dim]Comando:[/dim] {' '.join(cmd)}")
+    # Banner bonito
+    banner = Text()
+    banner.append("🚀 ", style="bold cyan")
+    banner.append("Iniciando Skybridge", style="bold white")
+    banner.append(f" v{__version__}", style="dim")
+    banner.append("\n\nComando: ", style="dim")
+    banner.append(' '.join(cmd), style="cyan")
+    banner.append("\n\n[Ctrl+C para encerrar]", style="dim")
+
+    console.print()
+    console.print(Panel(banner, border_style="cyan", padding=(0, 1)))
+    console.print()
 
     subprocess.run(cmd)
 
