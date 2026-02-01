@@ -104,6 +104,13 @@ class JobQueueFactory:
         """
         Cria JobQueue baseado em variável de ambiente.
 
+        DEPRECATED: DOC: ADR024 - Use get_job_queue() ou SQLiteJobQueue.from_context().
+
+        Este método é mantido apenas para compatibilidade com código legado.
+        Para código novo, use:
+        - get_job_queue() em handlers (respeita workspace do contexto)
+        - SQLiteJobQueue.from_context(request, base_path) em endpoints FastAPI
+
         Lê JOB_QUEUE_PROVIDER do ambiente e cria a instância apropriada.
 
         Returns:
@@ -113,14 +120,27 @@ class JobQueueFactory:
             >>> queue = JobQueueFactory.create_from_env()
         """
         import os
+        import warnings
+
+        warnings.warn(
+            "create_from_env() is deprecated. Use get_job_queue() or SQLiteJobQueue.from_context() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
 
         # Ler provider do ambiente (padrão: sqlite)
         provider = os.getenv("JOB_QUEUE_PROVIDER", "sqlite")
 
         # Configurações específicas por provider
         if provider == "sqlite":
+            db_path = os.getenv("SQLITE_DB_PATH")
+            if not db_path:
+                raise ValueError(
+                    "SQLITE_DB_PATH environment variable is required. "
+                    "Use get_job_queue() instead for automatic workspace-aware path resolution."
+                )
             kwargs = {
-                "db_path": os.getenv("SQLITE_DB_PATH", "data/jobs.db"),
+                "db_path": db_path,
                 "timeout_seconds": float(
                     os.getenv("SQLITE_TIMEOUT", "5.0")
                 ),

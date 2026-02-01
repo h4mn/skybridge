@@ -499,6 +499,11 @@ const selectWorkspace = (workspaceId) => {
 ## Status de Implementação
 
 - [x] ADR aprovada
+- [x] **Ambiente de Testes** - Seção adicionada com princípios de isolamento
+- [x] **Singleton get_job_queue()** - Cache por workspace implementado
+- [x] **Fixtures profissionais** - mock_job_queue e isolated_job_queue em conftest.py
+- [x] **Testes isolados** - test_integration.py usa isolated_job_queue
+- [x] **Hardcode removido** - job_queue_factory.py sem hardcode de data/jobs.db
 - [ ] Schema de `data/workspaces.db`
 - [ ] Arquivo `.workspaces` parser (JSON)
 - [ ] Middleware `X-Workspace` com carregamento de `.env`
@@ -512,7 +517,7 @@ const selectWorkspace = (workspaceId) => {
 - [ ] Sincronização bidirecional com merge (não sobrescrever chaves existentes)
 - [ ] Atualização de `.gitignore`
 - [ ] Renomear `agent_executions.db` → `executions.db`
-- [ ] Testes
+- [ ] Testes end-to-end de workspaces
 
 ## Referências
 
@@ -520,6 +525,63 @@ const selectWorkspace = (workspaceId) => {
 - **PRD013:** Webhook Autonomous Agents
 - **ADR020:** Integração Trello (contextos diferentes)
 - **Workspace README:** `workspace/README.md`
+
+## Ambiente de Testes
+
+### Princípios
+
+1. **Teste NUNCA toca produção** - `data/jobs.db` é proibido em testes
+2. **Cada teste tem seu banco** - Usar `tmp_path` do pytest para isolamento total
+3. **Singleton respeita contexto** - Cache por workspace, não global
+
+### Caminho de Teste
+
+- **Produção:** `workspace/{workspace_id}/data/jobs.db`
+- **Testes:** `tmp_path/test.db` ou `tmp_path/test_jobs.db`
+
+### Padrão para Testes
+
+```python
+def test_isolamento(tmp_path):
+    """Teste usa tmp_path para isolamento total."""
+    from infra.webhooks.adapters.sqlite_job_queue import SQLiteJobQueue
+
+    db_path = tmp_path / "test_jobs.db"
+    queue = SQLiteJobQueue(db_path=db_path)
+    # Teste com isolamento completo
+```
+
+### Fixtures Recomendadas
+
+```python
+# tests/conftest.py
+@pytest.fixture
+def mock_job_queue():
+    """Job Queue mock para garantir isolamento em testes."""
+    mock_queue = AsyncMock(spec=JobQueuePort)
+    mock_queue.enqueue = AsyncMock(return_value="test-job-id")
+    return mock_queue
+
+@pytest.fixture
+def isolated_job_queue(tmp_path):
+    """Job queue REAL mas isolado em tmp_path."""
+    from infra.webhooks.adapters.sqlite_job_queue import SQLiteJobQueue
+
+    db_path = tmp_path / "test_jobs.db"
+    queue = SQLiteJobQueue(db_path=db_path)
+    return queue
+```
+
+### Verificação
+
+Para garantir que testes não tocam produção:
+
+```bash
+# Deletar production DB antes dos testes
+rm -f data/jobs.db
+python -m pytest tests/ -v
+# data/jobs.db NÃO deve ser recriado
+```
 
 ## Decisões Relacionadas
 

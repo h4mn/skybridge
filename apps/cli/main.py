@@ -7,6 +7,7 @@ Conforme PRD009-RF15: CLI sb com subcomandos rpc (list, discover, call, reload).
 
 import sys
 import json
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -35,10 +36,15 @@ rpc_app = typer.Typer(
 )
 app.add_typer(rpc_app, name="rpc")
 
+# Workspace commands (ADR024)
+from apps.cli.workspace import workspace_app, get_active_workspace
+app.add_typer(workspace_app, name="workspace")
+app.add_typer(workspace_app, name="ws")  # Alias curto
+
 console = Console()
 
 # Configuração padrão
-DEFAULT_BASE_URL = "http://127.0.0.1:8888"
+DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 
 
 def get_base_url(url: Optional[str] = None) -> str:
@@ -320,6 +326,25 @@ def agent_issue(
 def version():
     """Mostra versão do Skybridge."""
     console.print(f"[cyan]Skybridge[/cyan] v{__version__}")
+
+
+@app.command("serve")
+def serve(
+    args: Optional[list[str]] = typer.Argument(None, help="Argumentos adicionais para o servidor"),
+):
+    """
+    Inicia o servidor Skybridge.
+
+    Executa apps.server.main com os argumentos fornecidos.
+    """
+    cmd = [sys.executable, "-m", "apps.server.main"]
+    if args:
+        cmd.extend(args)
+
+    console.print(f"[dim]Iniciando servidor...[/dim]")
+    console.print(f"[dim]Comando:[/dim] {' '.join(cmd)}")
+
+    subprocess.run(cmd)
 
 
 def main():

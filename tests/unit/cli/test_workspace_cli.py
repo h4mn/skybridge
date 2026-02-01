@@ -1,102 +1,312 @@
 # -*- coding: utf-8 -*-
 """
-Testes para CLI de Workspaces.
+Testes da CLI de Workspace.
 
-TDD Estrito: Testes que documentam o comportamento esperado da CLI.
+DOC: ADR024 - CLI workspace para gerenciar workspaces.
+DOC: PB013 - Comandos: list, create, use, delete, current.
 
-DOC: PB013 - skybridge workspace list mostra workspaces.
-DOC: PB013 - skybridge workspace create cria nova instância.
-DOC: PB013 - skybridge workspace use define workspace ativo.
+Testes unitários para commands em apps/cli/workspace.py.
 """
-import sys
-from pathlib import Path
-import importlib.util
 
+import json
+from pathlib import Path
+from unittest.mock import Mock, patch
 import pytest
 
+from typer.testing import CliRunner
+from apps.cli.workspace import workspace_app, get_active_workspace, ACTIVE_WORKSPACE_FILE
 
-def _get_cli_workspace_module():
-    """
-    Carrega o módulo cli.workspace diretamente do arquivo.
-
-    Esta abordagem evita problemas com sys.path conflitando.
-    """
-    _root_dir = Path(__file__).parent.parent.parent.parent
-    _cli_file = _root_dir / "cli" / "workspace.py"
-
-    # Usar importlib.util para carregar diretamente do arquivo
-    spec = importlib.util.spec_from_file_location("cli.workspace", _cli_file)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["cli.workspace"] = module
-    sys.modules["cli"] = module  # Também registrar cli
-    spec.loader.exec_module(module)
-
-    return module
+runner = CliRunner()
 
 
-class TestWorkspaceCLIModule:
-    """Testa que o módulo CLI pode ser importado."""
+class TestWorkspaceList:
+    """Testa comando workspace list."""
 
-    def test_workspace_module_exists(self):
+    @patch("apps.cli.workspace.requests.get")
+    def test_workspace_list_mostra_tabela_com_workspaces(self, mock_get):
         """
-        DOC: CLI de workspaces deve ser importável.
+        DOC: ADR024 - list mostra workspaces da API em tabela.
 
-        Verifica que o módulo pode ser importado e tem os comandos.
+        Deve fazer GET /api/workspaces e exibir tabela com:
+        - ID, Nome, Path, Auto, Status
         """
-        cli_workspace = _get_cli_workspace_module()
+        # GIVEN - API retorna workspaces
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = {
+            "workspaces": [
+                {
+                    "id": "core",
+                    "name": "Skybridge Core",
+                    "path": "workspace/core",
+                    "description": "Instância principal",
+                    "auto": True,
+                    "enabled": True,
+                },
+                {
+                    "id": "trading",
+                    "name": "Trading Bot",
+                    "path": "workspace/trading",
+                    "description": "Bot de trading",
+                    "auto": False,
+                    "enabled": True,
+                },
+            ]
+        }
 
-        # Verificar que o app existe
-        assert hasattr(cli_workspace, 'app')
-        assert hasattr(cli_workspace, 'config_app')
+        # WHEN
+        result = runner.invoke(workspace_app, ["list"])
 
+        # THEN
+        assert result.exit_code == 0
+        assert "core" in result.stdout
+        assert "Skybridge Core" in result.stdout
+        assert "trading" in result.stdout
+        mock_get.assert_called_once_with("http://127.0.0.1:8000/api/workspaces")
 
-class TestWorkspaceCLICommands:
-    """Testa que os comandos CLI existem."""
-
-    def test_workspace_list_command_exists(self):
+    @patch("apps.cli.workspace.requests.get")
+    def test_workspace_list_trata_erro_da_api(self, mock_get):
         """
-        DOC: Comando workspace list deve existir.
+        DOC: ADR024 - list trata erro da API graciosamente.
 
+        Se API retorna erro, deve mostrar mensagem e exit code 1.
         """
-        cli_workspace = _get_cli_workspace_module()
+        # GIVEN - API retorna erro
+        mock_get.return_value.status_code = 500
+        mock_get.return_value.text = "Internal Server Error"
 
-        # Verificar que existe comando list
-        # (Typer não tem uma forma fácil de listar comandos dinamicamente)
-        # então apenas verificamos que o app foi criado
-        assert cli_workspace.app is not None
+        # WHEN
+        result = runner.invoke(workspace_app, ["list"])
 
-    def test_workspace_create_command_exists(self):
+        # THEN
+        assert result.exit_code == 1
+        assert "Erro" in result.stdout
+
+
+class TestWorkspaceCreate:
+    """Testa comando workspace create."""
+
+    @patch("apps.cli.workspace.requests.post")
+    def test_workspace_create_cria_novo_workspace(self, mock_post):
         """
-        DOC: Comando workspace create deve existir.
-
+        DOC: PB013 - create cria workspace via POST /api/workspaces.
         """
-        cli_workspace = _get_cli_workspace_module()
+        # GIVEN - API cria workspace
+        mock_post.return_value.status_code = 201
+        mock_post.return_value.json.return_value = {
+            "id": "trading",
+            "name": "Trading Bot",
+            "path": "workspace/trading",
+            "description": "Bot de trading",
+            "auto": False,
+            "enabled": True,
+        }
 
-        assert cli_workspace.app is not None
+        # WHEN
+        result = runner.invoke(workspace_app, [
+            "create",
+            "trading",
+            "--name", "Trading Bot",
+        ])
 
-    def test_workspace_use_command_exists(self):
+        # THEN
+        assert result.exit_code == 0
+        assert "Workspace criado com sucesso" in result.stdout
+        assert "trading" in result.stdout
+        mock_post.assert_called_once()
+
+    @patch("apps.cli.workspace.requests.post")
+    def test_workspace_create_trata_conflito(self, mock_post):
         """
-        DOC: Comando workspace use deve exister.
-
+        DOC: PB013 - create trata 409 (workspace já existe).
         """
-        cli_workspace = _get_cli_workspace_module()
+        # GIVEN - API retorna conflito
+        mock_post.return_value.status_code = 409
+        mock_post.return_value.text = "Conflict"
 
-        assert cli_workspace.app is not None
+        # WHEN
+        result = runner.invoke(workspace_app, [
+            "create",
+            "core",
+            "--name", "Core",
+        ])
 
-    def test_workspace_delete_command_exists(self):
+        # THEN
+        assert result.exit_code == 1
+        assert "já existe" in result.stdout
+
+    @patch("apps.cli.workspace.requests.post")
+    def test_workspace_create_usa_path_padrao_se_nao_informado(self, mock_post):
         """
-        DOC: Comando workspace delete deve existir.
-
+        DOC: PB013 - create usa workspace/<id> como path padrão.
         """
-        cli_workspace = _get_cli_workspace_module()
+        # GIVEN
+        mock_post.return_value.status_code = 201
+        mock_post.return_value.json.return_value = {"id": "dev", "name": "Dev"}
 
-        assert cli_workspace.app is not None
+        # WHEN - sem --path
+        result = runner.invoke(workspace_app, [
+            "create",
+            "dev",
+            "--name", "Dev Environment",
+        ])
 
-    def test_workspace_config_sync_command_exists(self):
+        # THEN - payload deve ter path padrão
+        call_args = mock_post.call_args
+        payload = call_args[1]["json"]
+        assert payload["path"] == "workspace/dev"
+
+
+class TestWorkspaceUse:
+    """Testa comando workspace use."""
+
+    def test_workspace_use_salva_workspace_ativo(self, tmp_path):
         """
-        DOC: Comando workspace config sync deve exister.
-
+        DOC: PB013 - use salva workspace em .workspace_active.
         """
-        cli_workspace = _get_cli_workspace_module()
+        # GIVEN
+        test_file = tmp_path / ".ws_active"
 
-        assert cli_workspace.config_app is not None
+        with patch("apps.cli.workspace.ACTIVE_WORKSPACE_FILE", test_file):
+            # WHEN
+            result = runner.invoke(workspace_app, ["use", "trading"])
+
+            # THEN
+            assert result.exit_code == 0
+            assert "Workspace ativo definido para" in result.stdout
+            assert "trading" in result.stdout
+
+            # Verificar arquivo
+            assert test_file.exists()
+            assert test_file.read_text() == "trading"
+
+    def test_workspace_use_mostra_workspace_anterior(self, tmp_path):
+        """
+        DOC: PB013 - use mostra workspace anterior se existir.
+        """
+        # GIVEN - workspace anterior definido
+        test_file = tmp_path / ".ws_active"
+        test_file.write_text("core")
+
+        with patch("apps.cli.workspace.ACTIVE_WORKSPACE_FILE", test_file):
+            # WHEN
+            result = runner.invoke(workspace_app, ["use", "trading"])
+
+            # THEN
+            assert result.exit_code == 0
+            assert "Anterior: core" in result.stdout
+
+
+class TestWorkspaceDelete:
+    """Testa comando workspace delete."""
+
+    @patch("apps.cli.workspace.requests.delete")
+    def test_workspace_delete_deleta_workspace(self, mock_delete):
+        """
+        DOC: PB013 - delete deleta workspace via DELETE /api/workspaces/:id.
+        """
+        # GIVEN
+        mock_delete.return_value.status_code = 200
+        mock_delete.return_value.json.return_value = {"message": "Workspace deleted"}
+
+        # WHEN
+        result = runner.invoke(workspace_app, ["delete", "trading", "--force"])
+
+        # THEN
+        assert result.exit_code == 0
+        assert "deleted" in result.stdout.lower()
+        mock_delete.assert_called_once_with("http://127.0.0.1:8000/api/workspaces/trading")
+
+    def test_workspace_delete_nao_permite_deletar_core(self):
+        """
+        DOC: PB013 - delete não permite deletar workspace 'core'.
+        """
+        # WHEN
+        result = runner.invoke(workspace_app, ["delete", "core", "--force"])
+
+        # THEN
+        assert result.exit_code == 1
+        assert "não é possível deletar" in result.stdout.lower()
+
+    @patch("apps.cli.workspace.requests.delete")
+    def test_workspace_delete_trata_workspace_nao_encontrado(self, mock_delete):
+        """
+        DOC: PB013 - delete trata 404 (workspace não encontrado).
+        """
+        # GIVEN
+        mock_delete.return_value.status_code = 404
+        mock_delete.return_value.text = "Not found"
+
+        # WHEN
+        result = runner.invoke(workspace_app, ["delete", "inexistente", "--force"])
+
+        # THEN
+        assert result.exit_code == 1
+        assert "não encontrado" in result.stdout.lower()
+
+
+class TestWorkspaceCurrent:
+    """Testa comando workspace current."""
+
+    def test_workspace_current_mostra_ativo(self, tmp_path):
+        """
+        DOC: PB013 - current mostra workspace salvo em .workspace_active.
+        """
+        # GIVEN - workspace ativo definido
+        test_file = tmp_path / ".ws_active"
+        test_file.write_text("trading")
+
+        with patch("apps.cli.workspace.ACTIVE_WORKSPACE_FILE", test_file):
+            # WHEN
+            result = runner.invoke(workspace_app, ["current"])
+
+            # THEN
+            assert result.exit_code == 0
+            assert "Workspace ativo: trading" in result.stdout
+
+    def test_workspace_current_mostra_mensagem_se_nenhum_definido(self, tmp_path):
+        """
+        DOC: PB013 - current mostra mensagem se nenhum workspace ativo.
+        """
+        # GIVEN - nenhum workspace definido
+        test_file = tmp_path / ".ws_active"
+
+        with patch("apps.cli.workspace.ACTIVE_WORKSPACE_FILE", test_file):
+            # WHEN
+            result = runner.invoke(workspace_app, ["current"])
+
+            # THEN
+            assert result.exit_code == 0
+            assert "Nenhum workspace ativo" in result.stdout
+
+
+class TestGetActiveWorkspace:
+    """Testa função auxiliar get_active_workspace."""
+
+    def test_get_active_workspace_retorna_workspace_salvo(self, tmp_path):
+        """
+        DOC: PB013 - get_active_workspace() lê de .workspace_active.
+        """
+        # GIVEN
+        test_file = tmp_path / ".ws_active"
+        test_file.write_text("trading")
+
+        with patch("apps.cli.workspace.ACTIVE_WORKSPACE_FILE", test_file):
+            # WHEN
+            result = get_active_workspace()
+
+            # THEN
+            assert result == "trading"
+
+    def test_get_active_workspace_retorna_none_se_arquivo_nao_existe(self, tmp_path):
+        """
+        DOC: PB013 - get_active_workspace() retorna None se arquivo não existe.
+        """
+        # GIVEN - arquivo não existe
+        test_file = tmp_path / ".ws_active_nao_existe"
+
+        with patch("apps.cli.workspace.ACTIVE_WORKSPACE_FILE", test_file):
+            # WHEN
+            result = get_active_workspace()
+
+            # THEN
+            assert result is None

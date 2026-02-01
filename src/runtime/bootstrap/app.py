@@ -50,6 +50,44 @@ async def lifespan(app: FastAPI):
     # Log para confirmar que lifespan está sendo usado
     logger.info("Lifespan handler iniciado - gerenciando webhook worker")
 
+    # ========== AUTO-CRIAÇÃO WORKSPACE CORE ==========
+    from pathlib import Path
+    from runtime.workspace.workspace_initializer import WorkspaceInitializer
+    from runtime.config.workspace_repository import WorkspaceRepository
+    from runtime.config.workspace_config import Workspace
+
+    workspace_base = Path("workspace")
+    workspaces_db = Path("data/workspaces.db")
+
+    # Criar diretório base se não existe
+    workspace_base.mkdir(parents=True, exist_ok=True)
+    workspaces_db.parent.mkdir(parents=True, exist_ok=True)
+
+    # Inicializar workspace core se não existir
+    core_path = workspace_base / "core"
+    if not core_path.exists():
+        logger.info(f"{Colors.CYAN}Auto-criando workspace core{Colors.RESET} (primeira execução)")
+        initializer = WorkspaceInitializer(workspace_base)
+        initializer.create_core()
+
+    # Registrar workspace core no banco se necessário
+    if workspaces_db.exists():
+        workspaces_repo = WorkspaceRepository(workspaces_db)
+    else:
+        workspaces_repo = WorkspaceRepository.create(workspaces_db)
+
+    if not workspaces_repo.exists("core"):
+        core_workspace = Workspace(
+            id="core",
+            name="Skybridge Core",
+            path=str(core_path),
+            description="Instância principal",
+            auto=True,
+            enabled=True
+        )
+        workspaces_repo.save(core_workspace)
+        logger.info(f"{Colors.INFO}Workspace core registrado{Colors.RESET} no workspaces.db")
+
     # ========== STARTUP ==========
     if "github" in webhook_config.enabled_sources:
         from kernel import get_event_bus
@@ -468,11 +506,39 @@ class SkybridgeApp:
         """Configura rotas."""
         from runtime.delivery.routes import create_rpc_router
         from runtime.delivery.websocket import create_console_router  # PRD019: WebSocket console
+        from runtime.delivery.workspaces_routes import create_router as create_workspaces_router
+        from runtime.config.workspace_config import WorkspaceConfig
+        from runtime.config.workspace_repository import WorkspaceRepository
+
+        # Carregar configuração de workspaces
+        workspaces_file = Path(".workspaces")
+        workspaces_config = WorkspaceConfig.load(workspaces_file) if workspaces_file.exists() else None
+
+        # Criar repositório de workspaces
+        workspaces_db = Path("data/workspaces.db")
+        if workspaces_db.exists():
+            workspaces_repo = WorkspaceRepository(workspaces_db)
+        else:
+            # Criar repositório se não existir
+            workspaces_repo = WorkspaceRepository.create(workspaces_db)
+
+        # WorkspaceInitializer para criação de novos workspaces
+        workspace_base = Path("workspace")
+        workspace_base.mkdir(parents=True, exist_ok=True)
+        from runtime.workspace.workspace_initializer import WorkspaceInitializer
+        workspace_initializer = WorkspaceInitializer(workspace_base)
+
+        workspaces_router = create_workspaces_router(
+            config=workspaces_config,
+            repository=workspaces_repo,
+            initializer=workspace_initializer
+        )
 
         # PRD014: Adiciona prefixo /api para todas as rotas (compatibilidade com WebUI)
         self.app.include_router(create_rpc_router(), prefix="/api", tags=["Sky-RPC"])
         self.app.include_router(create_console_router(), prefix="/api", tags=["WebSocket"])  # PRD019
-        self.logger.info("Rotas configuradas com prefixo /api (incluindo WebSocket console)")
+        self.app.include_router(workspaces_router)  # Já tem prefixo /api/workspaces
+        self.logger.info("Rotas configuradas com prefixo /api (incluindo WebSocket console e Workspaces)")
 
     def run(self, host: str | None = None, port: int | None = None):
         """Executa o servidor com uvicorn."""

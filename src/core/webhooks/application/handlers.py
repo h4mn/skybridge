@@ -17,8 +17,8 @@ from core.webhooks.ports.job_queue_port import JobQueuePort
 
 logger = logging.getLogger(__name__)
 
-# Singleton global do job queue (compartilhado entre handler e worker)
-_job_queue: JobQueuePort | None = None
+# Cache de job queues por workspace (ADR024 - isolamento por workspace)
+_job_queues: dict[str, JobQueuePort] = {}
 
 # AgentExecutionStore (singleton para persistência de execuções de agentes)
 _agent_execution_store = None
@@ -108,27 +108,50 @@ def get_trello_kanban_service():
 
 def get_job_queue() -> JobQueuePort:
     """
-    Retorna instância singleton do job queue.
+    Retorna instância do job queue RESPEITANDO O WORKSPACE.
 
-    Usa JobQueueFactory para criar a fila apropriada baseado em
-    JOB_QUEUE_PROVIDER do ambiente:
-    - sqlite: SQLiteJobQueue (padrão, zero dependências)
-    - redis: RedisJobQueue (tradicional)
-    - dragonfly: RedisJobQueue (DragonflyDB)
-    - file: FileBasedJobQueue (fallback local)
+    DOC: ADR024 - Cache por workspace, não singleton global.
+    DOC: ADR024 - Cada workspace tem seu próprio jobs.db isolado.
+
+    O job queue é criado baseado no workspace atual do contexto:
+    - Workspace "core" → workspace/core/data/jobs.db
+    - Workspace "trading" → workspace/trading/data/jobs.db
+    - Testes → tmp_path/test.db (via fixture isolated_job_queue)
 
     Returns:
-        Instância de JobQueuePort
+        Instância de JobQueuePort para o workspace atual
+
+    Example:
+        >>> # Em produção (request context)
+        >>> queue = get_job_queue()  # Retorna queue do workspace do header
+        >>>
+        >>> # Em testes
+        >>> set_current_workspace("test")
+        >>> queue = get_job_queue()  # Retorna queue do workspace "test"
     """
-    global _job_queue
-    if _job_queue is None:
-        from infra.webhooks.adapters.job_queue_factory import (
-            JobQueueFactory,
+    global _job_queues
+
+    # Obter workspace atual do contexto
+    from runtime.workspace.workspace_context import get_current_workspace
+    from pathlib import Path
+
+    workspace_id = get_current_workspace()
+
+    # Cache por workspace
+    if workspace_id not in _job_queues:
+        from infra.webhooks.adapters.sqlite_job_queue import SQLiteJobQueue
+
+        # Construir caminho do banco baseado no workspace
+        # ADR024: workspace/{workspace_id}/data/jobs.db
+        base_path = Path.cwd()
+        db_path = base_path / "workspace" / workspace_id / "data" / "jobs.db"
+
+        _job_queues[workspace_id] = SQLiteJobQueue(db_path=db_path)
+        logger.info(
+            f"JobQueue inicializado para workspace '{workspace_id}': {db_path}"
         )
 
-        _job_queue = JobQueueFactory.create_from_env()
-        logger.info(f"JobQueue inicializado: {type(_job_queue).__name__}")
-    return _job_queue
+    return _job_queues[workspace_id]
 
 
 def get_event_bus():
