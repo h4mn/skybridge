@@ -347,9 +347,78 @@ def serve(
     subprocess.run(cmd)
 
 
+def show_interactive_menu():
+    """
+    Mostra menu interativo quando nenhum comando é fornecido.
+
+    Permite acesso rápido aos comandos mais usados.
+    """
+    from rich.text import Text
+    from rich import box
+
+    # Banner
+    banner = Text()
+    banner.append("🌉 ", style="bold cyan")
+    banner.append("Skybridge", style="bold cyan")
+    banner.append(" CLI", style="bold white")
+    banner.append(f" v{__version__}", style="dim")
+
+    console.print()
+    console.print(Panel(banner, border_style="cyan", padding=(0, 1)))
+
+    # Menu de opções
+    console.print("\n[bold cyan]Comandos Mais Usados:[/bold cyan]\n")
+
+    options = [
+        ("[1]", "Servidor", "[green]sb serve[/green]", "Inicia o servidor Skybridge"),
+        ("[2]", "RPC List", "[green]sb rpc list[/green]", "Lista handlers disponíveis"),
+        ("[3]", "Workspace", "[green]sb workspace list[/green]", "Lista workspaces"),
+        ("[4]", "Ajuda", "[green]sb --help[/green]", "Mostra todos os comandos"),
+        ("[5]", "Versão", "[green]sb version[/green]", "Mostra versão instalada"),
+        ("[0]", "Sair", "", "Fecha o menu"),
+    ]
+
+    for num, nome, comando, desc in options:
+        if num == "[0]":
+            console.print()
+        console.print(f"  {num} [bold white]{nome}[/bold white]")
+        if comando:
+            console.print(f"      {comando} - [dim]{desc}[/dim]")
+        elif desc:
+            console.print(f"      [dim]{desc}[/dim]")
+
+    console.print()
+    choice = console.input("[bold cyan]Escolha uma opção [0-5]: [/bold cyan]")
+
+    choices = {
+        "1": lambda: serve(["--reload"]),
+        "2": lambda: rpc_list(url=None, output="table"),
+        "3": lambda: console.print("\n[yellow]Use: [green]sb workspace list[/green] para ver workspaces[/yellow]\n"),
+        "4": lambda: app(["--help"]),
+        "5": lambda: version(),
+        "0": lambda: None,
+    }
+
+    action = choices.get(choice.strip())
+    if action:
+        console.print()
+        action()
+
+
 def main():
-    """Ponto de entrada."""
-    app()
+    """
+    Ponto de entrada.
+
+    Se nenhum argumento for fornecido, mostra menu interativo.
+    Caso contrário, executa o comando normalmente.
+    """
+    # Verifica se há argumentos
+    if len(sys.argv) == 1:
+        # Nenhum argumento = mostrar menu
+        show_interactive_menu()
+    else:
+        # Argumentos fornecidos = executar normalmente
+        app()
 
 
 if __name__ == "__main__":
