@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Card, Badge, Button } from 'react-bootstrap'
-import axios from 'axios'
+import apiClient from '@/api/client'
 
 // Tipos para EventSource (API nativa do browser)
 declare global {
@@ -33,8 +33,13 @@ export default function EventStream({ paused = false }: EventStreamProps) {
   useEffect(() => {
     console.log('[EventStream] Conectando ao SSE...')
 
+    // Obtém workspace ativo do localStorage (mesma lógica do useWorkspaces)
+    const WORKSPACE_STORAGE_KEY = 'skybridge_active_workspace'
+    const activeWorkspace = localStorage.getItem(WORKSPACE_STORAGE_KEY) || 'core'
+
     // Cria EventSource para streaming de eventos
-    const eventSource = new EventSource('/api/observability/events/stream')
+    // DOC: ADR024 - Passa workspace via query parameter (EventSource não suporta headers)
+    const eventSource = new EventSource(`/api/observability/events/stream?workspace=${activeWorkspace}`)
     eventSourceRef.current = eventSource
 
     // Conectado
@@ -160,7 +165,8 @@ export default function EventStream({ paused = false }: EventStreamProps) {
   // Limpar histórico de eventos
   const handleClearEvents = async () => {
     try {
-      await axios.delete('/api/observability/events/history')
+      // DOC: ADR023 - Usa apiClient para incluir header X-Workspace
+      await apiClient.delete('/api/observability/events/history')
       setEvents([])
       console.log('[EventStream] Histórico limpo')
     } catch (err) {
@@ -171,7 +177,8 @@ export default function EventStream({ paused = false }: EventStreamProps) {
   // Gerar eventos fake
   const handleGenerateFake = async (count: number = 5) => {
     try {
-      const response = await axios.post('/api/observability/events/generate-fake', null, {
+      // DOC: ADR023 - Usa apiClient para incluir header X-Workspace
+      const response = await apiClient.post('/api/observability/events/generate-fake', null, {
         params: { count }
       })
       console.log(`[EventStream] Gerados ${response.data.count} eventos fake`)

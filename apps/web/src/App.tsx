@@ -12,7 +12,7 @@ import Events from './pages/Events'
 import Agents from './pages/Agents'
 import Kanban from './pages/Kanban'
 import Wiki from './pages/Wiki'
-import axios from 'axios'
+import { healthApi } from './api/endpoints'
 
 // Criar cliente Query para React Query
 const queryClient = new QueryClient({
@@ -62,7 +62,7 @@ function AppContent() {
   useEffect(() => {
     const fetchVersion = async () => {
       try {
-        const response = await axios.get('/api/health')
+        const response = await healthApi.get()
         const serverVersion = response.data?.version || '0.0.0'
         document.title = `Skybridge v${serverVersion}`
       } catch (error) {

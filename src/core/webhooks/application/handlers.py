@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 # Cache de job queues por workspace (ADR024 - isolamento por workspace)
 _job_queues: dict[str, JobQueuePort] = {}
 
-# AgentExecutionStore (singleton para persistência de execuções de agentes)
-_agent_execution_store = None
+# AgentExecutionStore (cache por workspace para persistência de execuções de agentes)
+_agent_execution_stores: dict[str, any] = {}
 
 # TrelloIntegrationService (opcional, singleton)
 _trello_service = None
@@ -173,21 +173,45 @@ def get_event_bus():
 
 def get_agent_execution_store():
     """
-    Retorna instância singleton do AgentExecutionStore.
+    Retorna instância do AgentExecutionStore RESPEITANDO O WORKSPACE.
 
-    PRD: Página de Agents (Agent Spawns)
-    Persiste execuções de agentes em SQLite para consulta via API.
+    DOC: ADR024 - Cache por workspace, não singleton global.
+    DOC: ADR024 - Cada workspace tem seu próprio agent_executions.db isolado.
+
+    O store é criado baseado no workspace atual do contexto:
+    - Workspace "core" → workspace/core/data/agent_executions.db
+    - Workspace "trading" → workspace/trading/data/agent_executions.db
+    - Testes → tmp_path/test_executions.db (via fixture)
 
     Returns:
-        Instância de AgentExecutionStore
+        Instância de AgentExecutionStore para o workspace atual
+
+    Example:
+        >>> # Em produção (request context)
+        >>> store = get_agent_execution_store()  # Retorna store do workspace do header
+        >>>
+        >>> # Em testes
+        >>> set_current_workspace("test")
+        >>> store = get_agent_execution_store()  # Retorna store do workspace "test"
     """
-    global _agent_execution_store
-    if _agent_execution_store is None:
+    global _agent_execution_stores
+
+    # Obter workspace atual do contexto
+    from runtime.workspace.workspace_context import get_current_workspace
+
+    workspace_id = get_current_workspace()
+
+    # Cache por workspace
+    if workspace_id not in _agent_execution_stores:
         from infra.agents.agent_execution_store import AgentExecutionStore
 
-        _agent_execution_store = AgentExecutionStore()
-        logger.info("AgentExecutionStore inicializado")
-    return _agent_execution_store
+        # AgentExecutionStore já usa get_workspace_data_dir() que respeita workspace
+        _agent_execution_stores[workspace_id] = AgentExecutionStore()
+        logger.info(
+            f"AgentExecutionStore inicializado para workspace '{workspace_id}'"
+        )
+
+    return _agent_execution_stores[workspace_id]
 
 
 @command(

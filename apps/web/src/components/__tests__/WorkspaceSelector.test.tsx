@@ -93,9 +93,9 @@ describe('WorkspaceSelector', () => {
       expect(screen.getByRole('button')).toBeInTheDocument()
     })
 
-    // Verifica que o botão contém o ID do workspace ativo
+    // Verifica que o botão contém o NOME do workspace ativo
     const dropdownButton = screen.getByRole('button')
-    expect(dropdownButton.textContent).toContain('core')
+    expect(dropdownButton.textContent).toContain('Skybridge Core')
   })
 
   it('mostra indicador de carregamento', () => {

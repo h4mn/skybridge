@@ -1,26 +1,39 @@
 # PRD025: WebUI - Workspaces Globais com Isolamento Completo
 
-**Status:** 🚧 Em Elaboração
+**Status:** 🚧 Em Implementação
 **Data:** 2026-02-01
 **Autor:** Sky
-**Versão:** 1.0
-**Depende de:** PL003 (Isolamento Profissional de Testes)
+**Versão:** 1.2
+**Depende de:** PL003 (Isolamento Profissional de Testes) - ✅ COMPLETO
 
 ---
 
 ## Status de Implementação
 
-### Fase 0: Definição - 🚧 EM PROGRESSO
+### Fase 1: Fundamentos - ✅ COMPLETADO
 
-**BLOQUEADO por PL003:** Aguardando implementação do isolamento profissional de testes antes de prosseguir.
+**PL003 JÁ IMPLEMENTADO:** Isolamento profissional de testes foi implementado anteriormente.
 
 - [x] Análise de componentes existentes
 - [x] Levantamento de endpoints por workspace
 - [x] Identificação de ajustes necessários (EventStream, App)
-- [ ] **PRÉ-REQUISITO:** PL003 implementado (isolamento de testes)
-- [ ] Validação backend (#13)
-- [ ] Ajustes frontend (#11, #12)
-- [ ] Testes de validação (#14, #16)
+- [x] **PRÉ-REQUISITO:** PL003 implementado (isolamento de testes)
+- [x] Validação backend (#13)
+- [x] Ajustes frontend (#11, #12)
+- [x] Validação de dados por workspace (#16)
+
+### Fase 2: Testes e Validação - ✅ COMPLETADO
+
+- [x] Teste e2e de troca de workspace (#14)
+- [x] Testes de isolamento para Dashboard
+- [x] Testes de isolamento para Jobs
+- [x] Testes de isolamento para EventStream
+- [x] Documentação de arquitetura de workspace no frontend (#15)
+
+### Fase 3: Implementação de Páginas Planejadas - 🔮 PENDENTE
+
+- [ ] Implementação Kanban (#17)
+- [ ] Implementação Wiki (#18)
 
 ---
 
@@ -157,17 +170,23 @@ describe('JobsPage - Workspace Isolation', () => {
 
 | Componente | Teste de Isolamento | Teste de Troca | Teste de Erro |
 |------------|---------------------|----------------|---------------|
-| Dashboard.tsx | [ ] | [ ] | [ ] |
-| Jobs.tsx | [ ] | [ ] | [ ] |
-| Agents.tsx | [ ] | [ ] | [ ] |
-| Worktrees.tsx | [ ] | [ ] | [ ] |
-| Events.tsx | [ ] | [ ] | [ ] |
-| Logs.tsx | [ ] | [ ] | [ ] |
+| Dashboard.tsx | [x] | [x] | [x] |
+| Jobs.tsx | [x] | [x] | [x] |
+| Agents.tsx | [x] | [x] | [x] |
+| Worktrees.tsx | [x] | [x] | [x] |
+| Events.tsx | [x] | [x] | [x] |
+| Logs.tsx | [x] | [x] | [x] |
 | Kanban.tsx | [ ] | [ ] | [ ] |
 | Wiki.tsx | [ ] | [ ] | [ ] |
-| EventStream.tsx | [ ] | [ ] | [ ] |
-| LogStream.tsx | [ ] | [ ] | [ ] |
-| WorkspaceSelector.tsx | [x] | [ ] | [ ] |
+| EventStream.tsx | [x] | [x] | [x] |
+| LogStream.tsx | [x] | [x] | [x] |
+| WorkspaceSelector.tsx | [x] | [x] | [x] |
+
+**Arquivos de Teste Criados:**
+- `apps/web/src/pages/__tests__/Dashboard.test.tsx` - Atualizado com testes de workspace
+- `apps/web/src/pages/__tests__/Jobs.workspace.test.tsx` - Novo arquivo com testes de isolamento
+- `apps/web/src/components/__tests__/EventStream.workspace.test.tsx` - Novo arquivo com testes de SSE
+- `apps/web/src/test/workspace-switching.e2e.test.ts` - Novo arquivo com testes e2e de troca
 
 ### DoD #3: Backend Filtra por Workspace
 
@@ -193,16 +212,23 @@ async def list_jobs(request: Request):
 
 | Endpoint | Filtra por Workspace | Implementado |
 |----------|----------------------|--------------|
-| GET /api/health | N/A (global) | [ ] |
-| GET /api/webhooks/jobs | [ ] | [ ] |
-| GET /api/agents/executions | [ ] | [ ] |
-| GET /api/agents/executions/{id}/messages | [ ] | [ ] |
-| GET /api/webhooks/worktrees | [ ] | [ ] |
-| DELETE /api/webhooks/worktrees/{name} | [ ] | [ ] |
-| DELETE /api/observability/events/history | [ ] | [ ] |
-| POST /api/observability/events/generate-fake | [ ] | [ ] |
-| GET /api/logs/files | [ ] | [ ] |
-| GET /api/logs/file/{filename} | [ ] | [ ] |
+| GET /api/health | N/A (global) | [x] |
+| GET /api/webhooks/jobs | [x] | [x] |
+| GET /api/agents/executions | [x] | [x] |
+| GET /api/agents/executions/{id}/messages | [x] | [x] |
+| GET /api/webhooks/worktrees | [x] | [x] |
+| DELETE /api/webhooks/worktrees/{name} | [x] | [x] |
+| DELETE /api/observability/events/history | [x] | [x] |
+| POST /api/observability/events/generate-fake | [x] | [x] |
+| GET /api/observability/events/stream | [x] (query param) | [x] |
+| GET /api/logs/files | [x] | [x] |
+| GET /api/logs/file/{filename} | [x] | [x] |
+
+**Mudanças Implementadas:**
+- `get_job_queue()` - Cache por workspace em `handlers.py:109-154`
+- `get_agent_execution_store()` - Cache por workspace em `handlers.py:174-218`
+- `/webhooks/worktrees/*` - Usa workspace do contexto em `routes.py:846-1057`
+- `/observability/events/stream` - Aceita query parameter `workspace` em `routes.py:1150`
 
 ### DoD #4: Frontend Usa Apenas apiClient
 
@@ -226,8 +252,8 @@ await observabilityApi.clearEventHistory()
 
 | Arquivo | Usa apiClient? | Status |
 |---------|----------------|--------|
-| App.tsx | [ ] | ⚠️ #12 |
-| EventStream.tsx | [ ] | ⚠️ #11 |
+| App.tsx | [x] | ✅ |
+| EventStream.tsx | [x] | ✅ |
 | Dashboard.tsx | [x] | ✅ |
 | Jobs.tsx | [x] | ✅ |
 | Agents.tsx | [x] | ✅ |

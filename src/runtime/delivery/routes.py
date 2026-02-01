@@ -844,19 +844,22 @@ def create_rpc_router() -> APIRouter:
             )
 
     @router.get("/webhooks/worktrees")
-    async def list_worktrees():
+    async def list_worktrees(request):
         """
         Lista todos os worktrees ativos para o WebUI.
 
         PRD014: Endpoint para o Dashboard listar worktrees.
+        DOC: ADR024 - Lista worktrees do workspace ativo (X-Workspace header).
         """
         try:
             from pathlib import Path
-            from runtime.config.config import get_webhook_config
+            from runtime.config.config import get_workspace_queue_dir
             import json
 
-            config = get_webhook_config()
-            worktrees_path = Path(config.worktree_base_path)
+            # ADR024: Usa worktrees do workspace atual
+            # Worktrees ficam em workspace/{workspace_id}/worktrees/
+            workspace_id = getattr(request.state, 'workspace', 'core')
+            worktrees_path = Path.cwd() / "workspace" / workspace_id / "worktrees"
 
             worktrees = []
             if worktrees_path.exists():
@@ -898,19 +901,20 @@ def create_rpc_router() -> APIRouter:
             )
 
     @router.get("/webhooks/worktrees/{worktree_name}")
-    async def get_worktree_details(worktree_name: str):
+    async def get_worktree_details(worktree_name: str, request):
         """
         Retorna detalhes completos de um worktree para o WebUI.
 
         PRD014: Endpoint para o modal de detalhes do worktree.
+        DOC: ADR024 - Retorna worktree do workspace ativo (X-Workspace header).
         """
         try:
             from pathlib import Path
-            from runtime.config.config import get_webhook_config
             import json
 
-            config = get_webhook_config()
-            worktree_path = Path(config.worktree_base_path) / worktree_name
+            # ADR024: Usa worktrees do workspace atual
+            workspace_id = getattr(request.state, 'workspace', 'core')
+            worktree_path = Path.cwd() / "workspace" / workspace_id / "worktrees" / worktree_name
 
             if not worktree_path.exists():
                 return JSONResponse(
@@ -957,11 +961,12 @@ def create_rpc_router() -> APIRouter:
             )
 
     @router.delete("/webhooks/worktrees/{worktree_name}")
-    async def delete_worktree(worktree_name: str, password: str | None = None):
+    async def delete_worktree(worktree_name: str, password: str | None = None, request=None):
         """
         Remove um worktree para o WebUI.
 
         PRD014: Endpoint para limpar worktrees do Dashboard com proteções de segurança.
+        DOC: ADR024 - Remove worktree do workspace ativo (X-Workspace header).
 
         Segurança:
         - Requer senha configurada em WEBUI_DELETE_PASSWORD
@@ -994,7 +999,9 @@ def create_rpc_router() -> APIRouter:
                     content={"ok": False, "error": "Invalid password"},
                 )
 
-            worktree_path = Path(config.worktree_base_path) / worktree_name
+            # ADR024: Usa worktrees do workspace atual
+            workspace_id = getattr(request.state, 'workspace', 'core') if request else 'core'
+            worktree_path = Path.cwd() / "workspace" / workspace_id / "worktrees" / worktree_name
 
             if not worktree_path.exists():
                 return JSONResponse(
@@ -1141,12 +1148,13 @@ def create_rpc_router() -> APIRouter:
         return StreamingResponse(log_generator(), media_type="text/event-stream")
 
     @router.get("/observability/events/stream")
-    async def stream_events():
+    async def stream_events(workspace: str | None = Query(None, description="Workspace ID (query parameter para SSE)")):
         """
         Stream eventos de domínio em tempo real via SSE para o WebUI.
 
         PRD014: Endpoint SSE para streaming de eventos do EventBus.
         Permite monitorar JobStartedEvent, JobCompletedEvent, etc.
+        DOC: ADR024 - Aceita workspace via query parameter (EventSource não suporta headers).
 
         NOTA: Cria InMemoryEventBus local se global não disponível,
         pois o worker roda em thread separada.
@@ -1154,6 +1162,12 @@ def create_rpc_router() -> APIRouter:
         from fastapi.responses import StreamingResponse
         import asyncio
         import json
+        from runtime.workspace.workspace_context import set_current_workspace
+
+        # Define workspace do contexto baseado no query parameter
+        # (EventSource não suporta headers, então usamos query param)
+        if workspace:
+            set_current_workspace(workspace)
 
         async def event_generator():
             """Gerador que entrega novos eventos do EventBus."""
@@ -1161,7 +1175,7 @@ def create_rpc_router() -> APIRouter:
             from core.domain_events.domain_event import DomainEvent
             from kernel import get_event_bus, clear_event_bus, set_event_bus
 
-            logger.info(f"[SSE] Cliente conectado ao stream de eventos")
+            logger.info(f"[SSE] Cliente conectado ao stream de eventos (workspace={workspace or 'default'})")
 
             # Tenta obter EventBus global, mas cria local se necessário
             # (o worker roda em thread separada e pode não estar disponível)
