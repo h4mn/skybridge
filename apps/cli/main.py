@@ -24,24 +24,34 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 from runtime.config.config import get_config
 from version import __version__
 
+# Rich console (deve ser criado antes do app para uso no callback)
+console = Console()
+
 app = typer.Typer(
     name="sb",
     help="Skybridge CLI - Interface de linha de comando",
     add_completion=False,
 )
 
-rpc_app = typer.Typer(
-    name="rpc",
-    help="Comandos RPC (list, discover, call, reload)",
-)
-app.add_typer(rpc_app, name="rpc")
+
+@app.callback(invoke_without_command=True)
+def main(
+    version: bool = typer.Option(False, "--version", "-v", help="Mostra versão e sai"),
+    ctx: typer.Context = typer.Context,
+):
+    """Skybridge CLI - Interface de linha de comando."""
+    if version:
+        console.print(f"[cyan]Skybridge[/cyan] v{__version__}")
+        raise typer.Exit()
+
+    # Se nenhum comando foi fornecido, mostra help
+    if ctx.invoked_subcommand is None:
+        show_help()
 
 # Workspace commands (ADR024)
 from apps.cli.workspace import workspace_app, get_active_workspace
 app.add_typer(workspace_app, name="workspace")
 app.add_typer(workspace_app, name="ws")  # Alias curto
-
-console = Console()
 
 # Configuração padrão
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
@@ -53,7 +63,10 @@ def get_base_url(url: Optional[str] = None) -> str:
         return url.rstrip("/")
     try:
         config = get_config()
-        return f"http://{config.host}:{config.port}"
+        # 0.0.0.0 não funciona como endereço de destino no Windows
+        # Usa 127.0.0.1 quando config.host é 0.0.0.0
+        host = "127.0.0.1" if config.host == "0.0.0.0" else config.host
+        return f"http://{host}:{config.port}"
     except Exception:
         return DEFAULT_BASE_URL
 
@@ -63,187 +76,38 @@ def format_json(data: dict) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False)
 
 
-@rpc_app.command("list")
-def rpc_list(
-    url: Optional[str] = typer.Option(None, "--url", "-u", help="URL base da API"),
-    output: str = typer.Option("table", "--output", "-o", help="Formato: table, json"),
-):
-    """
-    Lista todos os handlers RPC ativos.
-
-    RF007: Lista handlers com metadados (method, kind, module, auth_required).
-    """
-    base_url = get_base_url(url)
-    response = requests.get(f"{base_url}/discover")
-
-    if response.status_code != 200:
-        console.print(f"[red]Erro:[/red] {response.status_code} - {response.text}")
-        raise typer.Exit(1)
-
-    data = response.json()
-
-    if output == "json":
-        console.print_json(data=data)
-        return
-
-    # Formato tabela
-    table = Table(title=f"Sky-RPC Handlers (v{data['version']})")
-    table.add_column("Method", style="cyan", no_wrap=False)
-    table.add_column("Kind", style="magenta")
-    table.add_column("Auth", style="yellow")
-    table.add_column("Module", style="dim")
-
-    for method, handler in data.get("discovery", {}).items():
-        table.add_row(
-            method,
-            handler.get("kind", "query"),
-            "✓" if handler.get("auth_required") else "✗",
-            handler.get("module", "unknown"),
-        )
-
-    console.print(table)
-    console.print(f"\n[dim]Total: {data.get('total', 0)} handlers[/dim]")
-
-
-@rpc_app.command("discover")
-def rpc_discover(
-    url: Optional[str] = typer.Option(None, "--url", "-u", help="URL base da API"),
-    method: Optional[str] = typer.Option(None, "--method", "-m", help="Filtrar por método específico"),
-):
-    """
-    Mostra introspecção completa dos handlers.
-
-    RF009: Retorna detalhes completos incluindo schemas JSON.
-    """
-    base_url = get_base_url(url)
-
-    if method:
-        response = requests.get(f"{base_url}/discover/{method}")
-        if response.status_code != 200:
-            console.print(f"[red]Erro:[/red] Handler não encontrado: {method}")
-            raise typer.Exit(1)
-        data = response.json()
-        console.print(Panel(JSON(data), title=f"Handler: {method}", expand=False))
-    else:
-        response = requests.get(f"{base_url}/discover")
-        if response.status_code != 200:
-            console.print(f"[red]Erro:[/red] {response.status_code} - {response.text}")
-            raise typer.Exit(1)
-        data = response.json()
-        console.print(Panel(JSON(data), title="Discovery Completo", expand=False))
-
-
-@rpc_app.command("call")
-def rpc_call(
-    method: str = typer.Argument(..., help="Método RPC a executar"),
-    payload: Optional[str] = typer.Option(None, "--payload", "-p", help="Payload JSON"),
-    url: Optional[str] = typer.Option(None, "--url", "-u", help="URL base da API"),
-):
-    """
-    Executa um handler RPC.
-
-    RF010: Executa método via ticket + envelope (fluxo completo Sky-RPC).
-    """
-    base_url = get_base_url(url)
-
-    # 1. Obter ticket
-    ticket_response = requests.get(f"{base_url}/ticket", params={"method": method})
-    if ticket_response.status_code != 200:
-        console.print(f"[red]Erro ao obter ticket:[/red] {ticket_response.text}")
-        raise typer.Exit(1)
-
-    ticket_data = ticket_response.json()
-    if not ticket_data.get("ok"):
-        console.print(f"[red]Erro ao obter ticket:[/red] {ticket_data}")
-        raise typer.Exit(1)
-
-    ticket_id = ticket_data["ticket"]["id"]
-    console.print(f"[dim]Ticket obtido:[/dim] {ticket_id}")
-
-    # 2. Preparar envelope
-    envelope_payload = {}
-    if payload:
-        try:
-            envelope_payload = json.loads(payload)
-        except json.JSONDecodeError as e:
-            console.print(f"[red]Erro no payload JSON:[/red] {e}")
-            raise typer.Exit(1)
-
-    envelope = {
-        "ticket_id": ticket_id,
-        "detail": {
-            "context": method.split(".")[0] if "." in method else "rpc",
-            "action": method.split(".")[-1] if "." in method else method,
-            "payload": envelope_payload,
-        },
-    }
-
-    # 3. Executar envelope
-    env_response = requests.post(
-        f"{base_url}/envelope",
-        json=envelope,
-        headers={"Content-Type": "application/json"},
-    )
-
-    if env_response.status_code != 200:
-        console.print(f"[red]Erro na execução:[/red] {env_response.text}")
-        raise typer.Exit(1)
-
-    result = env_response.json()
-    if result.get("ok"):
-        console.print(Panel(JSON(result.get("result")), title=f"Resultado: {method}", expand=False))
-    else:
-        console.print(f"[red]Erro:[/red] {result.get('error')}")
-        raise typer.Exit(1)
-
-
-@rpc_app.command("reload")
-def rpc_reload(
-    packages: str = typer.Argument(..., help="Pacotes para reload (separados por vírgula)"),
-    url: Optional[str] = typer.Option(None, "--url", "-u", help="URL base da API"),
-):
-    """
-    Recarrega o registry com novo código.
-
-    RF013: Reload dinâmico de handlers.
-    RF014: Rollback automático em caso de erro.
-    """
-    base_url = get_base_url(url)
-    pkg_list = [p.strip() for p in packages.split(",")]
-
-    console.print(f"[dim]Recarregando pacotes:[/dim] {', '.join(pkg_list)}")
-
-    response = requests.post(
-        f"{base_url}/discover/reload",
-        json=pkg_list,
-        headers={"Content-Type": "application/json"},
-    )
-
-    if response.status_code != 200:
-        console.print(f"[red]Erro no reload:[/red] {response.text}")
-        raise typer.Exit(1)
-
-    result = response.json()
-    if result.get("ok"):
-        console.print(f"[green]✓ Reload completo[/green]")
-        console.print(f"  [dim]Adicionados:[/dim] {len(result.get('added', []))}")
-        console.print(f"  [dim]Removidos:[/dim] {len(result.get('removed', []))}")
-        console.print(f"  [dim]Total:[/dim] {result.get('total', 0)} handlers")
-
-        if result.get("added"):
-            console.print(f"\n[cyan]Adicionados:[/cyan] {', '.join(result['added'])}")
-        if result.get("removed"):
-            console.print(f"[red]Removidos:[/red] {', '.join(result['removed'])}")
-    else:
-        console.print(f"[red]Erro no reload:[/red] {result}")
-        raise typer.Exit(1)
-
 
 # Agent commands
 agent_app = typer.Typer(
     name="agent",
     help="Comandos para interagir com agentes",
 )
+
+
+@agent_app.callback(invoke_without_command=True)
+def agent_callback(ctx: typer.Context):
+    """Mostra ajuda quando nenhum subcomando é fornecido."""
+    if ctx.invoked_subcommand is None:
+        show_agent_menu()
+
+
+def show_agent_menu():
+    """Mostra menu de ajuda do agent quando nenhum comando é fornecido."""
+    from rich.text import Text
+
+    help_text = Text()
+    help_text.append("Comandos disponíveis:\n\n", style="bold cyan")
+    help_text.append("  sb agent issue                  Cria issue no GitHub\n", style="white")
+    help_text.append("\nOpções:\n", style="bold white")
+    help_text.append("  --titulo, -t                  Título da issue\n", style="dim")
+    help_text.append("  --desc, -d                    Descrição da issue\n", style="dim")
+    help_text.append("  --labels, -l                  Labels separadas por vírgula\n", style="dim")
+
+    console.print()
+    console.print(Panel(help_text, title="[bold cyan]Agent Commands (sb agent)[/bold cyan]", border_style="bright_blue"))
+    console.print()
+
+
 app.add_typer(agent_app, name="agent")
 
 
@@ -277,7 +141,7 @@ def agent_issue(
     console.print(f"[dim]Labels:[/dim] {', '.join(label_list)}")
 
     # 1. Obter ticket
-    ticket_response = requests.get(f"{base_url}/ticket", params={"method": "github.createissue"})
+    ticket_response = requests.get(f"{base_url}/api/ticket", params={"method": "github.createissue"})
     if ticket_response.status_code != 200:
         console.print(f"[red]Erro ao obter ticket:[/red] {ticket_response.text}")
         raise typer.Exit(1)
@@ -301,7 +165,7 @@ def agent_issue(
 
     # 3. Executar envelope
     env_response = requests.post(
-        f"{base_url}/envelope",
+        f"{base_url}/api/envelope",
         json=envelope,
         headers={"Content-Type": "application/json"},
     )
@@ -320,12 +184,6 @@ def agent_issue(
     else:
         console.print(f"[red]Erro:[/red] {result.get('error')}")
         raise typer.Exit(1)
-
-
-@app.command("version")
-def version():
-    """Mostra versão do Skybridge."""
-    console.print(f"[cyan]Skybridge[/cyan] v{__version__}")
 
 
 @app.command("serve")
@@ -347,78 +205,38 @@ def serve(
     subprocess.run(cmd)
 
 
-def show_interactive_menu():
-    """
-    Mostra menu interativo quando nenhum comando é fornecido.
-
-    Permite acesso rápido aos comandos mais usados.
-    """
+def show_help():
+    """Mostra ajuda do sb quando nenhum comando é fornecido."""
     from rich.text import Text
-    from rich import box
 
-    # Banner
-    banner = Text()
-    banner.append("🌉 ", style="bold cyan")
-    banner.append("Skybridge", style="bold cyan")
-    banner.append(" CLI", style="bold white")
-    banner.append(f" v{__version__}", style="dim")
-
-    console.print()
-    console.print(Panel(banner, border_style="cyan", padding=(0, 1)))
-
-    # Menu de opções
-    console.print("\n[bold cyan]Comandos Mais Usados:[/bold cyan]\n")
-
-    options = [
-        ("[1]", "Servidor", "[green]sb serve[/green]", "Inicia o servidor Skybridge"),
-        ("[2]", "RPC List", "[green]sb rpc list[/green]", "Lista handlers disponíveis"),
-        ("[3]", "Workspace", "[green]sb workspace list[/green]", "Lista workspaces"),
-        ("[4]", "Ajuda", "[green]sb --help[/green]", "Mostra todos os comandos"),
-        ("[5]", "Versão", "[green]sb version[/green]", "Mostra versão instalada"),
-        ("[0]", "Sair", "", "Fecha o menu"),
-    ]
-
-    for num, nome, comando, desc in options:
-        if num == "[0]":
-            console.print()
-        console.print(f"  {num} [bold white]{nome}[/bold white]")
-        if comando:
-            console.print(f"      {comando} - [dim]{desc}[/dim]")
-        elif desc:
-            console.print(f"      [dim]{desc}[/dim]")
+    help_text = Text()
+    help_text.append("Comandos disponíveis:\n\n", style="bold cyan")
+    help_text.append("Servidor:\n", style="bold white")
+    help_text.append("  sb serve [--reload]            Inicia o servidor Skybridge\n", style="white")
+    help_text.append("\nWorkspace:\n", style="bold white")
+    help_text.append("  sb workspace list               Lista todos os workspaces\n", style="white")
+    help_text.append("  sb ws create <id>               Cria novo workspace\n", style="white")
+    help_text.append("  sb ws use <id>                  Define workspace ativo\n", style="white")
+    help_text.append("\nAgent:\n", style="bold white")
+    help_text.append("  sb agent issue                  Cria issue no GitHub\n", style="white")
+    help_text.append("\nOutros:\n", style="bold white")
+    help_text.append("  sb --version, -v               Mostra versão instalada\n", style="white")
+    help_text.append("  sb --help                       Mostra esta ajuda\n", style="white")
 
     console.print()
-    choice = console.input("[bold cyan]Escolha uma opção [0-5]: [/bold cyan]")
-
-    choices = {
-        "1": lambda: serve(["--reload"]),
-        "2": lambda: rpc_list(url=None, output="table"),
-        "3": lambda: console.print("\n[yellow]Use: [green]sb workspace list[/green] para ver workspaces[/yellow]\n"),
-        "4": lambda: app(["--help"]),
-        "5": lambda: version(),
-        "0": lambda: None,
-    }
-
-    action = choices.get(choice.strip())
-    if action:
-        console.print()
-        action()
+    console.print(Panel(help_text, title=f"[bold cyan]Skybridge CLI v{__version__}[/bold cyan]", border_style="bright_blue"))
+    console.print()
 
 
 def main():
     """
     Ponto de entrada.
 
-    Se nenhum argumento for fornecido, mostra menu interativo.
-    Caso contrário, executa o comando normalmente.
+    O callback do app trata automaticamente:
+    - Sem argumentos → mostra menu interativo
+    - Com argumentos → executa comando normalmente
     """
-    # Verifica se há argumentos
-    if len(sys.argv) == 1:
-        # Nenhum argumento = mostrar menu
-        show_interactive_menu()
-    else:
-        # Argumentos fornecidos = executar normalmente
-        app()
+    app()
 
 
 if __name__ == "__main__":
