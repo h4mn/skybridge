@@ -101,7 +101,7 @@ class GitService:
                 cwd=worktree_path,
                 check=True,
                 capture_output=True,
-                text=True,
+                encoding='utf-8',
                 timeout=self.timeout,
             )
             return Result.ok(None)
@@ -139,7 +139,7 @@ class GitService:
                 cwd=worktree_path,
                 check=True,
                 capture_output=True,
-                text=True,
+                encoding='utf-8',
                 timeout=self.timeout,
             )
 
@@ -162,9 +162,10 @@ class GitService:
 
         except subprocess.CalledProcessError as e:
             # Verifica se é "nothing to commit"
-            if "nothing to commit" in e.stderr.lower():
+            stderr_text = e.stderr.lower() if e.stderr else ""
+            if "nothing to commit" in stderr_text:
                 return Result.err("Nada para commitar (nenhuma mudança staged)")
-            return Result.err(f"git commit falhou: {e.stderr}")
+            return Result.err(f"git commit falhou: {e.stderr or 'stderr=None'}")
         except subprocess.TimeoutExpired:
             return Result.err(f"git commit timeout após {self.timeout}s")
         except FileNotFoundError:
@@ -212,7 +213,7 @@ class GitService:
                 cwd=worktree_path,
                 check=True,
                 capture_output=True,
-                text=True,
+                encoding='utf-8',
                 timeout=self.timeout * 2,  # Push pode demorar mais
             )
 
@@ -254,7 +255,7 @@ class GitService:
             output = subprocess.check_output(
                 ["git", "status", "--porcelain"],
                 cwd=worktree_path,
-                text=True,
+                encoding='utf-8',
                 stderr=subprocess.DEVNULL,
                 timeout=self.timeout,
             )
@@ -300,7 +301,7 @@ class GitService:
             output = subprocess.check_output(
                 ["git", "rev-parse", "HEAD"],
                 cwd=worktree_path,
-                text=True,
+                encoding='utf-8',
                 stderr=subprocess.DEVNULL,
                 timeout=self.timeout,
             )
@@ -315,7 +316,7 @@ class GitService:
             output = subprocess.check_output(
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                 cwd=worktree_path,
-                text=True,
+                encoding='utf-8',
                 stderr=subprocess.DEVNULL,
                 timeout=self.timeout,
             )
@@ -339,7 +340,7 @@ class GitService:
             output = subprocess.check_output(
                 ["git", "show", "--stat", "--format=", commit_hash],
                 cwd=worktree_path,
-                text=True,
+                encoding='utf-8',
                 stderr=subprocess.DEVNULL,
                 timeout=self.timeout,
             )
@@ -375,7 +376,7 @@ class GitService:
             output = subprocess.check_output(
                 ["git", "remote", "get-url", remote],
                 cwd=worktree_path,
-                text=True,
+                encoding='utf-8',
                 stderr=subprocess.DEVNULL,
                 timeout=self.timeout,
             )
