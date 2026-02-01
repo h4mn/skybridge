@@ -844,7 +844,7 @@ def create_rpc_router() -> APIRouter:
             )
 
     @router.get("/webhooks/worktrees")
-    async def list_worktrees(request):
+    async def list_worktrees(request: Request):
         """
         Lista todos os worktrees ativos para o WebUI.
 
@@ -901,7 +901,7 @@ def create_rpc_router() -> APIRouter:
             )
 
     @router.get("/webhooks/worktrees/{worktree_name}")
-    async def get_worktree_details(worktree_name: str, request):
+    async def get_worktree_details(worktree_name: str, request: Request):
         """
         Retorna detalhes completos de um worktree para o WebUI.
 
@@ -961,7 +961,7 @@ def create_rpc_router() -> APIRouter:
             )
 
     @router.delete("/webhooks/worktrees/{worktree_name}")
-    async def delete_worktree(worktree_name: str, password: str | None = None, request=None):
+    async def delete_worktree(worktree_name: str, request: Request, password: str | None = None):
         """
         Remove um worktree para o WebUI.
 
