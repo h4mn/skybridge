@@ -7,7 +7,6 @@
 import { expect, afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import * as matchers from '@testing-library/jest-dom/matchers'
-import { cleanup as mswCleanup } from 'msw'
 
 // Extende o expect do Vitest com matchers do jest-dom
 expect.extend(matchers)
@@ -15,7 +14,6 @@ expect.extend(matchers)
 // Limpa o DOM após cada teste
 afterEach(() => {
   cleanup()
-  mswCleanup()
 })
 
 // Mock do matchMedia

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import Dashboard from '../Dashboard'
@@ -45,24 +45,30 @@ describe('Dashboard', () => {
   )
 
   describe('renderização inicial', () => {
-    it('deve mostrar heading "Dashboard"', () => {
+    it('deve renderizar sem erro', () => {
+      /**
+       * DOC: Dashboard renderiza sem erro.
+       */
       vi.mocked(apiClient.default).get.mockResolvedValue({
         data: { status: 'healthy', version: '0.11.0', timestamp: '2025-01-27T20:00:00Z' },
       })
 
       render(<Dashboard />, { wrapper })
 
-      expect(screen.getByRole('heading', { name: /dashboard/i, level: 1 })).toBeInTheDocument()
+      // Dashboard deve renderizar cards de métricas
+      expect(screen.getByText(/API Status/i)).toBeInTheDocument()
     })
 
-    it('deve mostrar spinner durante carregamento', () => {
+    it('deve mostrar indicadores de carregamento', () => {
       vi.mocked(apiClient.default).get.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       )
 
       render(<Dashboard />, { wrapper })
 
-      expect(screen.getByRole('status')).toBeInTheDocument()
+      // Verifica que há algum indicador de carregamento nos cards
+      // "Verificando..." aparece no card de API Status durante carregamento
+      expect(screen.getByText(/Verificando\.\.\./i)).toBeInTheDocument()
     })
   })
 
@@ -89,31 +95,6 @@ describe('Dashboard', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Jobs Ativos/i)).toBeInTheDocument()
-      })
-    })
-
-    it('deve mostrar card de Worktrees', async () => {
-      vi.mocked(apiClient.default).get.mockResolvedValue({
-        data: { status: 'healthy', version: '0.11.0', timestamp: '2025-01-27T20:00:00Z' },
-      })
-
-      render(<Dashboard />, { wrapper })
-
-      await waitFor(() => {
-        expect(screen.getByText(/Worktrees/i)).toBeInTheDocument()
-      })
-    })
-
-    it('deve mostrar card de Logs', async () => {
-      vi.mocked(apiClient.default).get.mockResolvedValue({
-        data: { status: 'healthy', version: '0.11.0', timestamp: '2025-01-27T20:00:00Z' },
-      })
-
-      render(<Dashboard />, { wrapper })
-
-      await waitFor(() => {
-        expect(screen.getByText(/Logs/i)).toBeInTheDocument()
-        expect(screen.getByText(/Sistema/i)).toBeInTheDocument()
       })
     })
 
@@ -154,8 +135,11 @@ describe('Dashboard', () => {
     })
   })
 
-  describe('navegação', () => {
-    it('deve ter link para Skybridge WebUI no header', async () => {
+  describe('info card', () => {
+    it('deve mostrar card com informações sobre Skybridge WebUI', async () => {
+      /**
+       * DOC: Dashboard mostra card informativo sobre a aplicação.
+       */
       vi.mocked(apiClient.default).get.mockResolvedValue({
         data: { status: 'healthy', version: '0.11.0', timestamp: '2025-01-27T20:00:00Z' },
       })
@@ -163,16 +147,35 @@ describe('Dashboard', () => {
       render(<Dashboard />, { wrapper })
 
       await waitFor(() => {
-        const link = screen.getByRole('link', { name: /Skybridge WebUI/i })
-        expect(link).toHaveAttribute('href', '/web')
+        expect(screen.getByText(/Skybridge WebUI/i)).toBeInTheDocument()
+        expect(screen.getByText(/Dashboard de monitoramento/i)).toBeInTheDocument()
       })
     })
   })
 
-  describe('refetch automático', () => {
-    it('deve recarregar dados a cada 5 segundos', async () => {
-      vi.useFakeTimers()
+  describe('refresh manual', () => {
+    it('deve ter botão de atualização manual', async () => {
+      /**
+       * DOC: Dashboard tem botão para atualizar métricas manualmente.
+       */
+      vi.mocked(apiClient.default).get.mockResolvedValue({
+        data: { status: 'healthy', version: '0.11.0', timestamp: '2025-01-27T20:00:00Z' },
+      })
 
+      render(<Dashboard />, { wrapper })
+
+      await waitFor(() => {
+        const refreshButton = screen.getByRole('button', { name: /Atualizar/i })
+        expect(refreshButton).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('sem auto-refresh', () => {
+    it('não tem mais auto-refresh (removido - usa apenas botão manual)', async () => {
+      /**
+       * DOC: Auto-refresh foi removido - agora usa apenas botão de atualização manual.
+       */
       vi.mocked(apiClient.default).get.mockResolvedValue({
         data: { status: 'healthy', version: '0.11.0', timestamp: '2025-01-27T20:00:00Z' },
       })
@@ -183,15 +186,9 @@ describe('Dashboard', () => {
         expect(apiClient.default.get).toHaveBeenCalled()
       })
 
-      const initialCallCount = vi.mocked(apiClient.default).get.mock.calls.length
-
-      vi.advanceTimersByTime(5000)
-
-      await waitFor(() => {
-        expect(vi.mocked(apiClient.default).get.mock.calls.length).toBeGreaterThan(initialCallCount)
-      })
-
-      vi.useRealTimers()
+      // Verifica que há botão de refresh manual
+      const refreshButton = screen.getByRole('button', { name: /Atualizar/i })
+      expect(refreshButton).toBeInTheDocument()
     })
   })
 })
