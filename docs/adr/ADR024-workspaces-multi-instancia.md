@@ -583,6 +583,79 @@ python -m pytest tests/ -v
 # data/jobs.db NÃO deve ser recriado
 ```
 
+### Configuração do pytest
+
+**Localização do `tmp_path`:**
+- **Padrão pytest:** `/tmp/pytest-of-user/pytest-XXX/` (temp do sistema)
+- **Skybridge (ADR024):** `workspace/core/tmp_path/test_XXXXXX/`
+
+**Override em `tests/conftest.py`:**
+
+```python
+@pytest.fixture
+def tmp_path(tmp_path):
+    """
+    Override do tmp_path para usar workspace/core/tmp_path/.
+
+    DOC: ADR024 - Temporários de teste ficam no workspace core.
+    DOC: ADR024 - Limpo automaticamente pelo hook pós-commit.
+
+    Isso facilita debug de testes (podemos inspecionar os .db)
+    enquanto mantém isolamento do ambiente de produção.
+    """
+    from pathlib import Path
+    import uuid
+
+    # Usa workspace/core/tmp_path/ ao invés de /tmp/pytest-*
+    custom_tmp_path = Path.cwd() / "workspace" / "core" / "tmp_path"
+    custom_tmp_path.mkdir(parents=True, exist_ok=True)
+
+    # Cria subdiretório único para este teste (preserva isolamento)
+    test_tmp_path = custom_tmp_path / f"test_{uuid.uuid4().hex[:8]}"
+    test_tmp_path.mkdir(exist_ok=True)
+
+    return test_tmp_path
+```
+
+**Limpeza automática (versionado):**
+
+```bash
+# .githooks/post-commit (versionado no repositório)
+# Configurar: git config core.hooksPath .githooks
+
+TMP_PATH="workspace/core/tmp_path"
+if [[ -d "$TMP_PATH" ]]; then
+    rm -rf "$TMP_PATH" && mkdir -p "$TMP_PATH"
+fi
+```
+
+**Setup inicial (clone do repositório):**
+
+```bash
+# Após clonar o repositório, configurar hooks:
+git config core.hooksPath .githooks
+
+# Verificar configuração:
+git config core.hooksPath
+# Saída: .githooks
+```
+
+**`.gitignore`:**
+
+```gitignore
+# Testes
+.pytest_cache/
+.coverage
+htmlcov/
+workspace/core/tmp_path/  # DOC: ADR024 - Temporários de testes (limpo pós-commit)
+```
+
+**Benefícios dessa configuração:**
+1. **Debug facilitado** - Inspecionar `.db` durante desenvolvimento
+2. **Não polui `/tmp/`** - Temporários ficam no workspace
+3. **Limpeza automática** - Hook pós-commit mantém diretório limpo
+4. **Não versionado** - `.gitignore` previne commits acidentais
+
 ## Decisões Relacionadas
 
 - **Nome do banco:** `agent_executions.db` → `executions.db` (simplificação)

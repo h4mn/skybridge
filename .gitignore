@@ -46,6 +46,7 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
+workspace/core/tmp_path/  # DOC: ADR024 - Temporários de testes (limpo pós-commit)
 
 # Logs
 *.log

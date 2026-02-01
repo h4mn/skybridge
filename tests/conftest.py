@@ -24,6 +24,35 @@ if str(apps_path) not in sys.path:
     sys.path.insert(0, str(apps_path))
 
 
+# ============================================================================
+# Override tmp_path para workspace/core/tmp_path (ADR024)
+# ============================================================================
+
+@pytest.fixture
+def tmp_path(tmp_path):
+    """
+    Override do tmp_path para usar workspace/core/tmp_path/.
+
+    DOC: ADR024 - Temporários de teste ficam no workspace core.
+    DOC: ADR024 - Limpo automaticamente pelo hook pós-commit.
+
+    Isso facilita debug de testes (podemos inspecionar os .db)
+    enquanto mantém isolamento do ambiente de produção.
+    """
+    from pathlib import Path
+
+    # Usa workspace/core/tmp_path/ ao invés de /tmp/pytest-*
+    custom_tmp_path = Path.cwd() / "workspace" / "core" / "tmp_path"
+    custom_tmp_path.mkdir(parents=True, exist_ok=True)
+
+    # Cria subdiretório único para este teste (preserva isolamento)
+    import uuid
+    test_tmp_path = custom_tmp_path / f"test_{uuid.uuid4().hex[:8]}"
+    test_tmp_path.mkdir(exist_ok=True)
+
+    return test_tmp_path
+
+
 def is_server_online() -> bool:
     """
     Verifica se o servidor Skybridge está online.
