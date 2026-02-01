@@ -29,7 +29,7 @@ if [[ "$BRANCH" == "main" ]] || [[ "$BRANCH" == "master" ]] || [[ "$BRANCH" == "
 
         # Try to notify the tracker
         # Run in background to avoid slowing down commits
-        ($PYTHON -m auto_claude.merge.tracker_cli notify-commit "$COMMIT_HASH" 2>/dev/null/null &) &
+        ($PYTHON -m auto_claude.merge.tracker_cli notify-commit "$COMMIT_HASH" 2>/dev/null &) &
 
         # DOC: ADR024 - Limpa tmp_path após commit bem-sucedido
         TMP_PATH="workspace/core/tmp_path"
