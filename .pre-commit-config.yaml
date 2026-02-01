@@ -1,0 +1,44 @@
+# Pre-commit hooks para Skybridge
+# Instalar: pip install pre-commit && pre-commit install
+# Rodar manualmente: pre-commit run --all-files
+
+repos:
+  # Hooks nativos do pre-commit
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(tests/|\.md$)
+      - id: end-of-file-fixer
+        exclude: \.md$
+      - id: check-yaml
+        exclude: ^\.github/
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+
+  # Hooks customizados para validações do projeto
+  - repo: local
+    hooks:
+      # 1. Testes de import (todos os módulos)
+      - id: pytest-imports
+        name: 📦 All import tests (162 tests)
+        entry: pytest tests/test_imports.py -v --tb=short
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # 2. Todos os testes do projeto
+      - id: pytest-all
+        name: 🧪 All project tests
+        entry: pytest tests/ -v --tb=short
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # 3. Headers UTF-8 (bloqueia commit se faltar)
+      - id: check-utf8-headers
+        name: 📝 UTF-8 headers check
+        entry: python scripts/quality/check_utf8.py
+        language: system
+        pass_filenames: false
+        always_run: true

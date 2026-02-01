@@ -1,0 +1,18 @@
+# Skybridge Config - Base
+# Valores padrão versionados no repositório
+
+app:
+  host: "0.0.0.0"
+  port: 8000
+  log_level: "INFO"
+  debug: false
+  title: "Skybridge API"
+  version: "0.1.0"
+  description: "Ponte entre intenção humana e execução assistida por IA"
+  docs_url: "/docs"
+  redoc_url: "/redoc"
+
+ngrok:
+  enabled: false
+  auth_token: null
+  domain: null

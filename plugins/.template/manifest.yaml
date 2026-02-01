@@ -1,0 +1,9 @@
+# Plugin Template Manifest
+name: "plugin-template"
+version: "0.1.0"
+description: "Template base para plugins Skybridge"
+author: "Sky"
+skybridge_kernel_min: "1.0.0"
+permissions:
+  - fileops:read
+dependencies: []

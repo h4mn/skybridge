@@ -1,0 +1,30 @@
+{
+  "PreToolUse": [
+    {
+      "matcher": {
+        "toolName": "Write"
+      },
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "Before writing task file, verify:\n\n1. **ID is numeric** - filename must be number only\n2. **Type is valid** - erro|layout|feature|manutencao\n3. **Path is safe** - within tarefas workspace allowlist\n4. **Structure complete** - has sections 1-4\n5. **Signature present** - ends with Sky signature\n\nProceed only if all checks pass."
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": {
+        "toolName": "Write",
+        "fileName": "*tarefas*/*.md"
+      },
+      "hooks": [
+        {
+          "type": "command",
+          "command": "echo 'Task created at ${CLAUDE_PLUGIN_ROOT}'",
+          "timeout": 5
+        }
+      ]
+    }
+  ]
+}
