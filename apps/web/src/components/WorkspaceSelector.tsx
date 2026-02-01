@@ -8,7 +8,7 @@
  * workspaces e o workspace ativo, definindo o header X-Workspace global.
  */
 import { useState } from 'react'
-import { Dropdown, DropdownButton } from 'react-bootstrap'
+import { Dropdown } from 'react-bootstrap'
 import { useWorkspaces } from '@/hooks/useWorkspaces'
 
 export default function WorkspaceSelector() {
@@ -16,9 +16,22 @@ export default function WorkspaceSelector() {
     useWorkspaces()
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
+  // Obter o nome do workspace ativo para exibição
+  const activeWorkspaceName = workspaces.find(w => w.id === activeWorkspace)?.name || activeWorkspace
+
   const handleSelect = (workspaceId: string) => {
+    // Se for o mesmo workspace, não fazer nada
+    if (workspaceId === activeWorkspace) {
+      setDropdownOpen(false)
+      return
+    }
+
+    // Salvar o workspace ativo
     setActiveWorkspace(workspaceId)
     setDropdownOpen(false)
+
+    // Recarregar a página para aplicar o novo workspace em todos os componentes
+    window.location.reload()
   }
 
   return (
@@ -34,14 +47,13 @@ export default function WorkspaceSelector() {
       ) : (
         // Dropdown de workspaces
         <Dropdown show={dropdownOpen} onToggle={(isOpen) => setDropdownOpen(isOpen)}>
-          <DropdownButton
+          <Dropdown.Toggle
             variant={isActive(activeWorkspace) ? 'primary' : 'outline-primary'}
             size="sm"
             id="workspace-dropdown"
-            title={`Workspace atual: ${activeWorkspace}`}
           >
-            <span data-testid="active-workspace-id">{activeWorkspace}</span>
-          </DropdownButton>
+            <span data-testid="active-workspace-id">{activeWorkspaceName}</span>
+          </Dropdown.Toggle>
 
           <Dropdown.Menu>
             {workspaces.map((workspace) => (
@@ -51,7 +63,7 @@ export default function WorkspaceSelector() {
                 onClick={() => handleSelect(workspace.id)}
                 data-testid={`workspace-item-${workspace.id}`}
               >
-                {workspace.id} - {workspace.name}
+                {workspace.name}
               </Dropdown.Item>
             ))}
           </Dropdown.Menu>

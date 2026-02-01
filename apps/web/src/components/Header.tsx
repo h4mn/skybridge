@@ -1,6 +1,7 @@
 import { Navbar, Container } from 'react-bootstrap'
 import { useLocation } from 'react-router-dom'
 import WorkspaceSelector from './WorkspaceSelector'
+import Logo from './Logo'
 
 /**
  * Header/Navbar principal do Skybridge WebUI.
@@ -42,6 +43,7 @@ export default function Header() {
     <Navbar bg="dark" variant="dark">
       <Container fluid>
         <Navbar.Brand>
+          <Logo width={28} height={28} />
           <strong>Skybridge</strong> {contextName}
         </Navbar.Brand>
         <WorkspaceSelector />
