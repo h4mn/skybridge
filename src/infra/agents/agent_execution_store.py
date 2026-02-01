@@ -54,6 +54,29 @@ class AgentExecutionStore:
 
         self._create_table()
 
+    @classmethod
+    def from_context(cls, request, base_path: Path) -> "AgentExecutionStore":
+        """
+        Cria AgentExecutionStore usando workspace do contexto da requisição.
+
+        DOC: ADR024 - executions.db é por workspace.
+
+        O caminho do banco é construído como:
+        <base_path>/workspace/<workspace_id>/data/executions.db
+
+        Args:
+            request: Requisição FastAPI com request.state.workspace
+            base_path: Caminho base onde workspaces estão localizados
+
+        Returns:
+            AgentExecutionStore configurado para o workspace do contexto
+        """
+        from runtime.workspace.workspace_context import get_current_workspace
+
+        workspace = get_current_workspace(request)
+        db_path = base_path / "workspace" / workspace / "data" / "agent_executions.db"
+        return cls(db_path=str(db_path))
+
     def _create_table(self) -> None:
         """Cria tabela agent_executions se não existir."""
         cursor = self._conn.cursor()

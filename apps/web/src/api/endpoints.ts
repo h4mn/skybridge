@@ -209,4 +209,46 @@ export const agentsApi = {
       ok: boolean
       metrics: AgentMetrics
     }>('/agents/metrics'),
+
+  getJobMetrics: () =>
+    apiClient.get<{
+      ok: boolean
+      metrics: JobMetrics
+    }>('/webhooks/metrics'),
+}
+
+// =============================================================================
+// WORKSPACES
+// =============================================================================
+
+export interface Workspace {
+  id: string
+  name: string
+  path: string
+  description: string
+  auto: boolean
+  enabled: boolean
+}
+
+export interface WorkspacesListResponse {
+  workspaces: Workspace[]
+}
+
+export const workspacesApi = {
+  list: () =>
+    apiClient.get<WorkspacesListResponse>('/workspaces'),
+
+  get: (id: string) =>
+    apiClient.get<Workspace>(`/workspaces/${id}`),
+
+  create: (data: {
+    id: string
+    name: string
+    path: string
+    description?: string
+  }) =>
+    apiClient.post<Workspace>('/workspaces', data),
+
+  delete: (id: string) =>
+    apiClient.delete<{ message: string }>(`/workspaces/${id}`),
 }

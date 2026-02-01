@@ -1,9 +1,11 @@
 import { Navbar, Container } from 'react-bootstrap'
 import { useLocation } from 'react-router-dom'
+import WorkspaceSelector from './WorkspaceSelector'
 
 /**
  * Header/Navbar principal do Skybridge WebUI.
  * Mostra o título dinâmico baseado no contexto ativo.
+ * Inclui seletor de workspaces.
  */
 export default function Header() {
   const location = useLocation()
@@ -42,6 +44,7 @@ export default function Header() {
         <Navbar.Brand>
           <strong>Skybridge</strong> {contextName}
         </Navbar.Brand>
+        <WorkspaceSelector />
       </Container>
     </Navbar>
   )

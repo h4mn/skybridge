@@ -16,6 +16,11 @@ src_path = Path(__file__).parent.parent / "src"
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
+# Add cli directory to Python path (for CLI modules)
+cli_path = Path(__file__).parent.parent / "cli"
+if str(cli_path) not in sys.path:
+    sys.path.insert(0, str(cli_path))
+
 
 def is_server_online() -> bool:
     """

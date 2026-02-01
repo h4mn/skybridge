@@ -57,6 +57,12 @@ def _discover_python_modules(base_paths: List[str]) -> List[Tuple[str, str]]:
             rel_path = py_file.relative_to(base_path)
             module_name = rel_path.with_suffix("").as_posix().replace("/", ".")
 
+            # Prefixo especial para cli (para que workspace.py vire cli.workspace)
+            prefix = base_path.name if base_path.name in ["cli"] else ""
+
+            if prefix and not module_name.startswith(prefix + "."):
+                module_name = f"{prefix}.{module_name}"
+
             # Remove leading ponto
             if module_name.startswith("."):
                 module_name = module_name[1:]
@@ -70,6 +76,7 @@ def _discover_python_modules(base_paths: List[str]) -> List[Tuple[str, str]]:
 
 
 # Descobre todos os módulos (usado no modo --all)
+# NOTA: cli é excluído temporariamente devido a problemas de importação no pytest
 _ALL_MODULES = _discover_python_modules(["src"])
 
 

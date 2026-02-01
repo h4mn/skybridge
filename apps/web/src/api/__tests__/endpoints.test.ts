@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { healthApi, discoverApi, webhooksApi, observabilityApi } from '../endpoints'
+import { healthApi, discoverApi, webhooksApi, observabilityApi, agentsApi } from '../endpoints'
 import apiClient from '../client'
 
 // Mock do apiClient
@@ -95,19 +95,23 @@ describe('API Endpoints', () => {
     it('deve obter métricas de jobs', async () => {
       vi.mocked(apiClient).get.mockResolvedValue({
         data: {
-          total: 100,
-          by_status: {
-            pending: 20,
+          ok: true,
+          metrics: {
+            queue_size: 20,
             processing: 10,
             completed: 60,
             failed: 10,
+            total_enqueued: 100,
+            total_completed: 60,
+            total_failed: 10,
+            success_rate: 85.5,
           },
         },
       })
 
-      await webhooksApi.getJobMetrics()
+      await agentsApi.getJobMetrics()
 
-      expect(apiClient.get).toHaveBeenCalledWith('/observability/jobs/metrics')
+      expect(apiClient.get).toHaveBeenCalledWith('/webhooks/metrics')
     })
   })
 
@@ -143,8 +147,8 @@ describe('API Endpoints', () => {
 
       await observabilityApi.streamLogs('skybridge-2025-01-27.log')
 
-      expect(apiClient.get).toHaveBeenCalledWith('/logs/stream', {
-        params: { filename: 'skybridge-2025-01-27.log' },
+      expect(apiClient.get).toHaveBeenCalledWith('/logs/file/skybridge-2025-01-27.log', {
+        params: { page: 1, per_page: 50 },
       })
     })
   })

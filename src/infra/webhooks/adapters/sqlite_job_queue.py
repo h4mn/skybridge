@@ -76,6 +76,31 @@ class SQLiteJobQueue(JobQueuePort):
 
         logger.info(f"SQLiteJobQueue inicializado: {self._db_path}")
 
+    @classmethod
+    def from_context(cls, request, base_path: Path, timeout_seconds: float = 5.0) -> "SQLiteJobQueue":
+        """
+        Cria JobQueue usando workspace do contexto da requisição.
+
+        DOC: ADR024 - JobQueue usa workspace do contexto.
+        DOC: ADR024 - Sem workspace, usa core por padrão.
+
+        O caminho do banco é construído como:
+        <base_path>/workspace/<workspace_id>/data/jobs.db
+
+        Args:
+            request: Requisição FastAPI com request.state.workspace
+            base_path: Caminho base onde workspaces estão localizados
+            timeout_seconds: Timeout para operações de banco
+
+        Returns:
+            SQLiteJobQueue configurado para o workspace do contexto
+        """
+        from runtime.workspace.workspace_context import get_current_workspace
+
+        workspace = get_current_workspace(request)
+        db_path = base_path / "workspace" / workspace / "data" / "jobs.db"
+        return cls(db_path=db_path, timeout_seconds=timeout_seconds)
+
     def _get_connection(self) -> sqlite3.Connection:
         """
         Retorna conexão com SQLite configurada.

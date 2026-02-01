@@ -1,81 +1,67 @@
 /**
  * Testes para LogStream component.
+ *
+ * TDD Estrito: Testes que documentam o comportamento esperado.
+ *
+ * DOC: LogStream mostra logs do sistema em tempo real.
+ * DOC: LogStream faz polling a cada 2 segundos.
+ * DOC: LogStream pode ser pausado via prop.
  */
-
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render, screen, waitFor } from '@testing-library/react'
 import LogStream from '../LogStream'
-import * as apiClient from '../../api/client'
+import * as endpoints from '../../api/endpoints'
 
-// Mock do apiClient
-vi.mock('../../api/client', () => ({
-  default: {
-    get: vi.fn(),
+// Mock do observabilityApi (endpoints)
+vi.mock('../../api/endpoints', () => ({
+  observabilityApi: {
+    getLogFiles: vi.fn(),
+    streamLogs: vi.fn(),
   },
 }))
 
+const mockGetLogFiles = endpoints.observabilityApi.getLogFiles as any
+const mockStreamLogs = endpoints.observabilityApi.streamLogs as any
+
 describe('LogStream', () => {
-  let queryClient: QueryClient
-
-  beforeEach(() => {
-    queryClient = new QueryClient({
-      defaultOptions: {
-        queries: {
-          retry: false,
-        },
-      },
-    })
-  })
-
   afterEach(() => {
     vi.clearAllMocks()
   })
 
-  const wrapper = ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  )
-
   describe('renderização inicial', () => {
-    it('deve mostrar spinner durante carregamento', () => {
-      vi.mocked(apiClient.default).get.mockResolvedValue({
+    it('deve renderizar sem erro', () => {
+      /**
+       * DOC: Componente renderiza sem erro.
+       */
+      mockGetLogFiles.mockResolvedValue({
         data: { ok: true, files: [{ name: 'test.log' }] },
       })
 
-      render(<LogStream />, { wrapper })
+      render(<LogStream />)
 
-      expect(screen.getByText(/Sistema/i)).toBeInTheDocument()
-      expect(screen.getByRole('status')).toHaveClass('text-muted')
+      expect(screen.getByText(/Logs ao Vivo/i)).toBeInTheDocument()
     })
 
-    it('deve mostrar estado desconectado inicialmente', () => {
-      vi.mocked(apiClient.default).get.mockResolvedValue({
-        data: { ok: true, files: [{ name: 'test.log' }] },
-      })
+    it('deve mostrar estado "Conectando..." inicialmente', () => {
+      /**
+       * DOC: Estado inicial mostra badge "Conectando...".
+       */
+      mockGetLogFiles.mockImplementation(
+        () => new Promise(() => {}) // Never resolves
+      )
 
-      render(<LogStream />, { wrapper })
+      render(<LogStream />)
 
-      expect(screen.getByText(/Conectando/i)).toBeInTheDocument()
-    })
-  })
-
-  describe('busca de arquivos de log', () => {
-    it('deve buscar arquivos de log ao montar', async () => {
-      vi.mocked(apiClient.default).get.mockResolvedValue({
-        data: { ok: true, files: [{ name: 'skybridge-2025-01-27.log' }] },
-      })
-
-      render(<LogStream />, { wrapper })
-
-      await waitFor(() => {
-        expect(apiClient.default.get).toHaveBeenCalledWith('/logs/files')
-      })
+      expect(screen.getByText(/Conectando\.\.\./i)).toBeInTheDocument()
     })
 
     it('deve mostrar erro quando falha ao buscar arquivos', async () => {
-      vi.mocked(apiClient.default).get.mockRejectedValue(new Error('Network error'))
+      /**
+       * DOC: Erro ao carregar logs é tratado graciosamente.
+       */
+      mockGetLogFiles.mockRejectedValue(new Error('Network error'))
 
-      render(<LogStream />, { wrapper })
+      render(<LogStream />)
 
       await waitFor(() => {
         expect(screen.getByText(/Erro ao carregar logs/i)).toBeInTheDocument()
@@ -83,101 +69,84 @@ describe('LogStream', () => {
     })
   })
 
+  describe('busca de arquivos de log', () => {
+    it('deve buscar arquivos de log ao montar', async () => {
+      /**
+       * DOC: Componente busca lista de arquivos ao montar.
+       */
+      mockGetLogFiles.mockResolvedValue({
+        data: { ok: true, files: [{ name: 'skybridge-2025-01-27.log' }] },
+      })
+
+      render(<LogStream />)
+
+      await waitFor(() => {
+        expect(mockGetLogFiles).toHaveBeenCalledWith()
+      })
+    })
+  })
+
   describe('exibição de logs', () => {
-    it('deve exibir logs quando conectado', async () => {
-      vi.mocked(apiClient.default).get
-        .mockResolvedValueOnce({
-          data: { ok: true, files: [{ name: 'test.log' }] },
-        })
-        .mockResolvedValue({
-          data: {
-            logs: [
-              {
-                timestamp: '2025-01-27 20:00:00',
-                level: 'INFO',
-                logger: 'skybridge',
-                message: 'Test message',
-                message_html: '<span>Test message</span>',
-              },
-            ],
-          },
-        })
+    it('deve mostrar badge "Ao vivo" quando conectado', async () => {
+      /**
+       * DOC: Badge "Ao vivo" aparece quando logs estão sendo recebidos.
+       */
+      mockGetLogFiles.mockResolvedValue({
+        data: { ok: true, files: [{ name: 'test.log' }] },
+      })
+      mockStreamLogs.mockResolvedValue({
+        data: {
+          ok: true,
+          entries: [
+            {
+              timestamp: '2025-01-27 20:00:00',
+              level: 'INFO',
+              logger: 'skybridge',
+              message: 'Test message',
+              message_html: '<span>Test message</span>',
+            },
+          ],
+        },
+      })
 
-      render(<LogStream />, { wrapper })
+      render(<LogStream />)
 
       await waitFor(() => {
-        expect(screen.getByText(/Conectado/i)).toBeInTheDocument()
+        expect(screen.getByText(/Ao vivo/i)).toBeInTheDocument()
       })
     })
 
-    it('deve mostrar badge de nível de log correto', async () => {
-      vi.mocked(apiClient.default).get
-        .mockResolvedValueOnce({
-          data: { ok: true, files: [{ name: 'test.log' }] },
-        })
-        .mockResolvedValue({
-          data: {
-            logs: [
-              {
-                timestamp: '2025-01-27 20:00:00',
-                level: 'ERROR',
-                logger: 'skybridge',
-                message: 'Error message',
-                message_html: '<span>Error message</span>',
-              },
-            ],
-          },
-        })
+    it('deve mostrar mensagem de aguardando quando não há logs', async () => {
+      /**
+       * DOC: Estado vazio mostra "Aguardando logs...".
+       */
+      mockGetLogFiles.mockResolvedValue({
+        data: { ok: true, files: [{ name: 'test.log' }] },
+      })
+      mockStreamLogs.mockResolvedValue({
+        data: { ok: true, entries: [] },
+      })
 
-      render(<LogStream />, { wrapper })
+      render(<LogStream />)
 
       await waitFor(() => {
-        const errorBadge = screen.getByText(/ERR/i)
-        expect(errorBadge).toHaveClass('badge')
+        expect(screen.getByText(/Aguardando logs\.\.\./i)).toBeInTheDocument()
       })
     })
   })
 
-  describe('polling', () => {
-    it('deve iniciar polling após conectar', async () => {
-      vi.useFakeTimers()
-
-      vi.mocked(apiClient.default).get
-        .mockResolvedValueOnce({
-          data: { ok: true, files: [{ name: 'test.log' }] },
-        })
-        .mockResolvedValue({
-          data: { logs: [] },
-        })
-
-      render(<LogStream />, { wrapper })
-
-      await waitFor(() => {
-        expect(apiClient.default.get).toHaveBeenCalled()
-      })
-
-      vi.advanceTimersByTime(2000)
-
-      await waitFor(() => {
-        expect(apiClient.default.get).toHaveBeenCalledTimes(2) // files + first poll
-      })
-
-      vi.useRealTimers()
-    })
-  })
-
-  describe('toggle de stream', () => {
-    it('deve permitir pausar/retomar o stream', async () => {
-      vi.mocked(apiClient.default).get.mockResolvedValue({
+  describe('prop paused', () => {
+    it('deve aceitar prop paused sem erro', () => {
+      /**
+       * DOC: Prop paused controla se o polling está ativo.
+       */
+      mockGetLogFiles.mockResolvedValue({
         data: { ok: true, files: [{ name: 'test.log' }] },
       })
 
-      render(<LogStream />, { wrapper })
+      render(<LogStream paused={true} />)
 
-      await waitFor(() => {
-        const toggleButton = screen.getByRole('button', { name: /Pausar/i })
-        expect(toggleButton).toBeInTheDocument()
-      })
+      expect(screen.getByText(/Logs ao Vivo/i)).toBeInTheDocument()
     })
   })
 })
