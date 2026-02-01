@@ -46,7 +46,8 @@ def get_log_config() -> dict:
     Usa ColorFormatter do Skybridge para formatação consistente.
     Desabilita uvicorn.access pois o RequestLoggingMiddleware cuida disso.
     """
-    logs_dir = Path("workspace/skybridge/logs")
+    from runtime.config.config import get_workspace_logs_dir
+    logs_dir = get_workspace_logs_dir()
     logs_dir.mkdir(parents=True, exist_ok=True)
 
     return {

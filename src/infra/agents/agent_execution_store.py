@@ -41,8 +41,9 @@ class AgentExecutionStore:
             db_path: Caminho para arquivo SQLite. Se None, usa padrão.
         """
         if db_path is None:
-            # Usa diretório workspace/skybridge/data se existir
-            data_dir = Path("workspace/skybridge/data")
+            # DOC: ADR024 - Usa workspace atual do contexto
+            from runtime.config.config import get_workspace_data_dir
+            data_dir = get_workspace_data_dir()
             data_dir.mkdir(parents=True, exist_ok=True)
             db_path = str(data_dir / "agent_executions.db")
 

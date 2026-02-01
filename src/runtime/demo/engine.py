@@ -31,8 +31,11 @@ class DemoExecutionLogger:
     def __init__(self, demo_id: str, execution_id: str, log_dir: Path | None = None):
         self.demo_id = demo_id
         self.execution_id = execution_id
-        # Usa padrão do projeto: workspace/skybridge/logs
-        self.log_dir = log_dir or Path("workspace/skybridge/logs/demos")
+        # DOC: ADR024 - Usa workspace atual do contexto
+        if log_dir is None:
+            from runtime.config.config import get_workspace_logs_dir
+            log_dir = get_workspace_logs_dir() / "demos"
+        self.log_dir = log_dir
         self.start_time = time()
         self.events: list[dict] = []
 

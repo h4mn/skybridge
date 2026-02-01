@@ -59,13 +59,17 @@ class FileBasedJobQueue(JobQueuePort):
         _metrics: Métricas embutidas para tomada de decisão
     """
 
-    def __init__(self, queue_dir: str = "workspace/skybridge/fila") -> None:
+    def __init__(self, queue_dir: str | None = None) -> None:
         """
         Inicializa fila baseada em arquivos.
 
         Args:
             queue_dir: Diretório para armazenar fila e jobs
+                      (None = usa workspace atual do contexto)
         """
+        if queue_dir is None:
+            from runtime.config.config import get_workspace_queue_dir
+            queue_dir = str(get_workspace_queue_dir())
         self.queue_dir = Path(queue_dir)
         self.queue_file = self.queue_dir / "queue.json"
         self.jobs_dir = self.queue_dir / "jobs"

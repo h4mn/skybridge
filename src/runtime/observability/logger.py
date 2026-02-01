@@ -41,7 +41,10 @@ class Colors:
 
 
 # Diretório base para logs
-LOGS_DIR = Path("workspace/skybridge/logs")
+# DOC: ADR024 - Usa workspace atual do contexto
+from runtime.config.config import get_workspace_logs_dir
+
+LOGS_DIR = get_workspace_logs_dir()
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 

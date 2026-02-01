@@ -400,8 +400,9 @@ async def cmd_diff(args: list[str]) -> int:
     sub_command = args[0].lower()
     remaining_args = args[1:]
 
-    # Log directory
-    log_dir = Path("workspace/skybridge/logs/demos")
+    # DOC: ADR024 - Usa workspace atual do contexto
+    from runtime.config.config import get_workspace_logs_dir
+    log_dir = get_workspace_logs_dir() / "demos"
 
     if sub_command == "list":
         # Lista snapshots de uma demo

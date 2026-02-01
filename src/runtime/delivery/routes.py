@@ -1072,7 +1072,8 @@ def create_rpc_router() -> APIRouter:
             from pathlib import Path
             from datetime import datetime
 
-            log_file = Path("workspace/skybridge/logs") / f"{datetime.now():%Y-%m-%d}.log"
+            from runtime.config.config import get_workspace_logs_dir
+            log_file = get_workspace_logs_dir() / f"{datetime.now():%Y-%m-%d}.log"
 
             if not log_file.exists():
                 return JSONResponse(status_code=200, content={"ok": True, "lines": []})
@@ -1112,7 +1113,8 @@ def create_rpc_router() -> APIRouter:
             from pathlib import Path
             from datetime import datetime
 
-            log_file = Path("workspace/skybridge/logs") / f"{datetime.now():%Y-%m-%d}.log"
+            from runtime.config.config import get_workspace_logs_dir
+            log_file = get_workspace_logs_dir() / f"{datetime.now():%Y-%m-%d}.log"
             last_position = 0
 
             if log_file.exists():
@@ -1410,7 +1412,8 @@ def create_rpc_router() -> APIRouter:
         try:
             from pathlib import Path
 
-            logs_dir = Path("workspace/skybridge/logs")
+            from runtime.config.config import get_workspace_logs_dir
+            logs_dir = get_workspace_logs_dir()
 
             if not logs_dir.exists():
                 return JSONResponse(
@@ -1465,7 +1468,8 @@ def create_rpc_router() -> APIRouter:
             from datetime import datetime
             from runtime.delivery.log_utils import parse_log_line, strip_ansi_codes
 
-            logs_dir = Path("workspace/skybridge/logs")
+            from runtime.config.config import get_workspace_logs_dir
+            logs_dir = get_workspace_logs_dir()
             log_file = logs_dir / filename
 
             # Verifica se o arquivo está dentro do diretório de logs (segurança)

@@ -543,3 +543,111 @@ def get_trello_config() -> TrelloConfig:
     if _trello_config is None:
         _trello_config = load_trello_config()
     return _trello_config
+
+
+# ============================================================================
+# Funções Centralizadas de Caminhos de Workspace (ADR024)
+# ============================================================================
+
+def get_base_path() -> Path:
+    """
+    Retorna o caminho base do projeto.
+
+    Returns:
+        Path do diretório raiz do projeto
+    """
+    return Path.cwd()
+
+
+def get_workspace_path(workspace_id: str | None = None) -> Path:
+    """
+    Retorna o caminho do workspace.
+
+    DOC: ADR024 - Workspaces são isolados em workspace/{workspace_id}/
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+
+    Returns:
+        Path do workspace: workspace/{workspace_id}/
+    """
+    if workspace_id is None:
+        from runtime.workspace.workspace_context import get_current_workspace
+        workspace_id = get_current_workspace()
+
+    return get_base_path() / "workspace" / workspace_id
+
+
+def get_workspace_data_dir(workspace_id: str | None = None) -> Path:
+    """
+    Retorna o diretório de dados do workspace.
+
+    DOC: ADR024 - Cada workspace tem seu próprio data/
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+
+    Returns:
+        Path: workspace/{workspace_id}/data/
+    """
+    return get_workspace_path(workspace_id) / "data"
+
+
+def get_workspace_logs_dir(workspace_id: str | None = None) -> Path:
+    """
+    Retorna o diretório de logs do workspace.
+
+    DOC: ADR024 - Cada workspace tem seu próprio logs/
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+
+    Returns:
+        Path: workspace/{workspace_id}/logs/
+    """
+    return get_workspace_path(workspace_id) / "logs"
+
+
+def get_workspace_queue_dir(workspace_id: str | None = None) -> Path:
+    """
+    Retorna o diretório de fila do workspace.
+
+    DOC: ADR024 - Cada workspace tem seu próprio fila/ (FileBasedJobQueue)
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+
+    Returns:
+        Path: workspace/{workspace_id}/fila/
+    """
+    return get_workspace_path(workspace_id) / "fila"
+
+
+def get_workspace_snapshots_dir(workspace_id: str | None = None) -> Path:
+    """
+    Retorna o diretório de snapshots do workspace.
+
+    DOC: ADR017 - Snapshots armazenados em workspace/{workspace_id}/snapshots/
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+
+    Returns:
+        Path: workspace/{workspace_id}/snapshots/
+    """
+    return get_workspace_path(workspace_id) / "snapshots"
+
+
+def get_workspace_diffs_dir(workspace_id: str | None = None) -> Path:
+    """
+    Retorna o diretório de diffs do workspace.
+
+    DOC: ADR017 - Diffs armazenados em workspace/{workspace_id}/diffs/
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+
+    Returns:
+        Path: workspace/{workspace_id}/diffs/
+    """
+    return get_workspace_path(workspace_id) / "diffs"
