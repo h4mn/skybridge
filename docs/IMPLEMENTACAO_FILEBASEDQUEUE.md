@@ -51,7 +51,7 @@ workspace/skybridge/fila/
 - Substituído `InMemoryJobQueue` → `FileBasedJobQueue`
 - Compartilha mesma fila do servidor (resolve Problema #1)
 
-### 4. API Principal (apps.api)
+### 4. API Principal (apps.server)
 
 **Arquivo:** `src/runtime/delivery/routes.py`
 
@@ -116,7 +116,7 @@ workspace/skybridge/fila/
 ### Iniciar API
 
 ```bash
-python apps/api/main.py
+python apps/server/main.py
 ```
 
 ### Verificar Métricas
@@ -205,7 +205,7 @@ job_queue = RedisJobQueue(redis_url="redis://localhost:6379")
 ## 📝 Próximos Passos
 
 1. **Validação em produção:**
-   - Executar `python apps/api/main.py`
+   - Executar `python apps/server/main.py`
    - Executar `python -m runtime.background.webhook_worker`
    - Enviar webhooks reais do GitHub
    - Monitorar `/metrics` por 1-2 semanas

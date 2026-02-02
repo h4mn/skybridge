@@ -59,7 +59,7 @@ paths:
   # ============================================
   # PUBLIC ENDPOINTS
   # ============================================
-  /openapi:
+  /api/openapi:
     get:
       summary: Obter documento OpenAPI
       description: |
@@ -76,7 +76,7 @@ paths:
               schema:
                 type: string
 
-  /privacy:
+  /api/privacy:
     get:
       summary: Obter política de privacidade
       description: |

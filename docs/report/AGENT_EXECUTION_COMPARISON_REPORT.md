@@ -375,7 +375,7 @@ O sistema Skybridge **agentes autônomos webhook-driven** está:
 ## Metadados
 
 ```
-Worktree do Relatório: B:/_repositorios/skybridge-worktrees/skybridge-report-agentes
+Worktree do Relatório: B:/_repositorios/skybridge-auto/skybridge-report-agentes
 Branch: report/agentes-analise-comparativa
 Base Commit: 6eadf43 (main)
 Arquivo: AGENT_EXECUTION_COMPARISON_REPORT.md

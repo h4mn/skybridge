@@ -19,9 +19,6 @@ from core.webhooks.infrastructure.agents.domain import (
 from core.webhooks.infrastructure.agents.agent_facade import (
     AgentFacade,
 )
-from core.webhooks.infrastructure.agents.claude_agent import (
-    ClaudeCodeAdapter,
-)
 from core.webhooks.infrastructure.agents.claude_sdk_adapter import (
     ClaudeSDKAdapter,
 )
@@ -36,7 +33,6 @@ __all__ = [
     "AgentResult",
     "ThinkingStep",
     "AgentFacade",
-    "ClaudeCodeAdapter",
     "ClaudeSDKAdapter",
     "XMLStreamingProtocol",
     "SkybridgeCommand",

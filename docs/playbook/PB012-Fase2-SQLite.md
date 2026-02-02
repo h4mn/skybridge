@@ -208,7 +208,7 @@ python scripts/test_sqlite_queue.py
 ### Passo 4: Iniciar servidor
 
 ```bash
-python -m apps.api.main
+python -m apps.server.main
 ```
 
 **Log esperado:**

@@ -41,7 +41,10 @@ class Colors:
 
 
 # Diretório base para logs
-LOGS_DIR = Path("workspace/skybridge/logs")
+# DOC: ADR024 - Usa workspace atual do contexto
+from runtime.config.config import get_workspace_logs_dir
+
+LOGS_DIR = get_workspace_logs_dir()
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -133,9 +136,10 @@ class ColorFormatter(logging.Formatter):
         json_data = None
         message_prefix = raw_message
 
-        # Procura por JSON no final da mensagem
+        # Procura por JSON no final da mensagem (apenas dicts, não listas)
+        # Listas como [123] são comuns em mensagens do uvicorn e não devem ser parseadas
         for i in range(len(raw_message) - 1, -1, -1):
-            if raw_message[i] in ("{", "["):
+            if raw_message[i] == "{":  # Apenas dicts, não listas []
                 try:
                     json_str = raw_message[i:]
                     json_data = json.loads(json_str)
@@ -160,11 +164,12 @@ class ColorFormatter(logging.Formatter):
         for key, value in vars(record).items():
             if key.startswith("_"):
                 continue
-            # Pula campos padrão do LogRecord
+            # Pula campos padrão do LogRecord e campos internos do uvicorn
             if key in ("name", "msg", "args", "levelname", "levelno", "pathname",
                       "filename", "module", "lineno", "funcName", "created", "msecs",
                       "relativeCreated", "thread", "threadName", "processName",
-                      "process", "getMessage", "exc_info", "exc_text", "stack_info"):
+                      "process", "getMessage", "exc_info", "exc_text", "stack_info",
+                      "color_message"):  # uvicorn color_message - nós já aplicamos cores
                 continue
 
             # Formata qualquer outro campo como extra
@@ -312,16 +317,8 @@ def print_separator(char: str = "─", width: int = 60) -> None:
 
 def print_banner(title: str, version: str | None = None) -> None:
     """Imprime um banner de entrada bonito estilo Claude."""
-    width = 60
-
-    print()
-    print_separator("═", width)
-    print(f"{Colors.BOLD}{Colors.CYAN}{' ' * ((width - len(title)) // 2)}{title}{Colors.RESET}")
-    if version:
-        version_text = f"v{version}"
-        print(f"{Colors.DIM}{' ' * ((width - len(version_text)) // 2)}{version_text}{Colors.RESET}")
-    print_separator("═", width)
-    print()
+    # Banner removido - CLI agora tem seu próprio banner
+    pass
 
 
 def print_ngrok_urls(
@@ -336,6 +333,7 @@ def print_ngrok_urls(
     if reserved_domain:
         print_separator("─", width)
         print(f"  {Colors.YELLOW}URL:{Colors.RESET} {Colors.CYAN}{base_url}{Colors.RESET}")
+        print_separator("─", 60)
     print()
 
 

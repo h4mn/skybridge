@@ -52,7 +52,7 @@ find worktrees -name "snapshot.json" -exec cat {} \;
 **Skybridge WebUI** - Dashboard web para monitoramento em tempo real do sistema de webhook agents.
 
 **Princípios:**
-1. **Fachada separada:** `apps/web/main.py` (similar a `apps/api/main.py`)
+1. **Fachada separada:** `apps/web/main.py` (similar a `apps/server/main.py`)
 2. **Processo independente:** Terminal próprio com logs dedicados
 3. **Compartilhamento de infra:** Usa mesma API FastAPI (axios + static)
 4. **Real-time:** Server-Sent Events (SSE) para logs/streaming
@@ -131,7 +131,7 @@ find worktrees -name "snapshot.json" -exec cat {} \;
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                           TERMINAL 1 (Backend API)                             │
-│  python apps/api/main.py                                                        │
+│  python apps/server/main.py                                                        │
 │  → FastAPI na porta 8000                                                        │
 │  → /health, /discover, /webhooks/{source}                                      │
 │  → /webhooks/jobs, /webhooks/worktrees (novos)                                 │
@@ -279,7 +279,7 @@ skybridge/
 
 ### Fachada Frontend (`apps/web/main.py`)
 
-Similar a `apps/api/main.py`:
+Similar a `apps/server/main.py`:
 
 ```python
 """

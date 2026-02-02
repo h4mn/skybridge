@@ -60,8 +60,8 @@ class TestWebhookProcessor:
         )
 
         assert result.is_ok
-        # job_id format: github-issues.opened-{uuid}
-        assert result.value.startswith("github-issues.opened-")
+        # job_id format: github-issue{issue_number}-{uuid}
+        assert result.value.startswith("github-issue")
 
     @pytest.mark.asyncio
     async def test_process_github_issue_missing_issue_number(self, processor):

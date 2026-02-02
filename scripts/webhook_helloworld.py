@@ -78,7 +78,7 @@ if response.status_code == 202:
 
     print()
     print("🔍 Verificando worktree e branch criados...")
-    print("📁 Worktree deve estar em: ../skybridge-worktrees/")
+    print("📁 Worktree deve estar em: ../skybridge-auto/")
     print("🌲 Branch deve ser: webhook/github/issue/1001/<suffix>")
     print()
     print("📊 Verifique os logs da API para ver o que o subagente fez!")

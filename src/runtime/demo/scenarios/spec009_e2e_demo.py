@@ -378,7 +378,7 @@ Tags: #demo #spec009 #multi-agent""",
         """Executa implementação e cria PR."""
         self.log_progress(1, 5, "Criando worktree isolado...")
 
-        worktree_path = f"/tmp/skybridge-worktrees/demo-{issue_data['number']}"
+        worktree_path = f"/tmp/skybridge-auto/demo-{issue_data['number']}"
         branch_name = f"demo/issue-{issue_data['number']}"
 
         await self._add_comment(adapter, card_id,

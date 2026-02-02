@@ -163,7 +163,7 @@ if __name__ == "__main__":
         test_label_sync()
     except requests.exceptions.ConnectionError:
         print("\n❌ Erro: Não foi possível conectar à API")
-        print("💡 Certifique-se de que a API está rodando: python -m apps.api.main")
+        print("💡 Certifique-se de que a API está rodando: python -m apps.server.main")
         sys.exit(1)
     except KeyboardInterrupt:
         print("\n\n⚠️  Teste interrompido pelo usuário")

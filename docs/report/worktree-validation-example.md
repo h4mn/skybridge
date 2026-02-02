@@ -91,7 +91,7 @@ def resolve_issue_workflow(issue_number: int):
       "staged": [],
       "unstaged": [
         "apps/cli/main.py",
-        "apps/api/main.py"
+        "apps/server/main.py"
       ],
       "conflicts": []
     }

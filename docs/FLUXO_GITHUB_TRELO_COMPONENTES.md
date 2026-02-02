@@ -109,7 +109,7 @@
 - Persistência em `workspace/skybridge/fila/`
 - Drop-in replacement para InMemoryJobQueue
 - Métricas embutidas (throughput, latência, backlog)
-- Endpoint `/metrics` na apps.api
+- Endpoint `/metrics` na API Skybridge (apps.server)
 
 **Estrutura de Arquivos:**
 ```

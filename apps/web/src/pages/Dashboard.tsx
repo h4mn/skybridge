@@ -1,46 +1,45 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
 import { Card, Row, Col, Spinner, Alert, Badge, Table, ProgressBar, Collapse, Button } from 'react-bootstrap'
-import { healthApi, webhooksApi, type JobMetrics } from '../api/endpoints'
+import { healthApi, webhooksApi, observabilityApi, type JobMetrics } from '../api/endpoints'
 import LogStream from '../components/LogStream'
 
 /**
- * Página Dashboard com métricas principais e cards clicáveis.
- * Objetivo: RF001 - Dashboard Principal com Métricas (Fase 2.5 - Cards Clicáveis)
+ * Página Dashboard com métricas principais.
+ * Objetivo: RF001 - Dashboard Principal com Métricas
  */
 export default function Dashboard() {
-  const navigate = useNavigate()
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
+  const [logStreamPaused, setLogStreamPaused] = useState(false)
 
-  // Query para health check
-  const { data: health, isLoading: healthLoading, error: healthError } = useQuery({
+  // Query para health check (sem auto-refresh - apenas na montagem)
+  const { data: health, isLoading: healthLoading, error: healthError, refetch: refetchHealth } = useQuery({
     queryKey: ['health'],
     queryFn: async () => {
       const res = await healthApi.get()
       return res.data
     },
-    refetchInterval: 5000,
+    // refetchInterval removido - atualiza apenas via botão ou reload
   })
 
-  // Query para jobs
-  const { data: jobsData, isLoading: jobsLoading, error: jobsError } = useQuery({
+  // Query para jobs (sem auto-refresh)
+  const { data: jobsData, isLoading: jobsLoading, error: jobsError, refetch: refetchJobs } = useQuery({
     queryKey: ['webhook-jobs'],
     queryFn: async () => {
       const res = await webhooksApi.listJobs()
       return res.data
     },
-    refetchInterval: 5000,
+    // refetchInterval removido - atualiza apenas via botão ou reload
   })
 
-  // Query para worktrees
-  const { data: worktreesData, isLoading: worktreesLoading, error: worktreesError } = useQuery({
-    queryKey: ['worktrees'],
+  // Query para logs files (sem auto-refresh)
+  const { data: logsData, isLoading: logsLoading, refetch: refetchLogs } = useQuery({
+    queryKey: ['logs-files'],
     queryFn: async () => {
-      const res = await webhooksApi.listWorktrees()
+      const res = await observabilityApi.getLogFiles()
       return res.data
     },
-    refetchInterval: 10000,
+    // refetchInterval removido - atualiza apenas via botão ou reload
   })
 
   // Métricas
@@ -52,7 +51,6 @@ export default function Dashboard() {
   const successRate = totalJobs > 0
     ? ((completedJobs / totalJobs) * 100).toFixed(1)
     : '0.0'
-  const worktrees = worktreesData?.worktrees ?? []
 
   // Status helper
   const getHealthStatus = () => {
@@ -81,31 +79,42 @@ export default function Dashboard() {
   // Card click handler
   const handleCardClick = (cardId: string) => {
     if (expandedCard === cardId) {
-      setExpandedCard(null) // Collapse se já expandido
+      setExpandedCard(null)
     } else {
-      setExpandedCard(cardId)  // Expandir o card clicado
+      setExpandedCard(cardId)
     }
+  }
+
+  // Log files count
+  const logFilesCount = logsData?.files?.length ?? 0
+  const currentLogFile = logsData?.files?.[0]?.name ?? null
+
+  // Handler para refresh manual de todas as métricas
+  const handleRefreshAll = async () => {
+    await Promise.all([refetchHealth(), refetchJobs(), refetchLogs()])
   }
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="mb-0">Dashboard</h1>
+      <div className="d-flex justify-content-between align-items-center mb-3">
         <small className="text-muted">
           Última atualização: {lastUpdate}
         </small>
+        <Button variant="outline-primary" size="sm" onClick={handleRefreshAll}>
+          🔄 Atualizar
+        </Button>
       </div>
 
-      {(healthError || jobsError || worktreesError) && (
+      {(healthError || jobsError) && (
         <Alert variant="warning">
           Erro ao carregar métricas. Verifique se a API está rodando.
         </Alert>
       )}
 
-      {/* Metric Cards Clicáveis */}
+      {/* 4 Cards de Métricas */}
       <Row className="g-4 mb-4">
         {/* API Status Card */}
-        <Col md={2}>
+        <Col md={3}>
           <Card
             className={`h-100 border-${healthStatus.variant} cursor-pointer ${expandedCard === 'health' ? 'shadow-sm' : ''}`}
             onClick={() => handleCardClick('health')}
@@ -144,10 +153,6 @@ export default function Dashboard() {
                       <td><strong>Timestamp</strong></td>
                       <td><small>{health?.timestamp || 'N/A'}</small></td>
                     </tr>
-                    <tr>
-                      <td><strong>Serviço</strong></td>
-                      <td>{health?.service || 'N/A'}</td>
-                    </tr>
                   </tbody>
                 </Table>
               </div>
@@ -155,8 +160,8 @@ export default function Dashboard() {
           </Card>
         </Col>
 
-        {/* Active Jobs Card */}
-        <Col md={2}>
+        {/* Jobs Ativos Card */}
+        <Col md={3}>
           <Card
             className="h-100 cursor-pointer hover-shadow-sm transition"
             onClick={() => handleCardClick('jobs')}
@@ -207,110 +212,13 @@ export default function Dashboard() {
                     </tr>
                   </tbody>
                 </Table>
-                <div className="mt-3">
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
-                    onClick={() => navigate('/jobs')}
-                  >
-                    Ver Jobs →
-                  </Button>
-                </div>
               </div>
             </Collapse>
-          </Card>
-        </Col>
-
-        {/* Worktrees Card */}
-        <Col md={2}>
-          <Card
-            className="h-100 cursor-pointer hover-shadow-sm transition"
-            onClick={() => handleCardClick('worktrees')}
-          >
-            <Card.Body className="d-flex align-items-center">
-              <div className="display-6 me-3 text-info">
-                {worktreesLoading ? <Spinner size="sm" /> : '🌳'}
-              </div>
-              <div className="flex-grow-1">
-                <Card.Subtitle className="text-muted mb-1">Worktrees</Card.Subtitle>
-                <h3 className="mb-0 text-info">
-                  {worktreesLoading ? '...' : worktrees.length}
-                </h3>
-                <small className="text-muted">ativos</small>
-                <div className="mt-1">
-                  <small className="text-muted">👆 Clique para listar</small>
-                </div>
-              </div>
-            </Card.Body>
-
-            {/* Expanded Content */}
-            <Collapse in={expandedCard === 'worktrees'}>
-              <div className="border-top pt-3 mt-3">
-                <h6>Worktrees Recentes</h6>
-                {worktrees.length === 0 ? (
-                  <p className="text-muted mb-0">Nenhum worktree encontrado.</p>
-                ) : (
-                  <Table size="sm" bordered>
-                    <tbody>
-                      {worktrees.slice(0, 3).map((wt, idx) => (
-                        <tr key={`${wt.name}-${idx}`}>
-                          <td>
-                            <small className="text-truncate d-block" style={{ maxWidth: '120px' }}>
-                              {wt.name.replace('skybridge-github-', '')}
-                            </small>
-                          </td>
-                          <td>
-                            <Badge
-                              bg={wt.status === 'COMPLETED' ? 'success' :
-                                     wt.status === 'FAILED' ? 'danger' :
-                                     wt.status === 'PROCESSING' ? 'primary' :
-                                     'secondary'}
-                              className="fs-6"
-                            >
-                              {wt.status || 'UNKNOWN'}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                  )}
-                  {worktrees.length > 3 && (
-                    <div className="mt-2">
-                      <small className="text-muted">
-                        E mais {worktrees.length - 3} worktrees...
-                      </small>
-                    </div>
-                  )}
-              </div>
-            </Collapse>
-          </Card>
-        </Col>
-
-        {/* Logs Card - Link direto */}
-        <Col md={2}>
-          <Card
-            className="h-100 cursor-pointer hover-shadow-sm transition"
-            onClick={() => navigate('/logs')}
-          >
-            <Card.Body className="d-flex align-items-center">
-              <div className="display-6 me-3 text-warning">
-                📋
-              </div>
-              <div className="flex-grow-1">
-                <Card.Subtitle className="text-muted mb-1">Logs</Card.Subtitle>
-                <h3 className="mb-0 text-warning">Sistema</h3>
-                <small className="text-muted">visualizar</small>
-                <div className="mt-1">
-                  <small className="text-muted">👆 Clique para abrir</small>
-                </div>
-              </div>
-            </Card.Body>
           </Card>
         </Col>
 
         {/* Success Rate Card */}
-        <Col md={2}>
+        <Col md={3}>
           <Card
             className="h-100 cursor-pointer hover-shadow-sm transition"
             onClick={() => handleCardClick('success')}
@@ -361,37 +269,31 @@ export default function Dashboard() {
                     </tr>
                   </tbody>
                 </Table>
-                <div className="mt-3">
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
-                    onClick={() => window.location.href = '/worktrees'}
-                  >
-                    Ver Worktrees →
-                  </Button>
-                </div>
               </div>
             </Collapse>
           </Card>
         </Col>
 
-        {/* Worktrees Link Card */}
-        <Col md={2}>
-          <Card
-            className="h-100 cursor-pointer hover-shadow-sm transition"
-            onClick={() => navigate('/worktrees')}
-          >
+        {/* Logs Card - Inline (sem link) */}
+        <Col md={3}>
+          <Card className="h-100">
             <Card.Body className="d-flex align-items-center">
-              <div className="display-6 me-3 text-primary">
-                🔗
+              <div className="display-6 me-3 text-warning">
+                📋
               </div>
               <div className="flex-grow-1">
-                <Card.Subtitle className="text-muted mb-1">Acesso Rápido</Card.Subtitle>
-                <h3 className="mb-0 text-primary">Worktrees</h3>
-                <small className="text-muted">gerenciar</small>
-                <div className="mt-1">
-                  <small className="text-muted">👆 Clique para abrir</small>
-                </div>
+                <Card.Subtitle className="text-muted mb-1">Logs</Card.Subtitle>
+                <h3 className="mb-0 text-warning">
+                  {logsLoading ? '...' : logFilesCount}
+                </h3>
+                <small className="text-muted">arquivos</small>
+                {currentLogFile && (
+                  <div className="mt-1">
+                    <small className="text-muted text-truncate d-block" style={{ maxWidth: '150px' }}>
+                      {currentLogFile}
+                    </small>
+                  </div>
+                )}
               </div>
             </Card.Body>
           </Card>
@@ -399,7 +301,26 @@ export default function Dashboard() {
       </Row>
 
       {/* Logs ao Vivo */}
-      <LogStream />
+      <Card className="mb-4">
+        <Card.Header className="d-flex justify-content-between align-items-center py-2">
+          <Card.Title className="mb-0 fs-6">📡 Logs ao Vivo</Card.Title>
+          {!logsLoading && currentLogFile && (
+            <Badge bg={logStreamPaused ? 'warning' : 'success'} className="me-2">
+              {logStreamPaused ? 'Pausado' : 'Ao vivo'}
+            </Badge>
+          )}
+          <Button
+            variant={logStreamPaused ? 'success' : 'warning'}
+            size="sm"
+            onClick={() => setLogStreamPaused(!logStreamPaused)}
+          >
+            {logStreamPaused ? '▶ Retomar' : '⏸ Pausar'}
+          </Button>
+        </Card.Header>
+        <Card.Body className="p-0">
+          <LogStream paused={logStreamPaused} />
+        </Card.Body>
+      </Card>
 
       {/* Progress Summary */}
       {totalJobs > 0 && (
@@ -433,72 +354,6 @@ export default function Dashboard() {
           </Col>
         </Row>
       )}
-
-      {/* Worktrees Recentes */}
-      <Row className="g-4">
-        <Col md={12}>
-          <Card>
-            <Card.Header className="d-flex justify-content-between align-items-center">
-              <Card.Title className="mb-0">Worktrees Recentes</Card.Title>
-              <Badge bg={worktrees.length > 0 ? 'info' : 'secondary'}>
-                {worktrees.length} {worktrees.length === 1 ? 'worktree' : 'worktrees'}
-              </Badge>
-            </Card.Header>
-            <Card.Body className="p-0">
-              {worktreesLoading ? (
-                <div className="text-center py-4">
-                  <Spinner animation="border" />
-                </div>
-              ) : worktrees.length === 0 ? (
-                <div className="text-center py-4 text-muted">
-                  Nenhum worktree encontrado
-                </div>
-              ) : (
-                <Table hover responsive size="sm">
-                  <thead>
-                    <tr>
-                      <th>Nome</th>
-                      <th>Status</th>
-                      <th>Caminho</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {worktrees.slice(0, 5).map((wt, idx) => (
-                      <tr key={`${wt.name}-${idx}`}>
-                        <td>
-                          <code className="text-primary">{wt.name}</code>
-                        </td>
-                        <td>
-                          <Badge
-                            bg={wt.status === 'COMPLETED' ? 'success' :
-                                   wt.status === 'FAILED' ? 'danger' :
-                                   wt.status === 'PROCESSING' ? 'primary' :
-                                   'secondary'}
-                          >
-                            {wt.status || 'UNKNOWN'}
-                          </Badge>
-                        </td>
-                        <td>
-                          <small className="text-muted text-truncate d-block" style={{ maxWidth: '300px' }}>
-                            {wt.path}
-                          </small>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              )}
-              {worktrees.length > 5 && (
-                <div className="text-center p-2">
-                  <small className="text-muted">
-                    E mais {worktrees.length - 5} worktrees...
-                  </small>
-                </div>
-              )}
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
 
       {/* Info Card */}
       <Card className="mt-4 bg-light">

@@ -30,11 +30,18 @@ from core.webhooks.infrastructure.agents.domain import (
     AgentResult,
 )
 from kernel.contracts.result import Result
-from runtime.config import get_agent_config
 from runtime.prompts import (
     render_system_prompt,
     load_system_prompt_config,
 )
+
+# Import de tipos do SDK - deve ser no topo para evitar NameError
+try:
+    from claude_agent_sdk.types import HookMatcher, HookContext
+except ImportError:
+    # Fallback para versões antigas do SDK
+    HookMatcher = None  # type: ignore
+    HookContext = None  # type: ignore
 
 
 class ClaudeSDKAdapter(AgentFacade):
@@ -64,20 +71,35 @@ class ClaudeSDKAdapter(AgentFacade):
     def __init__(
         self,
         allowed_tools: list[str] | None = None,
-        permission_mode: str = "bypassPermissions",
+        permission_mode: str = "acceptEdits",
         custom_tools: list[Any] | None = None,
     ):
         """
         Inicializa adapter.
 
+        PLAN.md Fase 3: Permissões restritas para agentes em worktrees.
+
         Args:
-            allowed_tools: Lista de tools permitidas (default: todas)
-            permission_mode: Modo de permissão (default: bypassPermissions)
+            allowed_tools: Lista de tools permitidas (default: restritivo)
+            permission_mode: Modo de permissão (default: acceptEdits)
             custom_tools: Lista de custom tools decoradas com @tool
         """
+        # PLAN.md Fase 3: Se vazio, usa lista restritiva padrão (SEM Bash direto)
+        if allowed_tools is None:
+            allowed_tools = ["Read", "Grep", "Write", "Glob", "Edit"]
+
         self.allowed_tools = allowed_tools
         self.permission_mode = permission_mode
-        self.custom_tools = custom_tools or []
+
+        # PLAN.md Fase 2+3: Adicionar safe_git como custom tool
+        from core.webhooks.infrastructure.agents.safe_git_tool import safe_git_tool
+
+        if custom_tools is None:
+            custom_tools = [safe_git_tool]
+        else:
+            custom_tools.append(safe_git_tool)
+
+        self.custom_tools = custom_tools
 
     def get_agent_type(self) -> str:
         """Retorna tipo de agente."""
@@ -127,10 +149,12 @@ class ClaudeSDKAdapter(AgentFacade):
             Result com AgentExecution ou erro
         """
         from runtime.observability.logger import get_logger
+        from runtime.config import get_agent_config
         from claude_agent_sdk import ClaudeSDKClient
-        from claude_agent_sdk.types import ClaudeAgentOptions, HookMatcher, HookContext
+        from claude_agent_sdk.types import ClaudeAgentOptions
 
         logger = get_logger()
+        agent_config = get_agent_config()
 
         # Prepara system prompt com template
         system_prompt = self._build_system_prompt(job, skill, skybridge_context)
@@ -152,13 +176,25 @@ class ClaudeSDKAdapter(AgentFacade):
         execution.mark_running()
 
         try:
-            # Configura opções do SDK com hooks de observabilidade
+            # Prepara environment variables para o SDK
+            # Isso permite usar Z.AI ou outros endpoints compatíveis com Anthropic
+            env_vars = {}
+            if agent_config.anthropic_auth_token:
+                env_vars["ANTHROPIC_AUTH_TOKEN"] = agent_config.anthropic_auth_token
+            if agent_config.anthropic_base_url:
+                env_vars["ANTHROPIC_BASE_URL"] = agent_config.anthropic_base_url
+            if agent_config.anthropic_default_sonnet_model:
+                env_vars["ANTHROPIC_DEFAULT_SONNET_MODEL"] = agent_config.anthropic_default_sonnet_model
+
+            # Configura opções do SDK com hooks de observabilidade e env vars
             options = ClaudeAgentOptions(
                 system_prompt=system_prompt,
                 permission_mode=self.permission_mode,  # type: ignore
                 cwd=worktree_path,
                 allowed_tools=self.allowed_tools or [],
                 hooks=self._build_hooks_config(job, logger),
+                max_turns=50,  # Limita turnos para evitar loop infinito
+                env=env_vars,  # Passa ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, etc
             )
 
             # Cria diretório .sky/ para log interno do agente
@@ -178,27 +214,184 @@ class ClaudeSDKAdapter(AgentFacade):
             )
 
             # Cria e conecta cliente SDK (hooks já configurados nas options)
+            logger.info(
+                f"[SPAWN-1] Criando ClaudeSDKClient com hooks de observabilidade",
+                extra={
+                    "job_id": job.job_id,
+                    "worktree": worktree_path,
+                    "permission_mode": self.permission_mode,
+                    "max_turns": 50,
+                },
+            )
+
             async with ClaudeSDKClient(options=options) as client:
+                logger.info(
+                    f"[SPAWN-2] Cliente SDK conectado, enviando query",
+                    extra={
+                        "job_id": job.job_id,
+                        "prompt_length": len(main_prompt),
+                        "prompt_preview": main_prompt[:200],
+                    },
+                )
+
                 # Envia prompt principal
                 await client.query(main_prompt)
 
-                # Aguarda conclusão com timeout
-                result_message = await asyncio.wait_for(
-                    self._wait_for_result(client),
-                    timeout=execution.timeout_seconds,
+                logger.info(
+                    f"[SPAWN-3] Query enviada, iniciando consumo do stream (receive_response)",
+                    extra={
+                        "job_id": job.job_id,
+                        "timeout": execution.timeout_seconds,
+                        "method": "receive_response",
+                    },
                 )
 
-                # Captura stdout/stream para log
+                # CONSUME STREAM ÚNICO - captura stdout E aguarda ResultMessage
+                # ADR021: Refatoração para streams - não usar receive_messages() separado
+                result_message = None
                 stdout_parts = []
-                async for msg in client.receive_messages():
-                    if hasattr(msg, "content"):
-                        for block in msg.content:
-                            if hasattr(block, "text"):
-                                stdout_parts.append(block.text)
+                msg_count = 0
 
+                try:
+                    # Timeout aplicado ao stream completo
+                    # BUG FIX: Usar asyncio.timeout() (Python 3.11+) ao invés de
+                    # asyncio.wait_for() que não funciona com async for diretamente
+                    logger.info(
+                        f"[SPAWN-STREAM] Iniciando loop async for com timeout={execution.timeout_seconds}s",
+                        extra={"job_id": job.job_id},
+                    )
+
+                    # Python 3.11+: usa asyncio.timeout() context manager
+                    async with asyncio.timeout(execution.timeout_seconds):
+                        async for msg in client.receive_response():
+                            msg_count += 1
+                            msg_type = msg.__class__.__name__
+                            msg_subtype = getattr(msg, 'subtype', None)
+
+                            # INFO para visibilidade - mostra cada mensagem recebida
+                            logger.info(
+                                f"[SPAWN-STREAM #{msg_count}] {msg_type} (subtype: {msg_subtype})",
+                                extra={
+                                    "job_id": job.job_id,
+                                    "msg_count": msg_count,
+                                    "msg_type": msg_type,
+                                    "msg_subtype": str(msg_subtype),
+                                    "has_content": hasattr(msg, "content"),
+                                },
+                            )
+
+                            # Captura stdout durante o stream (AssistantMessage)
+                            if hasattr(msg, "content") and msg.content is not None:
+                                content_blocks = len(msg.content) if msg.content else 0
+                                for block in msg.content:
+                                    if hasattr(block, "text"):
+                                        stdout_parts.append(block.text)
+
+                                logger.info(
+                                    f"[SPAWN-STREAM #{msg_count}] {msg_type} processou {content_blocks} blocos",
+                                    extra={"job_id": job.job_id, "content_blocks": content_blocks},
+                                )
+
+                            # Captura ResultMessage quando aparecer (múltiplas formas de detecção)
+                            # BUG FIX: hasattr(msg, 'is_error') retorna True para qualquer Mock
+                            # SOLUÇÃO: Verificar se is_error é explicitamente True ou False
+                            is_error_value = getattr(msg, 'is_error', None)
+                            is_result_message = (
+                                msg_type == "ResultMessage" or
+                                msg_subtype in ['success', 'error'] or
+                                is_error_value in [True, False]  # ← Detecta apenas se for bool
+                            )
+
+                            if is_result_message:
+                                result_message = msg
+                                logger.info(
+                                    f"[SPAWN-4] ResultMessage capturada após {msg_count} mensagens - is_error={getattr(msg, 'is_error', None)}",
+                                    extra={
+                                        "job_id": job.job_id,
+                                        "is_error": getattr(msg, 'is_error', None),
+                                        "duration_ms": getattr(msg, 'duration_ms', None),
+                                    },
+                                )
+                                break  # Stream termina aqui
+
+                    # Log após o loop completar
+                    logger.info(
+                        f"[SPAWN-LOOP] Loop encerrou naturalmente - {msg_count} mensagens processadas",
+                        extra={"job_id": job.job_id, "has_result": result_message is not None},
+                    )
+
+                except (asyncio.TimeoutError, TimeoutError) as timeout_err:
+                    # asyncio.timeout() (Python 3.11+) levanta TimeoutError built-in
+                    # asyncio.wait_for() levanta asyncio.TimeoutError
+                    error_msg = f"Timeout no stream ({execution.timeout_seconds}s) após {msg_count} mensagens"
+                    logger.error(
+                        f"[SPAWN-ERROR] {error_msg}",
+                        extra={"job_id": job.job_id, "messages_received": msg_count},
+                    )
+                    execution.mark_timed_out(error_msg)
+
+                    # Salva execução com timeout no store
+                    try:
+                        from core.webhooks.application.handlers import get_agent_execution_store
+                        store = get_agent_execution_store()
+                        store.save(execution)
+                    except Exception as save_error:
+                        logger.error(
+                            f"Erro ao salvar execução timeout: {save_error}",
+                            extra={"job_id": job.job_id},
+                        )
+
+                    return Result.err(error_msg)
+
+                # Verifica se recebeu ResultMessage
+                if result_message is None:
+                    error_msg = f"Stream encerrou sem ResultMessage ({msg_count} mensagens recebidas)"
+                    logger.error(
+                        f"[SPAWN-ERROR] {error_msg}",
+                        extra={
+                            "job_id": job.job_id,
+                            "messages_received": msg_count,
+                            "stdout_parts_count": len(stdout_parts),
+                            "stdout_preview": "\n".join(stdout_parts)[:500] if stdout_parts else None,
+                        },
+                    )
+                    execution.stdout = "\n".join(stdout_parts)  # Salva o que capturou
+                    execution.mark_failed(error_msg)
+
+                    # Salva execução falha no store
+                    try:
+                        from core.webhooks.application.handlers import get_agent_execution_store
+                        store = get_agent_execution_store()
+                        store.save(execution)
+                    except Exception as save_error:
+                        logger.error(
+                            f"Erro ao salvar execução falha: {save_error}",
+                            extra={"job_id": job.job_id},
+                        )
+
+                    return Result.err(error_msg)
+
+                logger.info(
+                    f"[SPAWN-5] Stream consumido com SUCESSO: {msg_count} mensagens, {len(stdout_parts)} partes de stdout",
+                    extra={
+                        "job_id": job.job_id,
+                        "msg_count": msg_count,
+                        "stdout_parts": len(stdout_parts),
+                        "stdout_length": sum(len(p) for p in stdout_parts),
+                    },
+                )
                 execution.stdout = "\n".join(stdout_parts)
 
             # Extrai resultado da ResultMessage
+            logger.info(
+                f"[SPAWN-6] Extraindo resultado da ResultMessage",
+                extra={
+                    "job_id": job.job_id,
+                    "is_error": getattr(result_message, 'is_error', None),
+                    "duration_ms": getattr(result_message, 'duration_ms', None),
+                    "has_result": hasattr(result_message, 'result'),
+                },
+            )
             agent_result = self._extract_result(result_message)
 
             # Salva log interno do agente
@@ -224,12 +417,13 @@ class ClaudeSDKAdapter(AgentFacade):
             )
 
             execution.mark_completed(agent_result)
-            return Result.ok(execution)
 
-        except asyncio.TimeoutError:
-            error_msg = f"Timeout na execução do agente ({execution.timeout_seconds}s)"
-            execution.mark_timed_out(error_msg)
-            return Result.err(error_msg)
+            # Salva execução no store para consulta via API
+            from core.webhooks.application.handlers import get_agent_execution_store
+            store = get_agent_execution_store()
+            store.save(execution)
+
+            return Result.ok(execution)
 
         except Exception as e:
             error_msg = f"Erro ao executar agente SDK: {str(e)}"
@@ -237,29 +431,74 @@ class ClaudeSDKAdapter(AgentFacade):
             logger.error(
                 error_msg,
                 extra={"job_id": job.job_id, "error": str(e)},
-                exc_info=True,
             )
+
+            # Salva execução falha no store
+            try:
+                from core.webhooks.application.handlers import get_agent_execution_store
+                store = get_agent_execution_store()
+                store.save(execution)
+            except Exception as save_error:
+                logger.error(
+                    f"Erro ao salvar execução falha: {save_error}",
+                    extra={"job_id": job.job_id},
+                )
+
             return Result.err(error_msg)
 
-    async def _wait_for_result(self, client) -> Any:
+    async def _wait_for_result(self, client, job_id: str) -> Any:
         """
         Aguarda ResultMessage do cliente SDK.
 
+        .. DEPRECATED::
+            ADR021 Refatoração de Streams (2026-01-31):
+            Este método não é mais usado. O stream é consumido diretamente
+            em spawn() para capturar stdout e ResultMessage em um único loop.
+
+            Mantido apenas para compatibilidade. Será removido em versão futura.
+
         Args:
             client: ClaudeSDKClient conectado
+            job_id: ID do job para logging
 
         Returns:
             ResultMessage com resultado da execução
         """
+        from runtime.observability.logger import get_logger
+        logger = get_logger()
+
+        message_count = 0
         async for msg in client.receive_response():
+            message_count += 1
+            msg_type = msg.__class__.__name__
+            msg_name = getattr(msg, 'name', None)
+
+            logger.debug(
+                f"[WAIT-FOR-RESULT] Mensagem #{message_count} recebida",
+                extra={
+                    "job_id": job_id,
+                    "msg_type": msg_type,
+                    "msg_name": msg_name,
+                    "msg_class": str(type(msg)),
+                },
+            )
+
             # Verifica se é ResultMessage
-            if msg.__class__.__name__ == "ResultMessage":
+            if msg_type == "ResultMessage":
+                logger.debug(
+                    f"[WAIT-FOR-RESULT] ResultMessage encontrada após {message_count} mensagens",
+                    extra={"job_id": job_id, "is_error": getattr(msg, 'is_error', None)},
+                )
                 return msg
 
         # Se não recebeu ResultMessage, retorna None
+        logger.warning(
+            f"[WAIT-FOR-RESULT] receive_response() encerrou sem ResultMessage ({message_count} mensagens)",
+            extra={"job_id": job_id},
+        )
         return None
 
-    def _build_hooks_config(self, job, logger) -> dict[str, list[HookMatcher]]:
+    def _build_hooks_config(self, job, logger) -> dict[str, Any]:
         """
         Constrói configuração de hooks de observabilidade para o SDK.
 
@@ -274,6 +513,11 @@ class ClaudeSDKAdapter(AgentFacade):
         Returns:
             Dict com configuração de hooks por evento
         """
+        # Se HookMatcher não disponível (SDK antigo), retorna config vazio
+        if HookMatcher is None:
+            logger.warning("HookMatcher não disponível - hooks de observabilidade desabilitados")
+            return {}
+
         async def pre_tool_hook(
             input_data: dict[str, Any],
             tool_use_id: str | None,
@@ -283,33 +527,46 @@ class ClaudeSDKAdapter(AgentFacade):
             Hook executado antes de cada tool use.
 
             Loga detalhes da tool que será executada para observabilidade.
+            CRÍTICO: Usa timeout no WebSocket para não travar o stream.
             """
             tool_name = input_data.get("tool_name", "unknown")
             tool_input = input_data.get("tool_input", {})
 
             logger.info(
-                f"Tool iniciada: {tool_name}",
+                f"[HOOK] PreToolUse: {tool_name}",
                 extra={
                     "job_id": job.job_id,
                     "tool": tool_name,
                     "tool_use_id": tool_use_id,
-                    "input": tool_input,
+                    "input_keys": list(tool_input.keys()) if isinstance(tool_input, dict) else str(type(tool_input)),
                 },
             )
 
-            # Envia para WebSocket console se disponível
+            # Envia para WebSocket console se disponível - COM TIMEOUT para não travar stream
             try:
                 from runtime.delivery.websocket import get_console_manager
                 console_manager = get_console_manager()
-                await console_manager.broadcast_raw(
-                    job.job_id,
-                    "tool_use",
-                    f"Executando: {tool_name}",
-                    {"tool": tool_name, "input": tool_input},
+                # Timeout de 1 segundo para evitar travar o stream
+                await asyncio.wait_for(
+                    console_manager.broadcast_raw(
+                        job.job_id,
+                        "tool_use",
+                        f"Executando: {tool_name}",
+                        {"tool": tool_name, "input": tool_input},
+                    ),
+                    timeout=1.0,
                 )
-            except Exception:
-                # WebSocket console não disponível, ignora
-                pass
+            except asyncio.TimeoutError:
+                logger.debug(
+                    f"[HOOK] WebSocket broadcast timeout (pre_tool_hook) - continuando sem WebSocket",
+                    extra={"job_id": job.job_id, "tool": tool_name},
+                )
+            except Exception as e:
+                # WebSocket console não disponível, ignora silenciosamente
+                logger.debug(
+                    f"[HOOK] WebSocket broadcast falhou: {e}",
+                    extra={"job_id": job.job_id, "tool": tool_name},
+                )
 
             return {}
 
@@ -322,23 +579,32 @@ class ClaudeSDKAdapter(AgentFacade):
             Hook executado após cada tool use.
 
             Loga resultado da tool executada para observabilidade.
+            CRÍTICO: Usa timeout no WebSocket para não travar o stream.
             """
             tool_name = input_data.get("tool_name", "unknown")
             tool_result = input_data.get("tool_result", {})
             is_error = tool_result.get("is_error", False)
 
             logger.info(
-                f"Tool completada: {tool_name}",
+                f"[HOOK] PostToolUse: {tool_name} - {'SUCESSO' if not is_error else 'ERRO'}",
                 extra={
                     "job_id": job.job_id,
                     "tool": tool_name,
                     "tool_use_id": tool_use_id,
                     "success": not is_error,
-                    "result": tool_result,
+                    "is_error": is_error,
                 },
             )
 
+            # Não envia para WebSocket no post_tool_hook para evitar overhead
+            # O resultado já está sendo capturado no stream principal
+
             return {}
+
+        logger.info(
+            f"[HOOKS] Configurando hooks de observabilidade",
+            extra={"job_id": job.job_id, "hooks": ["PreToolUse", "PostToolUse"]},
+        )
 
         return {
             "PreToolUse": [
@@ -388,8 +654,6 @@ class ClaudeSDKAdapter(AgentFacade):
         """
         Constrói prompt principal para o agente.
 
-        Mesma lógica do ClaudeCodeAdapter.
-
         Args:
             job: Job de webhook
 
@@ -399,8 +663,10 @@ class ClaudeSDKAdapter(AgentFacade):
         issue = job.event.payload.get("issue", {})
 
         return (
-            f"Resolve issue #{job.issue_number}: {issue.get('title', '')}\n\n"
-            f"{issue.get('body', '')}"
+            f"Task: {issue.get('title', '')}\n\n"
+            f"{issue.get('body', '')}\n\n"
+            f"IMPORTANTE: Após completar esta task, retorne APENAS um JSON válido como sua resposta final. "
+            f"Não continue executando comandos indefinidamente."
         )
 
     def _extract_result(self, result_message: Any) -> AgentResult:
@@ -413,7 +679,14 @@ class ClaudeSDKAdapter(AgentFacade):
         Returns:
             AgentResult com resultado estruturado
         """
+        from runtime.observability.logger import get_logger
+        logger = get_logger()
+
         if result_message is None:
+            logger.warning(
+                "[EXTRACT-RESULT] ResultMessage é None, retornando resultado sem sucesso",
+                extra={"has_result": False},
+            )
             return AgentResult(
                 success=False,
                 changes_made=False,
@@ -429,8 +702,22 @@ class ClaudeSDKAdapter(AgentFacade):
             )
 
         # Extrai informações da ResultMessage
-        is_success = not result_message.is_error
+        # CORREÇÃO: is_error pode virar como True/False ou None
+        # Se is_error é None ou não está presente, consideramos como sucesso
+        is_error_value = getattr(result_message, 'is_error', None)
+        is_success = is_error_value is not True  # Só é falha se for explicitamente True
+
         result_text = result_message.result if hasattr(result_message, "result") else ""
+
+        logger.info(
+            f"[EXTRACT-RESULT] Extraindo resultado da ResultMessage",
+            extra={
+                "is_error_value": str(is_error_value),
+                "is_success": is_success,
+                "has_result": hasattr(result_message, "result"),
+                "result_text_length": len(result_text) if isinstance(result_text, str) else 0,
+            },
+        )
 
         # Tenta parsear JSON do resultado
         files_created = []

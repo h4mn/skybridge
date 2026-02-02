@@ -32,6 +32,7 @@ __kernel_api_version__ = _read_version("0.1.0")
 from .contracts.result import Result, Status
 from .envelope.envelope import Envelope
 from .registry.query_registry import QueryRegistry, QueryHandler, get_query_registry
+from .event_bus import get_event_bus, set_event_bus, clear_event_bus
 
 __all__ = [
     '__kernel_api_version__',
@@ -41,4 +42,7 @@ __all__ = [
     'QueryRegistry',
     'QueryHandler',
     'get_query_registry',
+    'get_event_bus',
+    'set_event_bus',
+    'clear_event_bus',
 ]

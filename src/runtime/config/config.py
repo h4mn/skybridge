@@ -14,9 +14,10 @@ from pathlib import Path
 
 # Diretório base para worktrees (configurável por ambiente)
 # Conforme SPEC008 seção 8.1.1
+# PLAN.md: Mudado de skybridge-worktrees para skybridge-auto (mais curto e alinhado com branch auto)
 WORKTREES_BASE_PATH = Path(os.getenv(
     "WORKTREES_BASE_PATH",
-    "B:/_repositorios/skybridge-worktrees"
+    "B:/_repositorios/skybridge-auto"
 ))
 
 # Garante que o diretório existe
@@ -95,8 +96,17 @@ class WebhookConfig:
 
 @dataclass(frozen=True)
 class AgentConfig:
-    """Configuração de agentes autônomos."""
+    """Configuração de agentes autônomos.
+
+    Environment Variables:
+        ANTHROPIC_AUTH_TOKEN: Token de autenticação Anthropic/Z.AI/GLM
+        ANTHROPIC_BASE_URL: Base URL para API compatível (opcional)
+        ANTHROPIC_DEFAULT_SONNET_MODEL: Modelo padrão (opcional)
+    """
     claude_code_path: str  # Caminho para executável do Claude Code CLI
+    anthropic_auth_token: str | None = None  # Token Z.AI/GLM (opcional)
+    anthropic_base_url: str | None = None  # Base URL Z.AI/GLM (opcional)
+    anthropic_default_sonnet_model: str | None = None  # Modelo alternativo (opcional)
 
 
 @dataclass(frozen=True)
@@ -107,17 +117,20 @@ class TrelloConfig:
     Environment Variables:
         TRELLO_API_KEY: Chave de API do Trello (obter em https://trello.com/app-key)
         TRELLO_API_TOKEN: Token de autenticação do usuário (obter em https://trello.com/app-key)
+        TRELLO_BOARD_ID: ID do board do Trello (obter na URL do board)
 
     Example:
         export TRELLO_API_KEY="sua_api_key_aqui"
         export TRELLO_API_TOKEN="seu_token_aqui"
+        export TRELLO_BOARD_ID="seu_board_id_aqui"
     """
     api_key: str | None
     api_token: str | None
+    board_id: str | None = None
 
     def is_valid(self) -> bool:
-        """Verifica se ambas as credenciais estão presentes."""
-        return bool(self.api_key and self.api_token)
+        """Verifica se todas as credenciais estão presentes."""
+        return bool(self.api_key and self.api_token and self.board_id)
 
 
 @dataclass
@@ -147,6 +160,55 @@ class TrelloKanbanListsConfig:
     testing_list: str = ""  # 👀 Em Revisão / ✅ Em Teste
     review_list: str = ""  # ⚔️ Desafio / 👀 Em Revisão
     done_list: str = ""  # 🚀 Publicar / ✅ Pronto
+
+    # Mapeamento de labels do GitHub para Trello
+    label_mapping: dict = None
+
+    # Flag para controlar auto-configuração de listas
+    auto_create_lists: bool = False
+
+    def __post_init__(self):
+        """Inicializa valores padrão após criação do dataclass."""
+        if self.label_mapping is None:
+            self.label_mapping = {
+                "bug": ("bug", "red"),
+                "feature": ("feature", "green"),
+                "enhancement": ("melhoria", "blue"),
+                "documentation": ("docs", "orange"),
+                "good-first-issue": ("bom-para-iniciar", "yellow"),
+            }
+
+    @property
+    def todo(self) -> str:
+        """Nome da lista 'A Fazer' (para compatibilidade com código legado)."""
+        return "📋 A Fazer"
+
+    @property
+    def progress(self) -> str:
+        """Nome da lista 'Em Andamento' (para compatibilidade com código legado)."""
+        return "🚧 Em Andamento"
+
+    def get_list_names(self) -> list[str]:
+        """Retorna lista de nomes das listas Kanban em ordem."""
+        return [
+            "🧠 Brainstorm",
+            "📥 Issues",
+            "📋 A Fazer",
+            "🚧 Em Andamento",
+            "👀 Em Revisão",
+            "🚀 Publicar",
+        ]
+
+    def get_list_colors(self) -> dict[str, str]:
+        """Retorna mapeamento de nome da lista para cor (hex)."""
+        return {
+            "🧠 Brainstorm": "#E6F7FF",
+            "📥 Issues": "#FFF7E6",
+            "📋 A Fazer": "#FFFBF0",
+            "🚧 Em Andamento": "#E6F7FF",
+            "👀 Em Revisão": "#F6FFED",
+            "🚀 Publicar": "#F0F5FF",
+        }
 
 
 def get_trello_kanban_lists_config() -> TrelloKanbanListsConfig:
@@ -317,6 +379,9 @@ def load_agent_config() -> AgentConfig:
     default_path = "claude"
     return AgentConfig(
         claude_code_path=os.getenv("CLAUDE_CODE_PATH", default_path),
+        anthropic_auth_token=os.getenv("ANTHROPIC_AUTH_TOKEN"),
+        anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL"),
+        anthropic_default_sonnet_model=os.getenv("ANTHROPIC_DEFAULT_SONNET_MODEL"),
     )
 
 
@@ -325,6 +390,7 @@ def load_trello_config() -> TrelloConfig:
     return TrelloConfig(
         api_key=os.getenv("TRELLO_API_KEY"),
         api_token=os.getenv("TRELLO_API_TOKEN"),
+        board_id=os.getenv("TRELLO_BOARD_ID"),
     )
 
 
@@ -410,3 +476,184 @@ def get_trello_config() -> TrelloConfig:
     if _trello_config is None:
         _trello_config = load_trello_config()
     return _trello_config
+
+
+# ============================================================================
+# Funções Centralizadas de Caminhos de Workspace (ADR024)
+# ============================================================================
+
+def get_base_path() -> Path:
+    """
+    Retorna o caminho base do projeto.
+
+    Returns:
+        Path do diretório raiz do projeto
+    """
+    return Path.cwd()
+
+
+def get_workspace_path(workspace_id: str | None = None) -> Path:
+    """
+    Retorna o caminho do workspace.
+
+    DOC: ADR024 - Workspaces são isolados em workspace/{workspace_id}/
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+
+    Returns:
+        Path do workspace: workspace/{workspace_id}/
+    """
+    if workspace_id is None:
+        from runtime.workspace.workspace_context import get_current_workspace
+        workspace_id = get_current_workspace()
+
+    return get_base_path() / "workspace" / workspace_id
+
+
+def get_workspace_data_dir(workspace_id: str | None = None) -> Path:
+    """
+    Retorna o diretório de dados do workspace.
+
+    DOC: ADR024 - Cada workspace tem seu próprio data/
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+
+    Returns:
+        Path: workspace/{workspace_id}/data/
+    """
+    return get_workspace_path(workspace_id) / "data"
+
+
+def get_workspace_logs_dir(workspace_id: str | None = None) -> Path:
+    """
+    Retorna o diretório de logs do workspace.
+
+    DOC: ADR024 - Cada workspace tem seu próprio logs/
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+
+    Returns:
+        Path: workspace/{workspace_id}/logs/
+    """
+    return get_workspace_path(workspace_id) / "logs"
+
+
+def get_workspace_queue_dir(workspace_id: str | None = None) -> Path:
+    """
+    Retorna o diretório de fila do workspace.
+
+    DOC: ADR024 - Cada workspace tem seu próprio fila/ (FileBasedJobQueue)
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+
+    Returns:
+        Path: workspace/{workspace_id}/fila/
+    """
+    return get_workspace_path(workspace_id) / "fila"
+
+
+def get_workspace_snapshots_dir(workspace_id: str | None = None) -> Path:
+    """
+    Retorna o diretório de snapshots do workspace.
+
+    DOC: ADR017 - Snapshots armazenados em workspace/{workspace_id}/snapshots/
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+
+    Returns:
+        Path: workspace/{workspace_id}/snapshots/
+    """
+    return get_workspace_path(workspace_id) / "snapshots"
+
+
+def get_workspace_diffs_dir(workspace_id: str | None = None) -> Path:
+    """
+    Retorna o diretório de diffs do workspace.
+
+    DOC: ADR017 - Diffs armazenados em workspace/{workspace_id}/diffs/
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+
+    Returns:
+        Path: workspace/{workspace_id}/diffs/
+    """
+    return get_workspace_path(workspace_id) / "diffs"
+
+
+# ============================================================================
+# Funções de Carregamento de .env (ADR024)
+# ============================================================================
+
+def load_workspace_env(workspace_id: str | None = None) -> None:
+    """
+    Carrega variáveis de ambiente do .env na ordem correta (ADR024).
+
+    Ordem de prioridade:
+    1. workspace/{workspace_id}/.env (operacional principal)
+    2. .env da raiz (fallback/backup/apenas segurança)
+
+    DOC: ADR024 - .env do workspace tem prioridade sobre .env da raiz
+    DOC: .env da raiz é APENAS backup/segurança, não deve ser usado operacionalmente
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+    """
+    from dotenv import load_dotenv
+
+    if workspace_id is None:
+        from runtime.workspace.workspace_context import get_current_workspace
+        workspace_id = get_current_workspace()
+
+    base_path = get_base_path()
+
+    # 1. Tenta carregar .env do workspace (OPERACIONAL)
+    workspace_env = base_path / "workspace" / workspace_id / ".env"
+    if workspace_env.exists():
+        load_dotenv(workspace_env, override=True)
+        return
+
+    # 2. Fallback: carrega .env da raiz (BACKUP/SEGURANÇA)
+    root_env = base_path / ".env"
+    if root_env.exists():
+        load_dotenv(root_env, override=False)
+
+
+def ensure_workspace_env(workspace_id: str | None = None) -> None:
+    """
+    Garante que o .env do workspace existe, criando se necessário.
+
+    Se o .env do workspace não existir, cria um com comentários explicativos.
+    Se .env da raiz existir, oferece para copiar (mas não copia automaticamente).
+
+    Args:
+        workspace_id: ID do workspace (None = usa workspace atual)
+    """
+    if workspace_id is None:
+        from runtime.workspace.workspace_context import get_current_workspace
+        workspace_id = get_current_workspace()
+
+    base_path = get_base_path()
+    workspace_env = base_path / "workspace" / workspace_id / ".env"
+
+    if not workspace_env.exists():
+        # Criar .env do workspace com instruções
+        workspace_env.parent.mkdir(parents=True, exist_ok=True)
+        workspace_env.write_text(
+            f"# Segredos operacionais do workspace '{workspace_id}'\n"
+            f"# DOC: ADR024 - Este .env tem PRIORIDADE sobre .env da raiz\n"
+            f"# \n"
+            f"# Para copiar segredos do .env da raiz (backup), use:\n"
+            f"#       cp ../../.env .env\n"
+            f"# \n"
+            f"# Ou configure manualmente abaixo:\n"
+            f"GITHUB_TOKEN=\n"
+            f"ANTHROPIC_API_KEY=\n"
+            f"# ... outras vars ...\n",
+            encoding="utf-8"
+        )

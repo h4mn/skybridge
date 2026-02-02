@@ -10,11 +10,123 @@
   --skybridge-danger: #dc3545;
   --skybridge-warning: #ffc107;
   --skybridge-info: #0dcaf0;
+  /* Discord sidebar colors */
+  --discord-bg: #202225;
+  --discord-hover: #35373c;
+  --discord-active: #404249;
+  --discord-text: #B9BBBE;
+  --discord-border: #35363c;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background-color: #f8f9fa;
+  margin: 0;
+  padding: 0;
+}
+
+/* Layout */
+.app-layout {
+  min-height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  min-height: calc(100vh - 100px);
+  background: #36393f;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.2s ease-in-out;
+  flex-shrink: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar.collapsed {
+  width: 72px;
+}
+
+/* Toggle Button */
+.sidebar-toggle {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-bottom: 1px solid #4f545c;
+  transition: background 0.15s;
+  text-align: center;
+  font-size: 18px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.sidebar-toggle:hover {
+  background: #4f545c;
+}
+
+.sidebar-toggle:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Sidebar Navigation */
+.sidebar-nav {
+  flex: 1;
+  padding: 8px 0;
+}
+
+/* Sidebar Sections */
+.sidebar-section {
+  margin-bottom: 8px;
+}
+
+.sidebar-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-top: 16px !important;
+}
+
+/* Sidebar Items */
+.sidebar-item {
+  color: #dcddde;
+  text-decoration: none;
+  transition: all 0.15s;
+  position: relative;
+  margin-bottom: 2px;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+
+.sidebar-item:hover {
+  background: #4f545c;
+  color: #FFF;
+}
+
+.sidebar-item.active {
+  background: #4f545c;
+  color: #FFF;
+  border-left-color: #FFF;
+}
+
+.sidebar-icon {
+  font-size: 20px;
+  line-height: 1;
+  min-width: 24px;
+  text-align: center;
+}
+
+.sidebar-label {
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Main Content Area */
+.app-main {
+  background: #f8f9fa;
+  min-height: 100vh;
+  overflow-y: auto;
 }
 
 /* Log stream colors */
@@ -63,6 +175,83 @@ body {
 @media (max-width: 768px) {
   .log-stream {
     font-size: 0.75rem;
+    max-height: 300px;
+  }
+}
+
+/* =============================================================================
+   KANBAN BOARD (Fase 1: Leitura)
+   ============================================================================= */
+
+/* Colunas Kanban */
+.kanban-column {
+  min-height: 400px;
+}
+
+.kanban-column-card {
+  border: 1px solid #dee2e6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Container de cards dentro da coluna */
+.kanban-cards-container {
+  max-height: calc(100vh - 250px);
+  overflow-y: auto;
+}
+
+/* Custom scrollbar para cards Kanban */
+.kanban-cards-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.kanban-cards-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.kanban-cards-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.kanban-cards-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Card Kanban individual */
+.kanban-card {
+  border: 1px solid #e9ecef;
+  background: #fff;
+  transition: all 0.2s ease-in-out;
+}
+
+.kanban-card:hover {
+  border-color: #0d6efd;
+  box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
+  transform: translateY(-1px);
+}
+
+.kanban-card-link:hover {
+  text-decoration: none !important;
+}
+
+/* Responsivo para telas menores */
+@media (max-width: 991px) {
+  .kanban-column {
+    min-height: 300px;
+  }
+
+  .kanban-cards-container {
+    max-height: 400px;
+  }
+}
+
+@media (max-width: 575px) {
+  .kanban-column {
+    min-height: 250px;
+  }
+
+  .kanban-cards-container {
     max-height: 300px;
   }
 }

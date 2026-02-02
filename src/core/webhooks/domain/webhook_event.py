@@ -155,9 +155,18 @@ class WebhookJob:
         Returns:
             Nova instância de WebhookJob com ID único
         """
+        # Extrai issue_number se disponível (para melhor rastreabilidade)
+        issue_number = event.get_issue_number()
+
+        # Formato do job_id inclui issue_number quando disponível
+        # Ex: github-issue123-abc12345 ou github-issues.opened-abc12345
+        if issue_number:
+            job_id = f"{event.source.value}-issue{issue_number}-{uuid4().hex[:8]}"
+        else:
+            job_id = f"{event.source.value}-{event.event_type}-{uuid4().hex[:8]}"
+
         # Usa delivery_id como correlation_id para rastreamento distribuído
         # Se não tiver delivery_id, usa o job_id como fallback
-        job_id = f"{event.source.value}-{event.event_type}-{uuid4().hex[:8]}"
         correlation_id = event.delivery_id or job_id
 
         return cls(

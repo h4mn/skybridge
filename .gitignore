@@ -28,6 +28,8 @@ build/
 # Ambiente
 .env
 .env.local
+.env.backup
+*.backup
 
 # Claude Code local settings
 .claude/settings.local.json
@@ -39,10 +41,14 @@ build/
 *.swo
 *~
 
+# Playwright MCP
+.playwright-mcp/
+
 # Testes
 .pytest_cache/
 .coverage
 htmlcov/
+workspace/core/tmp_path/  # DOC: ADR024 - Temporários de testes (limpo pós-commit)
 
 # Logs
 *.log

@@ -114,6 +114,20 @@ class JobQueuePort(ABC):
         """
         pass
 
+    async def update_metadata(self, job_id: str, metadata: dict[str, object]) -> None:
+        """
+        Atualiza metadata de um job (opcional, implementação default).
+
+        Implementações podem sobrescrever para persistir metadata adicional
+        como worktree_path, branch_name, etc.
+
+        Args:
+            job_id: ID do job
+            metadata: Novo metadata (será mesclado com o existente)
+        """
+        # Implementação default não-faz-nada (para filas em memória)
+        pass
+
 
 class QueueError(Exception):
     """Erro na operação da fila."""

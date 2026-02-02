@@ -801,7 +801,10 @@ def create_rpc_router() -> APIRouter:
     # ========== WebUI Endpoints (PRD014) ==========
 
     @router.get("/webhooks/jobs")
-    async def list_webhook_jobs():
+    async def list_webhook_jobs(
+        limit: int = Query(100, ge=1, le=1000, description="Número máximo de jobs a retornar"),
+        status: str | None = Query(None, description="Filtrar por status"),
+    ):
         """
         Lista todos os jobs de webhook para o WebUI.
 
@@ -812,25 +815,24 @@ def create_rpc_router() -> APIRouter:
 
             job_queue = get_job_queue()
 
-            # Tenta obter métricas da fila (disponível em SQLiteJobQueue)
+            # Tenta obter métricas da fila
+            metrics = {}
             if hasattr(job_queue, 'get_metrics'):
                 metrics = await job_queue.get_metrics()
-                # Retornar estrutura compatível com o frontend
-                # Por enquanto, retornamos métricas agregadas em vez de lista individual
-                return JSONResponse(
-                    status_code=200,
-                    content={
-                        "ok": True,
-                        "metrics": metrics,
-                        "jobs": [],  # Lista vazia por enquanto (requer implementação adicional)
-                    }
-                )
-            else:
-                # Fallback para filas sem get_metrics
-                return JSONResponse(
-                    status_code=200,
-                    content={"ok": True, "jobs": [], "metrics": {}},
-                )
+
+            # Lista os jobs usando o novo método list_jobs
+            jobs = []
+            if hasattr(job_queue, 'list_jobs'):
+                jobs = await job_queue.list_jobs(limit=limit, status_filter=status)
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "ok": True,
+                    "jobs": jobs,
+                    "metrics": metrics,
+                }
+            )
         except Exception as e:
             logger.error(
                 f"Failed to list jobs: {str(e)}",
@@ -842,19 +844,22 @@ def create_rpc_router() -> APIRouter:
             )
 
     @router.get("/webhooks/worktrees")
-    async def list_worktrees():
+    async def list_worktrees(request: Request):
         """
         Lista todos os worktrees ativos para o WebUI.
 
         PRD014: Endpoint para o Dashboard listar worktrees.
+        DOC: ADR024 - Lista worktrees do workspace ativo (X-Workspace header).
         """
         try:
             from pathlib import Path
-            from runtime.config.config import get_webhook_config
+            from runtime.config.config import get_workspace_queue_dir
             import json
 
-            config = get_webhook_config()
-            worktrees_path = Path(config.worktree_base_path)
+            # ADR024: Usa worktrees do workspace atual
+            # Worktrees ficam em workspace/{workspace_id}/worktrees/
+            workspace_id = getattr(request.state, 'workspace', 'core')
+            worktrees_path = Path.cwd() / "workspace" / workspace_id / "worktrees"
 
             worktrees = []
             if worktrees_path.exists():
@@ -896,19 +901,20 @@ def create_rpc_router() -> APIRouter:
             )
 
     @router.get("/webhooks/worktrees/{worktree_name}")
-    async def get_worktree_details(worktree_name: str):
+    async def get_worktree_details(worktree_name: str, request: Request):
         """
         Retorna detalhes completos de um worktree para o WebUI.
 
         PRD014: Endpoint para o modal de detalhes do worktree.
+        DOC: ADR024 - Retorna worktree do workspace ativo (X-Workspace header).
         """
         try:
             from pathlib import Path
-            from runtime.config.config import get_webhook_config
             import json
 
-            config = get_webhook_config()
-            worktree_path = Path(config.worktree_base_path) / worktree_name
+            # ADR024: Usa worktrees do workspace atual
+            workspace_id = getattr(request.state, 'workspace', 'core')
+            worktree_path = Path.cwd() / "workspace" / workspace_id / "worktrees" / worktree_name
 
             if not worktree_path.exists():
                 return JSONResponse(
@@ -955,11 +961,12 @@ def create_rpc_router() -> APIRouter:
             )
 
     @router.delete("/webhooks/worktrees/{worktree_name}")
-    async def delete_worktree(worktree_name: str, password: str | None = None):
+    async def delete_worktree(worktree_name: str, request: Request, password: str | None = None):
         """
         Remove um worktree para o WebUI.
 
         PRD014: Endpoint para limpar worktrees do Dashboard com proteções de segurança.
+        DOC: ADR024 - Remove worktree do workspace ativo (X-Workspace header).
 
         Segurança:
         - Requer senha configurada em WEBUI_DELETE_PASSWORD
@@ -992,7 +999,9 @@ def create_rpc_router() -> APIRouter:
                     content={"ok": False, "error": "Invalid password"},
                 )
 
-            worktree_path = Path(config.worktree_base_path) / worktree_name
+            # ADR024: Usa worktrees do workspace atual
+            workspace_id = getattr(request.state, 'workspace', 'core') if request else 'core'
+            worktree_path = Path.cwd() / "workspace" / workspace_id / "worktrees" / worktree_name
 
             if not worktree_path.exists():
                 return JSONResponse(
@@ -1070,7 +1079,8 @@ def create_rpc_router() -> APIRouter:
             from pathlib import Path
             from datetime import datetime
 
-            log_file = Path("workspace/skybridge/logs") / f"{datetime.now():%Y-%m-%d}.log"
+            from runtime.config.config import get_workspace_logs_dir
+            log_file = get_workspace_logs_dir() / f"{datetime.now():%Y-%m-%d}.log"
 
             if not log_file.exists():
                 return JSONResponse(status_code=200, content={"ok": True, "lines": []})
@@ -1110,7 +1120,8 @@ def create_rpc_router() -> APIRouter:
             from pathlib import Path
             from datetime import datetime
 
-            log_file = Path("workspace/skybridge/logs") / f"{datetime.now():%Y-%m-%d}.log"
+            from runtime.config.config import get_workspace_logs_dir
+            log_file = get_workspace_logs_dir() / f"{datetime.now():%Y-%m-%d}.log"
             last_position = 0
 
             if log_file.exists():
@@ -1136,6 +1147,273 @@ def create_rpc_router() -> APIRouter:
 
         return StreamingResponse(log_generator(), media_type="text/event-stream")
 
+    @router.get("/observability/events/stream")
+    async def stream_events(workspace: str | None = Query(None, description="Workspace ID (query parameter para SSE)")):
+        """
+        Stream eventos de domínio em tempo real via SSE para o WebUI.
+
+        PRD014: Endpoint SSE para streaming de eventos do EventBus.
+        Permite monitorar JobStartedEvent, JobCompletedEvent, etc.
+        DOC: ADR024 - Aceita workspace via query parameter (EventSource não suporta headers).
+
+        NOTA: Cria InMemoryEventBus local se global não disponível,
+        pois o worker roda em thread separada.
+        """
+        from fastapi.responses import StreamingResponse
+        import asyncio
+        import json
+        from runtime.workspace.workspace_context import set_current_workspace
+
+        # Define workspace do contexto baseado no query parameter
+        # (EventSource não suporta headers, então usamos query param)
+        if workspace:
+            set_current_workspace(workspace)
+
+        async def event_generator():
+            """Gerador que entrega novos eventos do EventBus."""
+            from infra.domain_events.in_memory_event_bus import InMemoryEventBus
+            from core.domain_events.domain_event import DomainEvent
+            from kernel import get_event_bus, clear_event_bus, set_event_bus
+
+            logger.info(f"[SSE] Cliente conectado ao stream de eventos (workspace={workspace or 'default'})")
+
+            # Tenta obter EventBus global, mas cria local se necessário
+            # (o worker roda em thread separada e pode não estar disponível)
+            try:
+                event_bus = get_event_bus()
+                logger.info(f"[SSE] EventBus global obtido: {type(event_bus).__name__}")
+            except RuntimeError:
+                logger.info("[SSE] EventBus global não disponível, criando localmente")
+                event_bus = InMemoryEventBus()
+                set_event_bus(event_bus)
+
+            if not isinstance(event_bus, InMemoryEventBus):
+                # Cria EventBus local se o global não for InMemoryEventBus
+                logger.warning(f"[SSE] EventBus não é InMemoryEventBus: {type(event_bus)}, criando local")
+                event_bus = InMemoryEventBus()
+                set_event_bus(event_bus)
+
+            # Envia histórico inicial
+            history = event_bus.get_history(limit=50)
+            logger.info(f"[SSE] Enviando histórico: {len(history)} eventos")
+            for event_dict in history:
+                yield f"event: history\ndata: {json.dumps(event_dict)}\n\n"
+
+            # Contador para novos eventos
+            last_count = len(event_bus.get_history())
+            logger.info(f"[SSE] Histórico enviado, last_count={last_count}")
+
+            # Poll por novos eventos
+            iteration = 0
+            while True:
+                current_history = event_bus.get_history()
+                current_count = len(current_history)
+
+                # Se houver novos eventos, envia
+                if current_count > last_count:
+                    new_events = current_history[:current_count - last_count]
+                    logger.info(f"[SSE] Enviando {len(new_events)} novos eventos (iteração {iteration})")
+                    for event_dict in new_events:
+                        logger.debug(f"[SSE] Evento: {event_dict.get('event_type')}")
+                        yield f"event: domain_event\ndata: {json.dumps(event_dict)}\n\n"
+                    last_count = current_count
+
+                iteration += 1
+                await asyncio.sleep(0.5)  # Poll a cada 500ms
+
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+    @router.post("/observability/events/generate-fake")
+    async def generate_fake_events(count: int = 10):
+        """
+        Gera eventos fake de domínio para testes do WebUI.
+
+        Útil para testar a interface de eventos sem processar jobs reais.
+        """
+        try:
+            from kernel import get_event_bus
+            from core.domain_events.job_events import (
+                JobCreatedEvent,
+                JobStartedEvent,
+                JobCompletedEvent,
+                JobFailedEvent,
+            )
+
+            event_bus = get_event_bus()
+
+            # Gera eventos fake variados
+            fake_events = []
+
+            # JobCreatedEvent
+            for i in range(count):
+                job_id = f"fake-job-{i}"
+                fake_events.append(JobCreatedEvent(
+                    job_id=job_id,
+                    issue_number=100 + i,
+                    repository="h4mn/skybridge",
+                    worktree_path=f"/fake/worktree-{i}",
+                ))
+
+                # JobStartedEvent
+                fake_events.append(JobStartedEvent(
+                    job_id=job_id,
+                    issue_number=100 + i,
+                    repository="h4mn/skybridge",
+                    agent_type="claude-sdk",
+                ))
+
+                # JobCompletedEvent ou JobFailedEvent (alternado)
+                if i % 3 == 0:
+                    fake_events.append(JobCompletedEvent(
+                        job_id=job_id,
+                        issue_number=100 + i,
+                        repository="h4mn/skybridge",
+                        worktree_path=f"/fake/worktree-{i}",
+                        files_modified=i + 1,
+                        duration_seconds=30.0 + i,
+                    ))
+                else:
+                    fake_events.append(JobFailedEvent(
+                        job_id=job_id,
+                        issue_number=100 + i,
+                        repository="h4mn/skybridge",
+                        error_message="Fake error for testing",
+                        error_type="FakeError",
+                        duration_seconds=15.0,
+                        retry_count=0,
+                    ))
+
+            # Publica todos os eventos
+            for event in fake_events:
+                await event_bus.publish(event)
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "ok": True,
+                    "message": f"Generated {len(fake_events)} fake events",
+                    "count": len(fake_events),
+                }
+            )
+        except Exception as e:
+            logger.error(f"Erro ao gerar eventos fake: {e}")
+            return JSONResponse(
+                status_code=500,
+                content={"ok": False, "error": str(e)}
+            )
+
+    @router.post("/observability/github/create-issue")
+    async def create_github_issue(request: Request):
+        """
+        Cria uma nova issue no GitHub.
+
+        Endpoint simples para criar issues diretamente via API REST.
+        Útil para CLI ou automações.
+
+        Body:
+            title: Título da issue
+            body: Corpo/descrição da issue
+            labels: Labels (opcional, default=["automated"])
+        """
+        from fastapi import Request
+        import os
+
+        try:
+            # Parse body
+            body_data = await request.json()
+            title = body_data.get("title")
+            desc = body_data.get("body", "")
+            labels = body_data.get("labels", ["automated"])
+
+            if not title:
+                return JSONResponse(
+                    status_code=400,
+                    content={"ok": False, "error": "title is required"}
+                )
+
+            # Importa cliente GitHub
+            from infra.github.github_api_client import create_github_client
+
+            token = os.getenv("GITHUB_TOKEN")
+            if not token:
+                return JSONResponse(
+                    status_code=500,
+                    content={"ok": False, "error": "GITHUB_TOKEN not configured"}
+                )
+
+            repo = os.getenv("GITHUB_REPO", "h4mn/skybridge")
+
+            # Cria cliente e issue
+            client = create_github_client(token=token)
+            result = await client.create_issue(
+                repo=repo,
+                title=title,
+                body=desc,
+                labels=labels
+            )
+            await client.close()
+
+            if result.is_err:
+                return JSONResponse(
+                    status_code=500,
+                    content={"ok": False, "error": result.error}
+                )
+
+            issue_data = result.value
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "ok": True,
+                    "issue_number": issue_data.get("issue_number"),
+                    "issue_url": issue_data.get("issue_url"),
+                    "labels": issue_data.get("labels", []),
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Erro ao criar issue: {e}")
+            return JSONResponse(
+                status_code=500,
+                content={"ok": False, "error": str(e)}
+            )
+
+    @router.delete("/observability/events/history")
+    async def clear_events_history():
+        """
+        Limpa o histórico de eventos do EventBus.
+
+        Útil para limpar a tela de eventos e começar a monitorar do zero.
+        """
+        try:
+            from kernel import get_event_bus
+
+            event_bus = get_event_bus()
+            previous_count = len(event_bus.get_history())
+
+            # Limpa o histórico
+            if hasattr(event_bus, 'clear_history'):
+                event_bus.clear_history()
+            else:
+                # Fallback para InMemoryEventBus
+                from infra.domain_events.in_memory_event_bus import InMemoryEventBus
+                if isinstance(event_bus, InMemoryEventBus):
+                    event_bus._history.clear()
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "ok": True,
+                    "message": f"Cleared {previous_count} events from history",
+                    "previous_count": previous_count,
+                }
+            )
+        except Exception as e:
+            logger.error(f"Erro ao limpar histórico: {e}")
+            return JSONResponse(
+                status_code=500,
+                content={"ok": False, "error": str(e)}
+            )
+
     # ========== Log File Endpoints for Logs.tsx ==========
 
     @router.get("/logs/files")
@@ -1148,7 +1426,8 @@ def create_rpc_router() -> APIRouter:
         try:
             from pathlib import Path
 
-            logs_dir = Path("workspace/skybridge/logs")
+            from runtime.config.config import get_workspace_logs_dir
+            logs_dir = get_workspace_logs_dir()
 
             if not logs_dir.exists():
                 return JSONResponse(
@@ -1203,7 +1482,8 @@ def create_rpc_router() -> APIRouter:
             from datetime import datetime
             from runtime.delivery.log_utils import parse_log_line, strip_ansi_codes
 
-            logs_dir = Path("workspace/skybridge/logs")
+            from runtime.config.config import get_workspace_logs_dir
+            logs_dir = get_workspace_logs_dir()
             log_file = logs_dir / filename
 
             # Verifica se o arquivo está dentro do diretório de logs (segurança)
@@ -1274,8 +1554,30 @@ def create_rpc_router() -> APIRouter:
 
     # ========== Webhook Endpoints (PRD013) ==========
 
+    # TODO(REMOVE): Remover rota de fallback após 03/02/2026
+    # Rota temporária para compatibilidade com webhooks configurados sem /api
+    # Algumas instalações antigas têm webhooks apontando para /webhooks/{source}
+    # em vez de /api/webhooks/{source}. Esta rota processa essas requisições.
     @router.head("/webhooks/{source}")
     @router.post("/webhooks/{source}")
+    async def receive_webhook_fallback(source: str, http_request: Request):
+        """
+        Rota de fallback para webhooks sem prefixo /api.
+
+        ATENÇÃO: Esta rota é temporária e deve ser removida após 03/02/2026.
+        Webhooks devem ser configurados com /api/webhooks/{source}.
+        """
+        # Log de aviso para monitorar uso da URL antiga
+        logger.warning(
+            f"Webhook recebido em URL sem /api: /webhooks/{source} - "
+            f"Por favor atualize a configuração do webhook para /api/webhooks/{source}"
+        )
+
+        # Processa normalmente delegando para o handler principal
+        return await receive_webhook(source, http_request)
+
+    @router.head("/api/webhooks/{source}")
+    @router.post("/api/webhooks/{source}")
     async def receive_webhook(source: str, http_request: Request):
         """
         Recebe webhook de fonte externa (GitHub, Discord, etc).
@@ -1400,6 +1702,154 @@ def create_rpc_router() -> APIRouter:
             return JSONResponse(
                 status_code=422,
                 content={"ok": False, "error": result.error},
+            )
+
+    # ========== Agents Endpoints (Página de Agents) ==========
+
+    @router.get("/agents/executions")
+    async def list_agent_executions(
+        limit: int = Query(100, ge=1, le=1000, description="Número máximo de execuções a retornar"),
+    ):
+        """
+        Lista todas as execuções de agentes para o WebUI.
+
+        PRD: Página de Agents (Agent Spawns)
+        """
+        try:
+            from core.webhooks.application.handlers import get_agent_execution_store
+
+            store = get_agent_execution_store()
+            executions = store.list_all(limit=limit)
+            metrics = store.get_metrics()
+
+            # Converte para dict
+            executions_data = [exec.to_dict() for exec in executions]
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "ok": True,
+                    "executions": executions_data,
+                    "metrics": metrics,
+                }
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to list agent executions: {str(e)}",
+                extra={"error": str(e)},
+            )
+            return JSONResponse(
+                status_code=200,
+                content={"ok": True, "executions": [], "metrics": {}},
+            )
+
+    @router.get("/agents/executions/{job_id}")
+    async def get_agent_execution(job_id: str):
+        """
+        Retorna detalhes de uma execução de agente.
+
+        PRD: Página de Agents (Agent Spawns)
+        """
+        try:
+            from core.webhooks.application.handlers import get_agent_execution_store
+
+            store = get_agent_execution_store()
+            execution = store.get(job_id)
+
+            if execution is None:
+                return JSONResponse(
+                    status_code=404,
+                    content={"ok": False, "error": f"Execution not found: {job_id}"},
+                )
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "ok": True,
+                    "execution": execution.to_dict(),
+                }
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to get agent execution: {str(e)}",
+                extra={"error": str(e), "job_id": job_id},
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"ok": False, "error": str(e)},
+            )
+
+    @router.get("/agents/executions/{job_id}/messages")
+    async def get_agent_execution_messages(job_id: str):
+        """
+        Retorna mensagens capturadas do stream de uma execução.
+
+        PRD: Página de Agents (Agent Spawns)
+        Por enquanto retorna stdout completo.
+        """
+        try:
+            from core.webhooks.application.handlers import get_agent_execution_store
+
+            store = get_agent_execution_store()
+            execution = store.get(job_id)
+
+            if execution is None:
+                return JSONResponse(
+                    status_code=404,
+                    content={"ok": False, "error": f"Execution not found: {job_id}"},
+                )
+
+            # Por enquanto, retorna stdout como lista de linhas
+            # Futuro: extrair mensagens estruturadas do stream
+            messages = execution.stdout.splitlines() if execution.stdout else []
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "ok": True,
+                    "job_id": job_id,
+                    "messages": messages,
+                    "stdout": execution.stdout,
+                }
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to get agent execution messages: {str(e)}",
+                extra={"error": str(e), "job_id": job_id},
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"ok": False, "error": str(e)},
+            )
+
+    @router.get("/agents/metrics")
+    async def get_agent_metrics():
+        """
+        Retorna métricas de execuções de agentes.
+
+        PRD: Página de Agents (Agent Spawns)
+        """
+        try:
+            from core.webhooks.application.handlers import get_agent_execution_store
+
+            store = get_agent_execution_store()
+            metrics = store.get_metrics()
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "ok": True,
+                    "metrics": metrics,
+                }
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to get agent metrics: {str(e)}",
+                extra={"error": str(e)},
+            )
+            return JSONResponse(
+                status_code=200,
+                content={"ok": True, "metrics": {}},
             )
 
     return router

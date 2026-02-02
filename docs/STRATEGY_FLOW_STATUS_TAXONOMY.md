@@ -168,7 +168,7 @@ TRELLO_BOARD_ID=seu_board_id
 ngrok http 8000
 
 # Terminal 2: Webhook Server
-cd B:\_repositorios\skybridge-worktrees\kanban
+cd B:\_repositorios\skybridge-auto\kanban
 python src/core/webhooks/infrastructure/github_webhook_server.py
 ```
 
@@ -182,7 +182,7 @@ python src/core/webhooks/infrastructure/github_webhook_server.py
 ### 5. Executar Demo
 
 ```bash
-cd B:\_repositorios\skybridge-worktrees\kanban
+cd B:\_repositorios\skybridge-auto\kanban
 python src/core/kanban/testing/demo_github_real_flow.py
 
 # Escolha:

@@ -1,9 +1,26 @@
 ---
-status: aceito
+status: abolida
 data: 2025-12-26
+abolida_por: ADR023
+data_abolicao: 2026-01-31
+motivo: Sky-RPC foi completamente removido em favor de REST puro com prefixo /api/*
 ---
 
-# ADR-010 — Adoção do Sky-RPC
+# ADR-010 — Adoção do Sky-RPC ⚠️ **ABOLIDA**
+
+> **⚠️ IMPORTANTE:** Esta ADR foi **ABOLIDA** (não apenas obsoleta) pela **[ADR023 — Padrão de Prefixos para Rotas API e Web](ADR023-padrao-prefixos-rotas-api-web.md)** em 2026-01-31.
+>
+> **Mudança:** Sky-RPC foi **completamente removido** do projeto.
+>
+> - ❌ `/ticket` — **ABOLIDA**
+> - ❌ `/envelope` — **ABOLIDA**
+> - ❌ Contrato Sky-RPC — **ABOLIDO**
+>
+> **Novo padrão:** REST puro com todas as rotas backend usando `/api/*`.
+>
+> Consulte ADR023 para o padrão atual de rotas.
+
+---
 
 ## Contexto
 

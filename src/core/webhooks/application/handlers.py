@@ -17,11 +17,11 @@ from core.webhooks.ports.job_queue_port import JobQueuePort
 
 logger = logging.getLogger(__name__)
 
-# Singleton global do job queue (compartilhado entre handler e worker)
-_job_queue: JobQueuePort | None = None
+# Cache de job queues por workspace (ADR024 - isolamento por workspace)
+_job_queues: dict[str, JobQueuePort] = {}
 
-# EventBus (singleton para Domain Events)
-_event_bus = None
+# AgentExecutionStore (cache por workspace para persistência de execuções de agentes)
+_agent_execution_stores: dict[str, any] = {}
 
 # TrelloIntegrationService (opcional, singleton)
 _trello_service = None
@@ -80,8 +80,11 @@ def get_trello_kanban_service():
             from os import getenv
 
             trello_config = get_trello_config()
+            logger.info(f"TRELLO_API_KEY: {bool(trello_config.api_key)}, TRELLO_API_TOKEN: {bool(trello_config.api_token)}")
+
             if trello_config.api_key and trello_config.api_token:
                 board_id = getenv("TRELLO_BOARD_ID")
+                logger.info(f"TRELLO_BOARD_ID: {board_id}")
                 if board_id:
                     trello_adapter = TrelloAdapter(
                         trello_config.api_key,
@@ -93,34 +96,62 @@ def get_trello_kanban_service():
                         trello_adapter=trello_adapter,
                         kanban_config=kanban_config,
                     )
-        except Exception:
-            pass
+                    logger.info("TrelloService criado com sucesso")
+                else:
+                    logger.warning("TRELLO_BOARD_ID não encontrado")
+            else:
+                logger.warning("TRELLO_API_KEY ou TRELLO_API_TOKEN não configurados")
+        except Exception as e:
+            logger.error(f"Erro ao criar TrelloService: {e}")
     return _trello_kanban_service
 
 
 def get_job_queue() -> JobQueuePort:
     """
-    Retorna instância singleton do job queue.
+    Retorna instância do job queue RESPEITANDO O WORKSPACE.
 
-    Usa JobQueueFactory para criar a fila apropriada baseado em
-    JOB_QUEUE_PROVIDER do ambiente:
-    - sqlite: SQLiteJobQueue (padrão, zero dependências)
-    - redis: RedisJobQueue (tradicional)
-    - dragonfly: RedisJobQueue (DragonflyDB)
-    - file: FileBasedJobQueue (fallback local)
+    DOC: ADR024 - Cache por workspace, não singleton global.
+    DOC: ADR024 - Cada workspace tem seu próprio jobs.db isolado.
+
+    O job queue é criado baseado no workspace atual do contexto:
+    - Workspace "core" → workspace/core/data/jobs.db
+    - Workspace "trading" → workspace/trading/data/jobs.db
+    - Testes → tmp_path/test.db (via fixture isolated_job_queue)
 
     Returns:
-        Instância de JobQueuePort
+        Instância de JobQueuePort para o workspace atual
+
+    Example:
+        >>> # Em produção (request context)
+        >>> queue = get_job_queue()  # Retorna queue do workspace do header
+        >>>
+        >>> # Em testes
+        >>> set_current_workspace("test")
+        >>> queue = get_job_queue()  # Retorna queue do workspace "test"
     """
-    global _job_queue
-    if _job_queue is None:
-        from infra.webhooks.adapters.job_queue_factory import (
-            JobQueueFactory,
+    global _job_queues
+
+    # Obter workspace atual do contexto
+    from runtime.workspace.workspace_context import get_current_workspace
+    from pathlib import Path
+
+    workspace_id = get_current_workspace()
+
+    # Cache por workspace
+    if workspace_id not in _job_queues:
+        from infra.webhooks.adapters.sqlite_job_queue import SQLiteJobQueue
+
+        # Construir caminho do banco baseado no workspace
+        # ADR024: workspace/{workspace_id}/data/jobs.db
+        base_path = Path.cwd()
+        db_path = base_path / "workspace" / workspace_id / "data" / "jobs.db"
+
+        _job_queues[workspace_id] = SQLiteJobQueue(db_path=db_path)
+        logger.info(
+            f"JobQueue inicializado para workspace '{workspace_id}': {db_path}"
         )
 
-        _job_queue = JobQueueFactory.create_from_env()
-        logger.info(f"JobQueue inicializado: {type(_job_queue).__name__}")
-    return _job_queue
+    return _job_queues[workspace_id]
 
 
 def get_event_bus():
@@ -129,16 +160,58 @@ def get_event_bus():
 
     PRD018 ARCH-07/09: EventBus para Domain Events desacoplando componentes.
 
+    Uses the global EventBus from kernel to ensure all components
+    (webhook processor, TrelloEventListener, etc.) share the same instance.
+
     Returns:
         Instância de EventBus
     """
-    global _event_bus
-    if _event_bus is None:
-        from infra.domain_events.in_memory_event_bus import InMemoryEventBus
+    from kernel import get_event_bus as kernel_get_event_bus
 
-        _event_bus = InMemoryEventBus()
-        logger.info("EventBus inicializado: InMemoryEventBus")
-    return _event_bus
+    return kernel_get_event_bus()
+
+
+def get_agent_execution_store():
+    """
+    Retorna instância do AgentExecutionStore RESPEITANDO O WORKSPACE.
+
+    DOC: ADR024 - Cache por workspace, não singleton global.
+    DOC: ADR024 - Cada workspace tem seu próprio agent_executions.db isolado.
+
+    O store é criado baseado no workspace atual do contexto:
+    - Workspace "core" → workspace/core/data/agent_executions.db
+    - Workspace "trading" → workspace/trading/data/agent_executions.db
+    - Testes → tmp_path/test_executions.db (via fixture)
+
+    Returns:
+        Instância de AgentExecutionStore para o workspace atual
+
+    Example:
+        >>> # Em produção (request context)
+        >>> store = get_agent_execution_store()  # Retorna store do workspace do header
+        >>>
+        >>> # Em testes
+        >>> set_current_workspace("test")
+        >>> store = get_agent_execution_store()  # Retorna store do workspace "test"
+    """
+    global _agent_execution_stores
+
+    # Obter workspace atual do contexto
+    from runtime.workspace.workspace_context import get_current_workspace
+
+    workspace_id = get_current_workspace()
+
+    # Cache por workspace
+    if workspace_id not in _agent_execution_stores:
+        from infra.agents.agent_execution_store import AgentExecutionStore
+
+        # AgentExecutionStore já usa get_workspace_data_dir() que respeita workspace
+        _agent_execution_stores[workspace_id] = AgentExecutionStore()
+        logger.info(
+            f"AgentExecutionStore inicializado para workspace '{workspace_id}'"
+        )
+
+    return _agent_execution_stores[workspace_id]
 
 
 @command(
@@ -335,10 +408,12 @@ def receive_trello_webhook(args: dict) -> Result:
             from runtime.config.config import get_trello_kanban_lists_config
 
             kanban_config = get_trello_kanban_lists_config()
-            todo_list_name = kanban_config.todo
+            # Nomes das listas (não IDs) para comparação
+            todo_list_name = "📋 A Fazer"
+            in_progress_list_name = "🚧 Em Andamento"
 
             if list_after_name == todo_list_name:
-                logger.info(f"✅ Card detectado em '{todo_list_name}' - movendo para '{kanban_config.progress}'...")
+                logger.info(f"✅ Card detectado em '{todo_list_name}' - movendo para '{in_progress_list_name}'...")
 
                 # Card foi movido para "📋 A Fazer" - mover automaticamente para "🚧 Em Andamento"
                 handle_result = await trello_service.handle_card_moved_to_todo(
@@ -348,7 +423,7 @@ def receive_trello_webhook(args: dict) -> Result:
                     logger.error(f"❌ Erro ao processar card movido para '📋 A Fazer': {handle_result.error}")
                     return Result.err(handle_result.error)
 
-                logger.info(f"✅ Card movido automaticamente para '{kanban_config.progress}'")
+                logger.info(f"✅ Card movido automaticamente para '{in_progress_list_name}'")
 
                 # PRD020: Extrair issue_number do card e criar job
                 issue_number = extract_issue_number_from_card(card_name, card_desc)

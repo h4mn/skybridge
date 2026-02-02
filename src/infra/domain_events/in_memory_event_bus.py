@@ -39,13 +39,20 @@ class InMemoryEventBus(EventBus):
     - Supports both sync and async handlers
     """
 
-    def __init__(self) -> None:
-        """Initialize the in-memory event bus."""
+    def __init__(self, history_size: int = 100) -> None:
+        """
+        Initialize the in-memory event bus.
+
+        Args:
+            history_size: Maximum number of events to keep in history (default: 100)
+        """
         self._subscriptions: dict[
             type[DomainEvent], dict[str, tuple[EventHandler, bool]]
         ] = defaultdict(dict)
         self._lock = asyncio.Lock()
         self._closed = False
+        self._history: list[dict[str, Any]] = []
+        self._history_size = history_size
 
     async def publish(self, event: DomainEvent) -> None:
         """
@@ -67,8 +74,16 @@ class InMemoryEventBus(EventBus):
         async with self._lock:
             handlers_copy = self._subscriptions.get(event_type, {}).copy()
 
+        # Store event in history FIRST (before checking handlers)
+        # This ensures events are recorded even if no handlers are subscribed
+        async with self._lock:
+            self._history.append(event.to_dict())
+            # Keep only the most recent events
+            if len(self._history) > self._history_size:
+                self._history = self._history[-self._history_size:]
+
         if not handlers_copy:
-            logger.debug(f"No handlers subscribed for event type: {event_type.__name__}")
+            logger.debug(f"No handlers subscribed for event type: {event_type.__name__} (event still recorded in history)")
             return
 
         # Notify all handlers (without lock - allows handlers to publish)
@@ -220,3 +235,26 @@ class InMemoryEventBus(EventBus):
             return len(self._subscriptions.get(event_type, {}))
 
         return sum(len(handlers) for handlers in self._subscriptions.values())
+
+    def get_history(self, limit: int | None = None) -> list[dict[str, Any]]:
+        """
+        Get event history.
+
+        Args:
+            limit: Maximum number of events to return (most recent first).
+                   If None, returns all events in history.
+
+        Returns:
+            List of event dictionaries in reverse chronological order
+        """
+        if limit:
+            return self._history[-limit:][::-1]
+        return self._history[::-1]
+
+    def clear_history(self) -> None:
+        """
+        Clear all events from history.
+
+        Useful for testing or resetting the event stream.
+        """
+        self._history.clear()

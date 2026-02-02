@@ -74,6 +74,80 @@ class GitHubAPIClient:
         """Fecha o cliente HTTP."""
         await self._client.aclose()
 
+    async def create_issue(
+        self,
+        repo: str,
+        title: str,
+        body: str,
+        labels: list[str] | None = None,
+    ) -> Result[dict, str]:
+        """
+        Cria issue via GitHub API.
+
+        Args:
+            repo: Repositório no formato "owner/repo"
+            title: Título da issue
+            body: Corpo da issue (descrição)
+            labels: Labels para adicionar (opcional)
+
+        Returns:
+            Result com dict contendo:
+                - issue_number: Número da issue criada
+                - issue_url: URL da issue
+                - issue_title: Título da issue
+                - issue_body: Body da issue
+                - labels: Labels aplicadas
+        """
+        try:
+            # Constrói payload
+            payload = {
+                "title": title,
+                "body": body,
+            }
+
+            # Adiciona labels se fornecidos
+            if labels:
+                payload["labels"] = labels
+
+            # Faz requisição POST
+            response = await self._client.post(
+                f"/repos/{repo}/issues",
+                json=payload,
+            )
+            response.raise_for_status()
+            issue_data = response.json()
+
+            issue_number = issue_data["number"]
+            issue_url = issue_data["html_url"]
+            applied_labels = [label["name"] for label in issue_data.get("labels", [])]
+
+            logging.getLogger(__name__).info(
+                f"Issue criada: #{issue_number} - {title}",
+                extra={
+                    "issue_number": issue_number,
+                    "issue_url": issue_url,
+                    "repo": repo,
+                    "labels": applied_labels,
+                },
+            )
+
+            return Result.ok({
+                "issue_number": issue_number,
+                "issue_url": issue_url,
+                "issue_title": title,
+                "issue_body": body,
+                "labels": applied_labels,
+            })
+
+        except httpx.HTTPStatusError as e:
+            error_detail = e.response.json() if e.response.content else str(e)
+            return Result.err(
+                f"Erro HTTP {e.response.status_code} ao criar issue: {error_detail}"
+            )
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Erro ao criar issue: {e}")
+            return Result.err(f"Erro ao criar issue: {str(e)}")
+
     async def create_pr(
         self,
         repo: str,

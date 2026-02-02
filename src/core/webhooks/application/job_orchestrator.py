@@ -20,9 +20,6 @@ if TYPE_CHECKING:
     from core.domain_events.event_bus import EventBus
 
 from core.agents.worktree_validator import safe_worktree_cleanup
-from core.webhooks.infrastructure.agents.claude_agent import (
-    ClaudeCodeAdapter,
-)
 from core.webhooks.application.worktree_manager import (
     WorktreeManager,
 )
@@ -111,7 +108,7 @@ class JobOrchestrator:
         job_queue: "JobQueuePort",
         worktree_manager: WorktreeManager,
         event_bus: "EventBus",
-        agent_adapter: ClaudeCodeAdapter | None = None,
+        agent_adapter: "AgentFacade | None" = None,
         guardrails=None,
         commit_message_generator=None,
         git_service=None,
@@ -138,18 +135,12 @@ class JobOrchestrator:
         self.worktree_manager = worktree_manager
         self.event_bus = event_bus
 
-        # PRD019: Feature flag para selecionar adapter
+        # ADR021: SDK oficial é a única implementação
         if agent_adapter is not None:
             self.agent_adapter = agent_adapter
         else:
-            # Verifica feature flag USE_SDK_ADAPTER
-            from runtime.config import get_feature_flags
-            flags = get_feature_flags()
-            if flags.use_sdk_adapter:
-                from core.webhooks.infrastructure.agents.claude_sdk_adapter import ClaudeSDKAdapter
-                self.agent_adapter = ClaudeSDKAdapter()
-            else:
-                self.agent_adapter = ClaudeCodeAdapter()
+            from core.webhooks.infrastructure.agents.claude_sdk_adapter import ClaudeSDKAdapter
+            self.agent_adapter = ClaudeSDKAdapter()
 
         self.guardrails = guardrails
         self.commit_message_generator = commit_message_generator
@@ -182,9 +173,17 @@ class JobOrchestrator:
         snapshot["status"] = status
         snapshot["updated_at"] = datetime.utcnow().isoformat()
 
+        # Encoder customizado para serializar datetime e outros tipos não-JSON
+        class SnapshotEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                # Deixa o encoder base tentar outros tipos
+                return super().default(obj)
+
         snapshot_path = sky_dir / "snapshot.json"
         snapshot_path.write_text(
-            json.dumps(snapshot, indent=2, ensure_ascii=False),
+            json.dumps(snapshot, indent=2, ensure_ascii=False, cls=SnapshotEncoder),
             encoding="utf-8"
         )
 
@@ -345,6 +344,9 @@ class JobOrchestrator:
             return worktree_result
 
         worktree_path = worktree_result.value
+
+        # Persiste worktree_path no metadata do job para consulta posterior
+        await self.job_queue.update_metadata(job_id, {"worktree_path": worktree_path})
 
         # Passo 2: Capturar snapshot inicial
         from runtime.observability.snapshot.extractors.git_extractor import (
@@ -572,7 +574,7 @@ class JobOrchestrator:
 
         Note:
             RF004: Spawna subagente com contexto específico no worktree.
-            Conforme SPEC008: Usa ClaudeCodeAdapter com streaming em tempo real.
+            Conforme SPEC008: Usa AgentFacade com SDK oficial.
         """
         import asyncio
 
@@ -583,8 +585,8 @@ class JobOrchestrator:
             "repo_name": self._get_repo_name(job),
         }
 
-        # Spawna agente com ClaudeCodeAdapter (SPEC008)
-        execution_result = self.agent_adapter.spawn(
+        # Spawna agente com SDK oficial (SPEC008, ADR021)
+        execution_result = await self.agent_adapter.spawn(
             job=job,
             skill=skill,  # Skill determinado pelo mapeamento event_type → skill
             worktree_path=job.worktree_path,

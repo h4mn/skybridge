@@ -68,28 +68,28 @@ class TrelloEventListener:
         Deve ser chamado durante a inicialização da aplicação.
         """
         # Subscribe to IssueReceivedEvent
-        sub_id = self.event_bus.subscribe(
+        sub_id = await self.event_bus.subscribe(
             IssueReceivedEvent,
             self._on_issue_received,
         )
         self._subscription_ids.append(sub_id)
 
         # Subscribe to JobCompletedEvent
-        sub_id = self.event_bus.subscribe(
+        sub_id = await self.event_bus.subscribe(
             JobCompletedEvent,
             self._on_job_completed,
         )
         self._subscription_ids.append(sub_id)
 
         # Subscribe to JobFailedEvent
-        sub_id = self.event_bus.subscribe(
+        sub_id = await self.event_bus.subscribe(
             JobFailedEvent,
             self._on_job_failed,
         )
         self._subscription_ids.append(sub_id)
 
         # PRD018 Fase 3: Subscribe to PRCreatedEvent
-        sub_id = self.event_bus.subscribe(
+        sub_id = await self.event_bus.subscribe(
             PRCreatedEvent,
             self._on_pr_created,
         )
@@ -184,7 +184,7 @@ class TrelloEventListener:
         except Exception as e:
             logger.error(
                 f"Erro ao processar IssueReceivedEvent para issue #{event.issue_number}: {e}",
-                exc_info=True,
+                # exc_info removido - SkybridgeLogger não suporta
             )
 
     async def _on_job_completed(self, event: JobCompletedEvent) -> None:
@@ -216,7 +216,7 @@ class TrelloEventListener:
         except Exception as e:
             logger.error(
                 f"Erro ao processar JobCompletedEvent para job {event.job_id}: {e}",
-                exc_info=True,
+                # exc_info removido - SkybridgeLogger não suporta
             )
 
     async def _on_job_failed(self, event: JobFailedEvent) -> None:
@@ -244,7 +244,7 @@ class TrelloEventListener:
         except Exception as e:
             logger.error(
                 f"Erro ao processar JobFailedEvent para job {event.job_id}: {e}",
-                exc_info=True,
+                # exc_info removido - SkybridgeLogger não suporta
             )
 
     async def _on_pr_created(self, event: PRCreatedEvent) -> None:
@@ -304,7 +304,7 @@ O PR foi criado automaticamente e está aguardando revisão.
         except Exception as e:
             logger.error(
                 f"Erro ao processar PRCreatedEvent para PR #{event.pr_number}: {e}",
-                exc_info=True,
+                # exc_info removido - SkybridgeLogger não suporta
             )
 
     async def _find_card_by_issue(self, issue_number: int):

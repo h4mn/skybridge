@@ -107,3 +107,198 @@ export const logsApi = {
   get: (params: { tail?: number; level?: LogLevel }) =>
     apiClient.get<{ lines: string[] }>('/observability/logs', { params }),
 }
+
+export const observabilityApi = {
+  getLogFiles: () =>
+    apiClient.get<{ ok: boolean; files: Array<{ name: string; size: number; modified: string }> }>('/logs/files'),
+  streamLogs: (filename: string, tail: number = 50) =>
+    apiClient.get<{ ok: boolean; total: number; page: number; per_page: number; entries: Array<{ timestamp: string; level: string; logger: string; message: string; message_html: string }> }>(
+      `/logs/file/${filename}`,
+      { params: { page: 1, per_page: tail } }
+    ),
+}
+
+// =============================================================================
+// AGENTS EXECUTIONS
+// =============================================================================
+
+export enum AgentState {
+  CREATED = 'created',
+  RUNNING = 'running',
+  TIMED_OUT = 'timed_out',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
+export interface AgentResult {
+  success: boolean
+  changes_made: boolean
+  files_created: string[]
+  files_modified: string[]
+  files_deleted: string[]
+  commit_hash: string | null
+  pr_url: string | null
+  message: string
+  issue_title: string
+  output_message: string
+  thinkings: unknown[]
+}
+
+export interface AgentExecution {
+  agent_type: string
+  job_id: string
+  worktree_path: string
+  skill: string
+  state: AgentState
+  result: AgentResult | null
+  error_message: string | null
+  duration_ms: number | null
+  timeout_seconds: number
+  timestamps: {
+    created_at: string
+    started_at: string | null
+    completed_at: string | null
+  }
+}
+
+export interface AgentMetrics {
+  total: number
+  created: number
+  running: number
+  completed: number
+  failed: number
+  timed_out: number
+  success_rate: number | null
+}
+
+export interface AgentMessage {
+  timestamp?: string
+  type?: string
+  content: string
+}
+
+export interface AgentExecutionWithMessages extends AgentExecution {
+  messages?: string[]
+  stdout?: string
+}
+
+export const agentsApi = {
+  listExecutions: (limit: number = 100) =>
+    apiClient.get<{
+      ok: boolean
+      executions: AgentExecution[]
+      metrics: AgentMetrics
+    }>('/agents/executions', { params: { limit } }),
+
+  getExecution: (jobId: string) =>
+    apiClient.get<{
+      ok: boolean
+      execution: AgentExecution
+    }>(`/agents/executions/${jobId}`),
+
+  getMessages: (jobId: string) =>
+    apiClient.get<{
+      ok: boolean
+      job_id: string
+      messages: string[]
+      stdout: string
+    }>(`/agents/executions/${jobId}/messages`),
+
+  getMetrics: () =>
+    apiClient.get<{
+      ok: boolean
+      metrics: AgentMetrics
+    }>('/agents/metrics'),
+
+  getJobMetrics: () =>
+    apiClient.get<{
+      ok: boolean
+      metrics: JobMetrics
+    }>('/webhooks/metrics'),
+}
+
+// =============================================================================
+// WORKSPACES
+// =============================================================================
+
+export interface Workspace {
+  id: string
+  name: string
+  path: string
+  description: string
+  auto: boolean
+  enabled: boolean
+}
+
+export interface WorkspacesListResponse {
+  workspaces: Workspace[]
+}
+
+export const workspacesApi = {
+  list: () =>
+    apiClient.get<WorkspacesListResponse>('/workspaces'),
+
+  get: (id: string) =>
+    apiClient.get<Workspace>(`/workspaces/${id}`),
+
+  create: (data: {
+    id: string
+    name: string
+    path: string
+    description?: string
+  }) =>
+    apiClient.post<Workspace>('/workspaces', data),
+
+  delete: (id: string) =>
+    apiClient.delete<{ message: string }>(`/workspaces/${id}`),
+}
+
+// =============================================================================
+// KANBAN (Fase 1: Leitura)
+// =============================================================================
+
+export enum CardStatus {
+  BACKLOG = 'backlog',
+  TODO = 'todo',
+  IN_PROGRESS = 'in_progress',
+  REVIEW = 'review',
+  DONE = 'done',
+  BLOCKED = 'blocked',
+  CHALLENGE = 'challenge',
+}
+
+export interface KanbanCard {
+  id: string
+  title: string
+  description: string | null
+  status: CardStatus
+  labels: string[]
+  due_date: string | null
+  url: string
+  list_name: string
+  created_at: string | null
+}
+
+export interface KanbanBoard {
+  id: string
+  name: string
+  url: string
+}
+
+export interface KanbanList {
+  id: string
+  name: string
+  position: number
+}
+
+export interface KanbanBoardResponse {
+  ok: boolean
+  board: KanbanBoard | null
+  cards: KanbanCard[]
+  lists: KanbanList[]
+}
+
+export const kanbanApi = {
+  getBoard: () =>
+    apiClient.get<KanbanBoardResponse>('/kanban/board'),
+}

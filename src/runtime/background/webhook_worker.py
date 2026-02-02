@@ -66,6 +66,8 @@ class WebhookWorker:
         """Inicia loop de processamento."""
         self._running = True
         logger.info("Worker de webhook iniciado")
+        print(f"\033[2m{'═' * 60}\033[0m")
+
 
         while self._running:
             try:
@@ -109,7 +111,6 @@ class WebhookWorker:
                 import traceback
                 logger.error(
                     f"Erro no worker: {str(e)}\n{traceback.format_exc()}",
-                    extra={"exc_info": True},
                 )
                 # Continua processando após erro
 

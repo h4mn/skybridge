@@ -40,7 +40,7 @@ export default function Worktrees() {
       const res = await webhooksApi.listWorktrees()
       return res.data
     },
-    refetchInterval: 10000, // Atualiza a cada 10s
+    // refetchInterval removido - atualiza apenas via botão ou interação
   })
 
   // Mutation para deletar worktree (agora requer senha)
@@ -70,7 +70,7 @@ export default function Worktrees() {
   const [countdown, setCountdown] = useState(5)
   const [deleteError, setDeleteError] = useState('')
 
-  const countdownRef = useRef<NodeJS.Timeout | null>(null)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Inicia contagem regressiva quando modal abre
   useEffect(() => {
@@ -560,13 +560,13 @@ export default function Worktrees() {
                               <div className="mb-3">
                                 <div className="d-flex gap-2 flex-wrap">
                                   <Badge bg="success">
-                                    ➕ Criados: {gitDiffData.summary.added ?? 0}
+                                    ➕ Criados: {String(gitDiffData.summary.added ?? 0)}
                                   </Badge>
                                   <Badge bg="warning">
-                                    ✏️ Alterados: {gitDiffData.summary.modified ?? 0}
+                                    ✏️ Alterados: {String(gitDiffData.summary.modified ?? 0)}
                                   </Badge>
                                   <Badge bg="danger">
-                                    ➖ Excluídos: {gitDiffData.summary.deleted ?? 0}
+                                    ➖ Excluídos: {String(gitDiffData.summary.deleted ?? 0)}
                                   </Badge>
                                 </div>
                               </div>

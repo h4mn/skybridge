@@ -37,7 +37,7 @@ python -c "import secrets; print(secrets.token_hex(32))"
 ### 2. Instalar Dependências
 
 ```bash
-cd B:\_repositorios\skybridge-worktrees\kanban
+cd B:\_repositorios\skybridge-auto\kanban
 pip install fastapi uvicorn
 ```
 
@@ -59,7 +59,7 @@ https://abc1-230-45-67-89.ngrok-free.app
 No terminal principal:
 
 ```bash
-cd B:\_repositorios\skybridge-worktrees\kanban
+cd B:\_repositorios\skybridge-auto\kanban
 python src/core/webhooks/infrastructure/github_webhook_server.py
 ```
 
@@ -202,7 +202,7 @@ Webhooks que não incluem `X-GitHub-Delivery` ainda são suportados:
 - Verifique se o board existe e você tem acesso
 
 ### Erro "ModuleNotFoundError"
-- Certifique-se de estar no diretório correto: `B:\_repositorios\skybridge-worktrees\kanban`
+- Certifique-se de estar no diretório correto: `B:\_repositorios\skybridge-auto\kanban`
 - Instale as dependências: `pip install fastapi uvicorn python-dotenv httpx`
 
 ## 🎯 Próximos Passos

@@ -124,7 +124,7 @@ class JobOrchestrator:
         self,
         job_queue: JobQueuePort,
         worktree_manager: WorktreeManager,
-        agent_adapter: ClaudeCodeAdapter | None = None,
+        agent_adapter: AgentFacade | None = None,
         trello_service: TrelloIntegrationService | None = None,
     ):
 ```

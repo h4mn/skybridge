@@ -118,7 +118,7 @@ class PRD021StructureDemo(BaseDemo):
         self.log_progress(3, 6, "Renderizando system prompt...")
 
         context = {
-            "worktree_path": "/tmp/skybridge-worktrees/test",
+            "worktree_path": "/tmp/skybridge-auto/test",
             "branch_name": "feature/test",
             "skill": "resolve-issue",
             "issue_number": 42,
