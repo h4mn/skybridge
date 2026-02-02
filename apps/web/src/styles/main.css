@@ -178,3 +178,80 @@ body {
     max-height: 300px;
   }
 }
+
+/* =============================================================================
+   KANBAN BOARD (Fase 1: Leitura)
+   ============================================================================= */
+
+/* Colunas Kanban */
+.kanban-column {
+  min-height: 400px;
+}
+
+.kanban-column-card {
+  border: 1px solid #dee2e6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Container de cards dentro da coluna */
+.kanban-cards-container {
+  max-height: calc(100vh - 250px);
+  overflow-y: auto;
+}
+
+/* Custom scrollbar para cards Kanban */
+.kanban-cards-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.kanban-cards-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.kanban-cards-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.kanban-cards-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Card Kanban individual */
+.kanban-card {
+  border: 1px solid #e9ecef;
+  background: #fff;
+  transition: all 0.2s ease-in-out;
+}
+
+.kanban-card:hover {
+  border-color: #0d6efd;
+  box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
+  transform: translateY(-1px);
+}
+
+.kanban-card-link:hover {
+  text-decoration: none !important;
+}
+
+/* Responsivo para telas menores */
+@media (max-width: 991px) {
+  .kanban-column {
+    min-height: 300px;
+  }
+
+  .kanban-cards-container {
+    max-height: 400px;
+  }
+}
+
+@media (max-width: 575px) {
+  .kanban-column {
+    min-height: 250px;
+  }
+
+  .kanban-cards-container {
+    max-height: 300px;
+  }
+}

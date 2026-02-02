@@ -252,3 +252,53 @@ export const workspacesApi = {
   delete: (id: string) =>
     apiClient.delete<{ message: string }>(`/workspaces/${id}`),
 }
+
+// =============================================================================
+// KANBAN (Fase 1: Leitura)
+// =============================================================================
+
+export enum CardStatus {
+  BACKLOG = 'backlog',
+  TODO = 'todo',
+  IN_PROGRESS = 'in_progress',
+  REVIEW = 'review',
+  DONE = 'done',
+  BLOCKED = 'blocked',
+  CHALLENGE = 'challenge',
+}
+
+export interface KanbanCard {
+  id: string
+  title: string
+  description: string | null
+  status: CardStatus
+  labels: string[]
+  due_date: string | null
+  url: string
+  list_name: string
+  created_at: string | null
+}
+
+export interface KanbanBoard {
+  id: string
+  name: string
+  url: string
+}
+
+export interface KanbanList {
+  id: string
+  name: string
+  position: number
+}
+
+export interface KanbanBoardResponse {
+  ok: boolean
+  board: KanbanBoard | null
+  cards: KanbanCard[]
+  lists: KanbanList[]
+}
+
+export const kanbanApi = {
+  getBoard: () =>
+    apiClient.get<KanbanBoardResponse>('/kanban/board'),
+}

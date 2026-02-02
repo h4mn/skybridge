@@ -511,6 +511,7 @@ class SkybridgeApp:
         from runtime.delivery.routes import create_rpc_router
         from runtime.delivery.websocket import create_console_router  # PRD019: WebSocket console
         from runtime.delivery.workspaces_routes import create_router as create_workspaces_router
+        from runtime.delivery.kanban_routes import create_kanban_router  # Kanban Fase 1
         from runtime.config.workspace_config import WorkspaceConfig
         from runtime.config.workspace_repository import WorkspaceRepository
 
@@ -542,7 +543,8 @@ class SkybridgeApp:
         self.app.include_router(create_rpc_router(), prefix="/api", tags=["Sky-RPC"])
         self.app.include_router(create_console_router(), prefix="/api", tags=["WebSocket"])  # PRD019
         self.app.include_router(workspaces_router)  # Já tem prefixo /api/workspaces
-        self.logger.info("Rotas configuradas com prefixo /api (incluindo WebSocket console e Workspaces)")
+        self.app.include_router(create_kanban_router(), prefix="/api")  # Kanban Fase 1
+        self.logger.info("Rotas configuradas com prefixo /api (incluindo WebSocket console, Workspaces e Kanban)")
 
     def run(self, host: str | None = None, port: int | None = None):
         """Executa o servidor com uvicorn."""
