@@ -23,12 +23,6 @@ const contextNavs: ContextNavConfig = {
     { label: 'Em Progresso', path: '/kanban/in-progress' },
     { label: 'Concluídos', path: '/kanban/done' },
   ],
-  '/wiki': [
-    { label: 'Início', path: '/wiki' },
-    { label: 'Tarefas', path: '/wiki/tarefas' },
-    { label: 'Agentes', path: '/wiki/agentes' },
-    { label: 'Procedimentos', path: '/wiki/procedimentos' },
-  ],
   '/jobs': [
     { label: 'Todos', path: '/jobs' },
     { label: 'Pendentes', path: '/jobs?status=pending' },

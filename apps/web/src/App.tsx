@@ -11,7 +11,6 @@ import Logs from './pages/Logs'
 import Events from './pages/Events'
 import Agents from './pages/Agents'
 import Kanban from './pages/Kanban'
-import Wiki from './pages/Wiki'
 import { healthApi } from './api/endpoints'
 
 // Criar cliente Query para React Query
@@ -30,7 +29,6 @@ const sidebarSections: SidebarSection[] = [
     items: [
       { id: 'dashboard', label: 'Dashboard', icon: '📊', path: '/dashboard' },
       { id: 'kanban', label: 'Kanban', icon: '📋', path: '/kanban' },
-      { id: 'wiki', label: 'Wiki', icon: '📖', path: '/wiki' },
     ]
   },
   {
@@ -89,7 +87,6 @@ function AppContent() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/kanban" element={<Kanban />} />
-              <Route path="/wiki" element={<Wiki />} />
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/agents" element={<Agents />} />
               <Route path="/worktrees" element={<Worktrees />} />

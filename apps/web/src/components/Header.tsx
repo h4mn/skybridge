@@ -17,7 +17,6 @@ export default function Header() {
       '/dashboard': 'Dashboard',
       '/dashboard/': 'Dashboard',
       '/kanban': 'Kanban',
-      '/wiki': 'Wiki',
       '/jobs': 'Jobs',
       '/worktrees': 'Worktrees',
       '/logs': 'Logs',

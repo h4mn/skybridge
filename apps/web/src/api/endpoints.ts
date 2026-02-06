@@ -254,7 +254,7 @@ export const workspacesApi = {
 }
 
 // =============================================================================
-// KANBAN (Fase 1: Leitura)
+// KANBAN (Fase 1: Leitura - LEGADO)
 // =============================================================================
 
 export enum CardStatus {
@@ -301,4 +301,123 @@ export interface KanbanBoardResponse {
 export const kanbanApi = {
   getBoard: () =>
     apiClient.get<KanbanBoardResponse>('/kanban/board'),
+}
+
+// =============================================================================
+// KANBAN FASE 2: kanban.db (Fonte Única da Verdade)
+// =============================================================================
+
+// Interfaces para nova API kanban.db
+export interface KanbanDbBoard {
+  id: string
+  name: string
+  trello_board_id: string | null
+  trello_sync_enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface KanbanDbList {
+  id: string
+  board_id: string
+  name: string
+  position: number
+  trello_list_id: string | null
+}
+
+export interface KanbanDbCard {
+  id: string
+  list_id: string
+  title: string
+  description: string | null
+  position: number
+  labels: string[]
+  due_date: string | null
+  being_processed: boolean
+  processing_started_at: string | null
+  processing_job_id: string | null
+  processing_step: number
+  processing_total_steps: number
+  processing_progress_percent: number
+  issue_number: number | null
+  issue_url: string | null
+  pr_url: string | null
+  trello_card_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateCardRequest {
+  list_id: string
+  title: string
+  description?: string
+  position?: number
+  labels?: string[]
+  due_date?: string
+  issue_number?: number
+  issue_url?: string
+}
+
+export interface UpdateCardRequest {
+  title?: string
+  description?: string
+  list_id?: string  // Mover entre listas
+  position?: number
+  labels?: string[]
+  due_date?: string
+  being_processed?: boolean
+  processing_job_id?: string
+  processing_step?: number
+  processing_total_steps?: number
+}
+
+// Card History
+export interface CardHistory {
+  id: number | null
+  card_id: string
+  event: string  // 'created' | 'moved' | 'updated' | 'processing_started' | 'processing_completed' | 'deleted'
+  from_list_id: string | null
+  to_list_id: string | null
+  metadata: string | null  // JSON string
+  created_at: string
+}
+
+export const kanbanDbApi = {
+  // Boards
+  getBoards: () =>
+    apiClient.get<KanbanDbBoard[]>('/kanban/boards'),
+  getBoard: (id: string) =>
+    apiClient.get<KanbanDbBoard>(`/kanban/boards/${id}`),
+  createBoard: (data: { id: string; name: string }) =>
+    apiClient.post<KanbanDbBoard>('/kanban/boards', data),
+
+  // Lists
+  getLists: (boardId?: string) =>
+    apiClient.get<KanbanDbList[]>(`/kanban/lists${boardId ? `?board_id=${boardId}` : ''}`),
+  createList: (data: { id: string; board_id: string; name: string; position?: number }) =>
+    apiClient.post<KanbanDbList>('/kanban/lists', data),
+
+  // Cards
+  getCards: (filters?: { list_id?: string; being_processed?: boolean }) =>
+    apiClient.get<KanbanDbCard[]>(
+      '/kanban/cards' +
+      (filters?.list_id ? `?list_id=${filters.list_id}` : '') +
+      (filters?.being_processed !== undefined ? `${filters?.list_id ? '&' : '?'}being_processed=${filters.being_processed}` : '')
+    ),
+  getCard: (id: string) =>
+    apiClient.get<KanbanDbCard>(`/kanban/cards/${id}`),
+  createCard: (data: CreateCardRequest) =>
+    apiClient.post<KanbanDbCard>('/kanban/cards', data),
+  updateCard: (id: string, data: UpdateCardRequest) =>
+    apiClient.patch<KanbanDbCard>(`/kanban/cards/${id}`, data),
+  deleteCard: (id: string) =>
+    apiClient.delete(`/kanban/cards/${id}`),
+
+  // Card History
+  getCardHistory: (id: string) =>
+    apiClient.get<CardHistory[]>(`/kanban/cards/${id}/history`),
+
+  // Initialize
+  initialize: () =>
+    apiClient.post<{ ok: boolean; message: string; workspace: string }>('/kanban/initialize'),
 }
