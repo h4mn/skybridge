@@ -1,2 +1,4 @@
 # -*- coding: utf-8 -*-
-"""Application — Services de aplicação do contexto Kanban."""
+"""
+Application services para Kanban Context.
+"""
