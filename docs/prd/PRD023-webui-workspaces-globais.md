@@ -30,10 +30,12 @@
 - [x] Testes de isolamento para EventStream
 - [x] Documentação de arquitetura de workspace no frontend (#15)
 
-### Fase 3: Implementação de Páginas Planejadas - 🔮 PENDENTE
+### Fase 3: Implementação de Páginas Planejadas
 
-- [ ] Implementação Kanban (#17)
-- [ ] Implementação Wiki (#18)
+**MOVIDO PARA PRDS DEDICADAS:**
+
+- **Kanban:** Veja [PRD024 - Kanban Cards Vivos](../prd/PRD024-kanban-cards-vivos.md)
+- **Wiki:** Veja [PRD025 - Wiki Markdown Colaborativa](../prd/PRD025-wiki-markdown-colaborativa.md)
 
 ---
 
@@ -70,8 +72,8 @@ Atualmente o WebUI da Skybridge **não implementa isolamento de workspaces** con
 | 4 | **Worktrees** | Operação | `/webhooks/worktrees`, DELETE `/webhooks/worktrees/{name}` | ✅ OK |
 | 5 | **Events** | Operação | `/observability/events/*` | ⚠️ #11 (EventStream) |
 | 6 | **Logs** | Operação | `/logs/*` | ✅ OK |
-| 7 | **Kanban** | Planejada | - | 🔮 #17 (a implementar) |
-| 8 | **Wiki** | Planejada | - | 🔮 #18 (a implementar) |
+| 7 | **Kanban** | Planejada | `/api/kanban/*` | 🔮 *(veja [PRD024](../prd/PRD024-kanban-cards-vivos.md))* |
+| 8 | **Wiki** | Planejada | `/api/wiki/*` | 🔮 *(veja [PRD025](../prd/PRD025-wiki-markdown-colaborativa.md))* |
 
 ### 2.2 Componentes Internos
 
@@ -123,8 +125,8 @@ export default function Kanban() {
 ```
 
 **Checklist:**
-- [ ] Página Kanban tem funcionalidade completa (drag-and-drop, CRUD de cards)
-- [ ] Página Wiki tem funcionalidade completa (criar/editar/páginas)
+- [ ] Página Kanban tem funcionalidade completa (veja [PRD024](../prd/PRD024-kanban-cards-vivos.md))
+- [ ] Página Wiki tem funcionalidade completa (veja [PRD025](../prd/PRD025-wiki-markdown-colaborativa.md))
 - [ ] Zero mensagens "Em construção"
 - [ ] Zero componentes placeholder sem funcionalidade
 
@@ -176,8 +178,8 @@ describe('JobsPage - Workspace Isolation', () => {
 | Worktrees.tsx | [x] | [x] | [x] |
 | Events.tsx | [x] | [x] | [x] |
 | Logs.tsx | [x] | [x] | [x] |
-| Kanban.tsx | [ ] | [ ] | [ ] |
-| Wiki.tsx | [ ] | [ ] | [ ] |
+| Kanban.tsx | [ ] | [ ] | [ ] *(veja PRD024)* |
+| Wiki.tsx | [ ] | [ ] | [ ] *(veja PRD025)* |
 | EventStream.tsx | [x] | [x] | [x] |
 | LogStream.tsx | [x] | [x] | [x] |
 | WorkspaceSelector.tsx | [x] | [x] | [x] |
@@ -260,201 +262,37 @@ await observabilityApi.clearEventHistory()
 | Worktrees.tsx | [x] | ✅ |
 | Events.tsx | [x] | ✅ |
 | Logs.tsx | [x] | ✅ |
-| Kanban.tsx | [ ] | 🔮 |
-| Wiki.tsx | [ ] | 🔮 |
+| Kanban.tsx | [ ] | 🔮 (veja PRD024) |
+| Wiki.tsx | [ ] | 🔮 (veja PRD025) |
 
 ---
 
-## 4. Plano para Página Kanban
+## 4. Páginas Planejadas - Referências
 
-### 4.1 Propósito
+As páginas Kanban e Wiki foram movidas para PRDs dedicadas:
 
-Conforme PRD013 (Orquestração Multi-Agente) e SPEC009, o Kanban visualiza o fluxo de trabalho dos agentes autônomos com estados:
+### 4.1 Kanban Board
 
-```
-OPEN → IN_PROGRESS → READY_FOR_TEST → UNDER_CHALLENGE → AWAITING_HUMAN_APPROVAL → VERIFIED → CLOSED
-```
+**PRD024:** Kanban - Cards Vivos com Sincronização Trello
 
-### 4.2 Funcionalidades
+- Fonte única da verdade em kanban.db (SQLite)
+- Sincronização bidirecional com Trello
+- "Cards vivos" que mostram quando agentes estão processando
+- Suporte a múltiplos workspaces
 
-#### RF001: Quadro Kanban Visual
-- **Descrição:** Visualizar cards de issues em colunas por estado
-- **Colunas:** Backlog, Em Progresso, Em Teste, Em Revisão, Pronto, Fechado
-- **Drag-and-Drop:** Mover cards entre colunas
-- **Filtros:** Por workspace, por label, por assignee
-- **Prioridade:** Alta
+Ver: [docs/prd/PRD024-kanban-cards-vivos.md](../prd/PRD024-kanban-cards-vivos.md)
 
-#### RF002: Gestão de Cards
-- **Descrição:** Criar, editar, deletar cards
-- **Campos:** Título, descrição, labels, assignee, prioridade
-- **Prioridade:** Alta
+### 4.2 Wiki Colaborativa
 
-#### RF003: Detalhes do Card
-- **Descrição:** Modal com detalhes completos do card
-- **Abas:** Discussão, Thinking Steps, Logs, Files Changed
-- **Prioridade:** Média
+**PRD025:** Wiki - Markdown Colaborativa por Workspace
 
-#### RF004: Integração com Agents
-- **Descrição:** Cards são criados/atualizados por agentes automaticamente
-- **Eventos:** Agent cria card, move entre colunas, adiciona comentários
-- **Prioridade:** Alta
+- Markdown completo com live preview
+- Organização hierárquica de páginas
+- Busca full-text
+- Histórico de versões
+- Suporte a múltiplos workspaces
 
-### 4.3 Endpoints Backend
-
-```python
-# Novos endpoints para Kanban
-@router.get("/api/kanban/columns")
-async def get_columns(request: Request):
-    """Retorna colunas do Kanban filtradas por workspace."""
-    workspace_id = request.headers.get("X-Workspace", "core")
-    return kanban_service.get_columns(workspace_id)
-
-@router.get("/api/kanban/cards")
-async def get_cards(request: Request, column_id: str | None = None):
-    """Retorna cards do Kanban filtrados por workspace e coluna."""
-    workspace_id = request.headers.get("X-Workspace", "core")
-    return kanban_service.get_cards(workspace_id, column_id)
-
-@router.post("/api/kanban/cards")
-async def create_card(request: Request, card: CardCreate):
-    """Cria novo card no workspace."""
-    workspace_id = request.headers.get("X-Workspace", "core")
-    return kanban_service.create_card(workspace_id, card)
-
-@router.patch("/api/kanban/cards/{card_id}")
-async def update_card(request: Request, card_id: str, card: CardUpdate):
-    """Atualiza card (mover coluna, editar campos)."""
-    workspace_id = request.headers.get("X-Workspace", "core")
-    return kanban_service.update_card(workspace_id, card_id, card)
-
-@router.delete("/api/kanban/cards/{card_id}")
-async def delete_card(request: Request, card_id: str):
-    """Deleta card do workspace."""
-    workspace_id = request.headers.get("X-Workspace", "core")
-    return kanban_service.delete_card(workspace_id, card_id)
-```
-
-### 4.4 Componentes Frontend
-
-```
-apps/web/src/
-├── pages/
-│   └── Kanban.tsx                   # Página principal
-├── components/
-│   ├── Kanban/
-│   │   ├── KanbanBoard.tsx          # Quadro com colunas
-│   │   ├── KanbanColumn.tsx         # Coluna com cards
-│   │   ├── KanbanCard.tsx           # Card individual
-│   │   ├── CardModal.tsx            # Modal de detalhes
-│   │   ├── CreateCardModal.tsx      # Modal de criação
-│   │   └── KanbanFilters.tsx        # Filtros por workspace/labels
-│   └── __tests__/
-│       └── Kanban.test.tsx          # Testes de isolamento
-```
-
-### 4.5 Roadmap Kanban
-
-| Fase | Tarefa | Status |
-|------|--------|--------|
-| 1 | Backend: Endpoints Kanban | 🔮 Pendente |
-| 2 | Frontend: KanbanBoard básico | 🔮 Pendente |
-| 3 | Frontend: Drag-and-Drop | 🔮 Pendente |
-| 4 | Frontend: Modais (CRUD) | 🔮 Pendente |
-| 5 | Frontend: Filtros workspace | 🔮 Pendente |
-| 6 | Integração: Agents → Kanban | 🔮 Pendente |
-| 7 | Testes: Isolamento workspace | 🔮 Pendente |
-
----
-
-## 5. Plano para Página Wiki
-
-### 5.1 Propósito
-
-Conforme visão Skybridge (core/vision.md), a Wiki é documentação colaborativa de tarefas e procedimentos por workspace.
-
-### 5.2 Funcionalidades
-
-#### RF001: Páginas Wiki
-- **Descrição:** Criar, editar, visualizar páginas de documentação
-- **Markdown:** Suporte completo a Markdown
-- **Preview:** Live preview de Markdown
-- **Prioridade:** Alta
-
-#### RF002: Organização
-- **Descrição:** Hierarquia de páginas, categorias, tags
-- **Busca:** Full-text search em páginas
-- **Histórico:** Versionamento de edições
-- **Prioridade:** Média
-
-#### RF003: Colaboração
-- **Descrição:** Múltiplos editores, comentários, sugestões
-- **Lock:** Edição exclusiva (prevenir conflitos)
-- **Prioridade:** Baixa
-
-### 5.3 Endpoints Backend
-
-```python
-# Novos endpoints para Wiki
-@router.get("/api/wiki/pages")
-async def get_pages(request: Request):
-    """Retorna páginas wiki filtradas por workspace."""
-    workspace_id = request.headers.get("X-Workspace", "core")
-    return wiki_service.get_pages(workspace_id)
-
-@router.get("/api/wiki/pages/{slug}")
-async def get_page(request: Request, slug: str):
-    """Retorna página wiki específica."""
-    workspace_id = request.headers.get("X-Workspace", "core")
-    return wiki_service.get_page(workspace_id, slug)
-
-@router.post("/api/wiki/pages")
-async def create_page(request: Request, page: PageCreate):
-    """Cria nova página wiki no workspace."""
-    workspace_id = request.headers.get("X-Workspace", "core")
-    return wiki_service.create_page(workspace_id, page)
-
-@router.put("/api/wiki/pages/{slug}")
-async def update_page(request: Request, slug: str, page: PageUpdate):
-    """Atualiza página wiki."""
-    workspace_id = request.headers.get("X-Workspace", "core")
-    return wiki_service.update_page(workspace_id, slug, page)
-
-@router.delete("/api/wiki/pages/{slug}")
-async def delete_page(request: Request, slug: str):
-    """Deleta página wiki do workspace."""
-    workspace_id = request.headers.get("X-Workspace", "core")
-    return wiki_service.delete_page(workspace_id, slug)
-```
-
-### 5.4 Componentes Frontend
-
-```
-apps/web/src/
-├── pages/
-│   └── Wiki.tsx                     # Página principal
-├── components/
-│   ├── Wiki/
-│   │   ├── WikiList.tsx             # Lista de páginas
-│   │   ├── WikiPage.tsx             # Visualizador de página
-│   │   ├── WikiEditor.tsx           # Editor Markdown
-│   │   ├── WikiSearch.tsx           # Busca full-text
-│   │   ├── WikiSidebar.tsx          # Árvore de páginas
-│   │   └── PageHistory.tsx          # Histórico de versões
-│   └── __tests__/
-│       └── Wiki.test.tsx            # Testes de isolamento
-```
-
-### 5.5 Roadmap Wiki
-
-| Fase | Tarefa | Status |
-|------|--------|--------|
-| 1 | Backend: Endpoints Wiki | 🔮 Pendente |
-| 2 | Frontend: WikiList + WikiPage básicos | 🔮 Pendente |
-| 3 | Frontend: Editor Markdown + Preview | 🔮 Pendente |
-| 4 | Frontend: Árvore de páginas | 🔮 Pendente |
-| 5 | Frontend: Busca full-text | 🔮 Pendente |
-| 6 | Frontend: Filtros workspace | 🔮 Pendente |
-| 7 | Testes: Isolamento workspace | 🔮 Pendente |
+Ver: [docs/prd/PRD025-wiki-markdown-colaborativa.md](../prd/PRD025-wiki-markdown-colaborativa.md)
 
 ---
 
@@ -478,13 +316,13 @@ apps/web/src/
 | #14 | Teste e2e de troca de workspace | #16 |
 | #15 | Documentar arquitetura de workspace no frontend | #16 |
 
-### Fase 3: Implementação de Páginas Planejadas
-**Objetivo:** Completar Kanban e Wiki sem placeholders
+### Fase 3: Páginas Planejadas
+**Objetivo:** Kanban e Wiki têm suas próprias PRDs
 
-| # | Tarefa | Depende de |
-|---|--------|-----------|
-| #17 | Criar página Kanban com suporte a workspace | #16 |
-| #18 | Criar página Wiki com suporte a workspace | #16 |
+| # | Tarefa | Depende de | PRD |
+|---|--------|-----------|-----|
+| - | Kanban Board (cards vivos + sync Trello) | ADR024 | [PRD024](../prd/PRD024-kanban-cards-vivos.md) |
+| - | Wiki Colaborativa (markdown) | ADR024 | [PRD025](../prd/PRD025-wiki-markdown-colaborativa.md) |
 
 ---
 

@@ -5,10 +5,155 @@ Todas as alterações notáveis do Skybridge serão documentadas neste arquivo.
 O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.html/).
 
+## [Unreleased] - 2026-02-04
+
+### 📝 Documentação
+
+* `docs/prd/PRD026-kanban-integracao-fluxo-real.md` - Criado PRD026 documentando pendências críticas de integração do Kanban com o fluxo real da Skybridge
+  - Identifica 17 pendências (6 críticas, 7 importantes, 4 menores)
+  - KanbanJobEventHandler NÃO está conectado ao EventBus
+  - kanban.db NÃO é inicializado automaticamente no startup
+  - Cards NÃO são criados quando webhook chega
+  - Propõe 6 fases de implementação (48 horas de esforço)
+
+## [Unreleased] - 2026-02-03
+
+### ✨ Novidades
+
+* **kanban:** implementa Tasks 5 e 6 do PRD024 (Frontend Kanban)
+  - **Task 5: Drag & Drop com @dnd-kit**
+    - Instalado @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities
+    - `KanbanBoard.tsx` - Board principal com DndContext e DragOverlay
+    - `KanbanColumn.tsx` - Coluna com droppable zone e sortable context
+    - `SortableCard.tsx` - Wrapper sortable para KanbanCard
+    - Drag & drop entre colunas funcionando (mover cards)
+    - Cards vivos ordenados primeiro automaticamente
+  - **Task 6: Cards Vivos Visual**
+    - `KanbanCard.tsx` com efeitos de card vivo
+    - CSS `kanban-card-alive` com borda pulsante azul
+    - LiveBadge com emoji 🤖, texto "Agent working..." e progress bar
+    - Animação `pulse-border` com shadow pulsante
+    - Progress bar mostrando percentual de processamento
+    - Corrigido path do kanban.db para `workspace/{workspace_id}/data/` (ADR024)
+    - Corrigido CreateCardSchema para incluir campos de being_processed
+  - `apps/web/src/api/endpoints.ts` - Adicionada `kanbanDbApi` com prefixo `/api`
+  - `apps/web/src/main.tsx` - Import do CSS Kanban
+  - `apps/web/src/components/Kanban/Kanban.css` - Animações CSS completas
+
+### 🐛 Correções
+
+* **kanban:** corrigido path do kanban.db de `workspace/{id}/skybridge/` para `workspace/{id}/data/`
+* **kanban:** corrigido CreateCardSchema para incluir campos de being_processed
+* **api:** adicionado prefixo `/api` em todos os endpoints kanbanDbApi
+
+### 📝 Documentação
+
+* `docs/prd/PRD024-kanban-cards-vivos.md` - Atualizado com progresso Tasks 5-6
+
+## [Unreleased] - 2026-02-02
+
+### ✨ Novidades
+
+* **kanban:** implementa Fase 2 do Kanban (infraestrutura completa)
+  - Schema kanban.db com SQLite adapter (29 testes passando)
+  - TrelloSyncService bidirecional
+  - KanbanJobEventHandler (integração JobOrchestrator)
+  - KanbanInitializer com 6 listas padrão (Issues, Brainstorm, A Fazer, Em Andamento, Em Revisão, Publicar)
+  - **API endpoints Kanban** (CRUD completo + status)
+    - GET/POST /kanban/boards - Listar e criar boards
+    - GET /kanban/boards/{id} - Buscar board específico
+    - GET/POST /kanban/lists - Listar e criar listas
+    - GET/POST/PATCH/DELETE /kanban/cards - CRUD completo de cards
+    - Cards vivos ordenados primeiro (being_processed=True)
+    - POST /kanban/initialize - Inicializar kanban.db com estrutura padrão
+    - **9 testes de integração passando**
+* **docs:** cria PRD024 (Kanban Cards Vivos) e PRD025 (Wiki Colaborativa)
+* **docs:** atualiza PRD023 removendo seções de Kanban/Wiki (movidas para PRDs dedicadas)
+* **tests:** 693 testes passando (3 skipped)
+
+### 📝 Documentação
+
+* `docs/prd/PRD024-kanban-cards-vivos.md` - Nova PRD para Kanban
+* `docs/prd/PRD025-wiki-markdown-colaborativa.md` - Nova PRD para Wiki
+* `docs/prd/PRD023-webui-workspaces-globais.md` - Atualizada com referências para PRD024/025
 
 
 
 
+
+
+
+## [0.13.0] - 2026-02-01
+
+
+### ✨ Novidades
+
+* [`53384b2`](https://github.com/h4mn/skybridge/commit/53384b29faf42cdff4c811b3cf892581417f5f7f) **kanban:** implementa visualização Kanban Fase 1 (leitura) [`@h4mn`](https://github.com/h4mn)
+* [`bb54fee`](https://github.com/h4mn/skybridge/commit/bb54feef30b5b28e8be23c72b8e258845505576f) **workspaces:** implementa PL003 - Isolamento Profissional de Testes (ADR024) [`@h4mn`](https://github.com/h4mn)
+* [`3484916`](https://github.com/h4mn/skybridge/commit/3484916dd1157475977e529632f46d241167985a) **cli:** adicionar menu interativo quando executado sem argumentos [`@h4mn`](https://github.com/h4mn)
+* [`98a4131`](https://github.com/h4mn/skybridge/commit/98a41318ae735e417009f1591d71b20b0aefe215) **server:** adicionar endpoint para servir favicon.svg [`@h4mn`](https://github.com/h4mn)
+* [`88088ba`](https://github.com/h4mn/skybridge/commit/88088badedc11c898067a16a70088b88d83a7bb1) **web:** melhorar seletor de workspaces com reload e nomes [`@h4mn`](https://github.com/h4mn)
+* [`5742d56`](https://github.com/h4mn/skybridge/commit/5742d56d794d091c0f2eb8dd42b3964184316431) **workspaces:** implementar ADR024 - Sistema de Workspaces [`@h4mn`](https://github.com/h4mn)
+* [`dac4e02`](https://github.com/h4mn/skybridge/commit/dac4e029ac03a7b491231ee20aa6d325335566f9) **agents:** implementar página de Agents com persistência SQLite [`@h4mn`](https://github.com/h4mn)
+* [`7aff1db`](https://github.com/h4mn/skybridge/commit/7aff1db159b391ba92bce7607fe21de2d25e1bf3) **adapters:** executar ADR021 - migrar completamente para SDK oficial [`@h4mn`](https://github.com/h4mn)
+* [`dc5797d`](https://github.com/h4mn/skybridge/commit/dc5797d6a79bddb283052fefb1e1cd2e081db07a) **frontend:** implementar sidebar contextual com navegação dinâmica [`@h4mn`](https://github.com/h4mn)
+* [`6e0c11a`](https://github.com/h4mn/skybridge/commit/6e0c11aa472e6559dd0dd598e15b992d83512044) **frontend:** redesign do Dashboard com navbar dividida e pause/retomar de logs [`@h4mn`](https://github.com/h4mn)
+* [`1ee6be5`](https://github.com/h4mn/skybridge/commit/1ee6be542d0facef65bbf54d0a6edf19fe4d6ba8) **frontend:** adicionar ambiente de testes e corrigir servidor WebUI [`@h4mn`](https://github.com/h4mn)
+
+
+### 🐛 Correções
+
+* [`8bdc4f7`](https://github.com/h4mn/skybridge/commit/8bdc4f7bfa7a6dd61cfc2f856c01e0513a1331b1) **api:** corrige erro 422 e SyntaxError em /webhooks/worktrees [`@h4mn`](https://github.com/h4mn)
+* [`aba36cb`](https://github.com/h4mn/skybridge/commit/aba36cba62c7415d3e55e52544dd4a319cc0dbfa) **githooks:** corrige /dev/null/null -> /dev/null [`@h4mn`](https://github.com/h4mn)
+* [`a6b7e1e`](https://github.com/h4mn/skybridge/commit/a6b7e1ede524f921c0938fe0167f82180c6b320b) **githooks:** limpa tmp_path também em branch dev (ADR024) [`@h4mn`](https://github.com/h4mn)
+* [`4e8710b`](https://github.com/h4mn/skybridge/commit/4e8710bbb46e64355b40e23afc7d3efe90a4bf28) **git:** corrigir encoding None stderr em subprocess calls [`@h4mn`](https://github.com/h4mn)
+* [`0621b79`](https://github.com/h4mn/skybridge/commit/0621b7927ce7567171eebe2632db7d81c9fe679c) **web:** remover polling desnecessário e corrigir duplicação de prefixo API [`@h4mn`](https://github.com/h4mn)
+* [`145765d`](https://github.com/h4mn/skybridge/commit/145765d7e4247961ea6325bfff00fecb2bcd26b5) **eventbus:** adicionar await nas chamadas subscribe [`@h4mn`](https://github.com/h4mn)
+* [`a399b15`](https://github.com/h4mn/skybridge/commit/a399b15bb2ebb9ef5a7b199364d4190c579ffd1d) **agent-sdk:** corrigir detecção de ResultMessage e loop infinito [`@h4mn`](https://github.com/h4mn)
+* [`23e77da`](https://github.com/h4mn/skybridge/commit/23e77dab370e353e0cb41e4b221c7bb70069c676) **agent-sdk:** usar asyncio.timeout (Python 3.11+) e corrigir tratamento is_error [`@h4mn`](https://github.com/h4mn)
+* [`87dcd2a`](https://github.com/h4mn/skybridge/commit/87dcd2a039566c1a595673ee6e3260be6425c4c0) **mock:** adicionar label auto-generated em issues mock do GitHub [`@h4mn`](https://github.com/h4mn)
+* [`7aaf776`](https://github.com/h4mn/skybridge/commit/7aaf7766a585fd9398c3f5dac9afd7f2ade24d61) **frontend:** limpar imports e adicionar filtros clicáveis na página Jobs [`@h4mn`](https://github.com/h4mn)
+* [`5664ddf`](https://github.com/h4mn/skybridge/commit/5664ddf0ab27dbb47f893fa029fe2e6a3d93d3cc) **demo:** corrigir demo PRD020 e adicionar script run_demo.py [`@h4mn`](https://github.com/h4mn)
+* [`2a11f1d`](https://github.com/h4mn/skybridge/commit/2a11f1dc9fc6b598f6c78e48c282a3eaca0cf8fa) **trello:** adicionar métodos faltantes ao TrelloKanbanListsConfig [`@h4mn`](https://github.com/h4mn)
+
+
+### ♻️ Refatoração
+
+* [`212111c`](https://github.com/h4mn/skybridge/commit/212111c9d648825471af5747a71d743bfa663a04) **cli:** remove menu interativo, subcomando RPC e adiciona --version [`@h4mn`](https://github.com/h4mn)
+* [`892e9ee`](https://github.com/h4mn/skybridge/commit/892e9eec7f580a72c0471495e263eb730539aace) remover hardcodes de workspace/skybridge e usar config centralizada [`@h4mn`](https://github.com/h4mn)
+* [`1e93653`](https://github.com/h4mn/skybridge/commit/1e93653a336467ec32dd184a4df19d03ccc5dc11) **server:** remover apps.api.main e unificar em apps.server.main [`@h4mn`](https://github.com/h4mn)
+* [`290848c`](https://github.com/h4mn/skybridge/commit/290848ce0add6a1755842e5a38334119a1aa8367) **worktrees:** adotar skybridge-auto e melhorias PR #93 ([#93](https://github.com/h4mn/skybridge/pull/93)) [`@h4mn`](https://github.com/h4mn)
+* [`28f2f6e`](https://github.com/h4mn/skybridge/commit/28f2f6ef0e68c7e26cd676be5c4cec5c7cf74b67) **eventbus:** usar EventBus global do kernel em vez de singleton local [`@h4mn`](https://github.com/h4mn)
+
+
+### 📚 Documentação
+
+* [`3351019`](https://github.com/h4mn/skybridge/commit/3351019bc8291e13567b2aecacb17452b7285034) adicionar PL003 e PRD023 com script de conveniencia sb.cmd [`@h4mn`](https://github.com/h4mn)
+* [`e0b9858`](https://github.com/h4mn/skybridge/commit/e0b985846aec62bed5b66f0cf00ed4882caca4b1) **plan:** adicionar PL002 - implementação ADR024 workspaces (TDD estrito) [`@h4mn`](https://github.com/h4mn)
+* [`3831067`](https://github.com/h4mn/skybridge/commit/38310670dbeca35d06786e29479dfc195d4c4ed9) **adr:** marcar ADR010 como ABOLIDA e atualizar ADR023 [`@h4mn`](https://github.com/h4mn)
+* [`4ed706e`](https://github.com/h4mn/skybridge/commit/4ed706e646fbbb7f95cfd207e9db52938bfa9450) **adr021:** atualizar status para implementada e documentar alinhamento oficial [`@h4mn`](https://github.com/h4mn)
+
+
+### 💅 Estilos
+
+* [`e0a3923`](https://github.com/h4mn/skybridge/commit/e0a39237cd719ef686e1430b9374f81573907272) **cli/server:** remove banner do servidor [`@h4mn`](https://github.com/h4mn)
+
+
+### ✅ Testes
+
+* [`5ead421`](https://github.com/h4mn/skybridge/commit/5ead421365925dc17707c9b4dcc9d592f60d33af) **workspaces:** implementa cobertura completa de testes PRD023 [`@h4mn`](https://github.com/h4mn)
+* [`0e4f12e`](https://github.com/h4mn/skybridge/commit/0e4f12e09614346df8a4368b95f0b725a8b4036a) **githooks:** configura hooks versionados em .githooks/ (ADR024) [`@h4mn`](https://github.com/h4mn)
+* [`c2c98d4`](https://github.com/h4mn/skybridge/commit/c2c98d4e4fbdd4bd7cb7873bfccd39a007be2d13) implementar isolamento profissional de testes (ADR024 estendida) [`@h4mn`](https://github.com/h4mn)
+* [`549a1c7`](https://github.com/h4mn/skybridge/commit/549a1c7afeea9acb792e6831cb3c5f4b02e19293) **tdd:** adicionar testes TDD estritos para fluxo do loop de mensagens Agent SDK [`@h4mn`](https://github.com/h4mn)
+* [`91155d2`](https://github.com/h4mn/skybridge/commit/91155d244ffb75a5040ec89781aa4026117457f4) **tdd:** adicionar testes TDD para detecção robusta de ResultMessage [`@h4mn`](https://github.com/h4mn)
+* [`8d9d3af`](https://github.com/h4mn/skybridge/commit/8d9d3afde46c90879a35cff59fa8ed750c40eb3f) **e2e:** adicionar teste E2E do fluxo Trello → GitHub → Trello [`@h4mn`](https://github.com/h4mn)
+
+
+### 🧹 Tarefas
+
+* [`f911725`](https://github.com/h4mn/skybridge/commit/f911725e7f5b3d6fd997d4232e2bb1439a167886) **server:** restaura apps/server/main.py [`@h4mn`](https://github.com/h4mn)
+* [`c2eee09`](https://github.com/h4mn/skybridge/commit/c2eee090a285de9cff6f52e7c06bda91c4d5ccf4) **api:** recupera ponto de entrada para a aplicação Skybridge API [`@h4mn`](https://github.com/h4mn)
+* [`2fe931b`](https://github.com/h4mn/skybridge/commit/2fe931b057f698911ec71617bfaa8d8f810ac5a2) **api:** recupera ponto de entrada para a aplicação Skybridge API [`@h4mn`](https://github.com/h4mn)
 
 ## [0.11.0] - 2026-01-25
 
