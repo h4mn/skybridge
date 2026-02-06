@@ -15,6 +15,9 @@ import uuid
 import yaml
 import asyncio
 
+# RequestLoggingMiddleware (RF002)
+from runtime.delivery.middleware.request_log import RequestLoggingMiddleware
+
 from runtime.config.config import get_config, get_fileops_config
 from runtime.observability.logger import get_logger, print_separator, Colors
 from kernel import get_query_registry
@@ -453,8 +456,25 @@ class SkybridgeApp:
         }
 
     def _setup_middleware(self):
-        """Configura middlewares."""
-        # CORS
+        """
+        Configura middlewares.
+
+        ORDEM DE ADIÇÃO (inversa da execução em Starlette):
+
+        Ordem de EXECUÇÃO (call_next):
+        1º: CORSMiddleware (mais externo)
+        2º: CorrelationMiddleware (adiciona correlation_id)
+        3º: RequestLoggingMiddleware (lê correlation_id e loga)
+
+        Por isso a ordem de ADIÇÃO é inversa:
+        """
+        # 1º: Request Logging (adiciona primeiro, executa por último)
+        self.app.add_middleware(RequestLoggingMiddleware)
+
+        # 2º: Correlation ID (adiciona depois, executa antes do RequestLogging)
+        self.app.add_middleware(CorrelationMiddleware)
+
+        # 3º: CORS (adiciona por último, executa primeiro - mais externo)
         self.app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
@@ -462,8 +482,6 @@ class SkybridgeApp:
             allow_methods=["*"],
             allow_headers=["*"],
         )
-        # Correlation ID
-        self.app.add_middleware(CorrelationMiddleware)
 
     def _register_queries(self):
         """Registra queries no registry."""
@@ -492,7 +510,7 @@ class SkybridgeApp:
         self.logger.info("Queries registradas", extra={
             "count": len(registry.list_all()),
             "fileops_mode": fileops_config.allowlist_mode,
-            "modules": modules,
+            # "modules": modules, # Exibe os módulos registrados
         })
 
     def _setup_routes(self):

@@ -187,6 +187,7 @@ def agent_issue(
 
 
 @app.command("serve")
+@app.command("start")  # Alias para serve
 def serve(
     args: Optional[list[str]] = typer.Argument(None, help="Argumentos adicionais para o servidor"),
 ):
@@ -194,6 +195,8 @@ def serve(
     Inicia o servidor Skybridge.
 
     Executa apps.server.main com os argumentos fornecidos.
+
+    Alias: sb start, sb serve
     """
     from rich.text import Text
     from rich.panel import Panel
@@ -225,7 +228,7 @@ def show_help():
     help_text = Text()
     help_text.append("Comandos disponíveis:\n\n", style="bold cyan")
     help_text.append("Servidor:\n", style="bold white")
-    help_text.append("  sb serve [--reload]            Inicia o servidor Skybridge\n", style="white")
+    help_text.append("  sb serve, sb start             Inicia o servidor Skybridge\n", style="white")
     help_text.append("\nWorkspace:\n", style="bold white")
     help_text.append("  sb workspace list               Lista todos os workspaces\n", style="white")
     help_text.append("  sb ws create <id>               Cria novo workspace\n", style="white")

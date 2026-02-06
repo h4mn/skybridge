@@ -148,7 +148,8 @@ class ColorFormatter(logging.Formatter):
                 except json.JSONDecodeError:
                     continue
 
-        # Cabeçalho do log
+        # Cabeçalho do log (formato padrão)
+        # NOTA: Para skybridge.request, o formato é redefinido abaixo com ordem diferente
         header = f"{timestamp}{Colors.PIPE} |{reset} {levelname:<8}{Colors.PIPE} |{reset} {name}{Colors.PIPE} |{reset} {message_prefix}"
 
         # Se achou JSON na mensagem, formata pretty
@@ -180,6 +181,70 @@ class ColorFormatter(logging.Formatter):
             else:
                 extra_lines.append(f" {Colors.DIM}{key}:{reset} {formatted_value}")
 
+        # Formatação especial para skybridge.request (logs de HTTP)
+        # NOVA ordem: FIXAS primeiro, depois DINÂMICAS
+        # timestamp | INFO | skybridge.request | corr_id | client_ip | GET /api/health → 200 | 3.55ms
+        if record.name == "skybridge.request":
+            # Colunas FIXAS (tamanho previsível)
+            fixed_parts = []
+
+            # correlation_id (UUID = 36 chars, abreviado para 8)
+            if hasattr(record, "correlation_id"):
+                corr_id = getattr(record, "correlation_id")
+                if corr_id == "unknown":
+                    fixed_parts.append(f"{Colors.DIM}unknown{reset}")
+                else:
+                    corr_short = corr_id[-8:] if len(corr_id) > 8 else corr_id
+                    fixed_parts.append(f"{Colors.CYAN}{corr_short}{reset}")
+            else:
+                fixed_parts.append(f"{Colors.DIM}unknown{reset}")
+
+            # client_ip (IPv4 ~15 chars, IPv6 ~39 chars)
+            if hasattr(record, "client_ip"):
+                ip = getattr(record, "client_ip")
+                fixed_parts.append(f"{Colors.MAGENTA}{ip}{reset}")
+            else:
+                fixed_parts.append(f"{Colors.DIM}unknown{reset}")
+
+            # Colunas DINÂMICAS (tamanho variável)
+            # 1. escopo (method + path) - message_prefix
+            # 2. status_code
+            # 3. duration_ms
+
+            # status_code
+            if hasattr(record, "status_code"):
+                status = getattr(record, "status_code")
+                if 200 <= status < 300:
+                    status_formatted = f"{Colors.INFO}{status}{reset}"
+                elif 400 <= status < 500:
+                    status_formatted = f"{Colors.WARNING}{status}{reset}"
+                elif 500 <= status < 600:
+                    status_formatted = f"{Colors.ERROR}{status}{reset}"
+                else:
+                    status_formatted = f"{Colors.DIM}{status}{reset}"
+            else:
+                status_formatted = f"{Colors.DIM}?{reset}"
+
+            # duration_ms
+            if hasattr(record, "duration_ms"):
+                duration = getattr(record, "duration_ms")
+                duration_formatted = f"{duration}ms"
+            else:
+                duration_formatted = f"{Colors.DIM}?ms{reset}"
+
+            # Constrói header com nova ordem:
+            # timestamp | INFO | skybridge.request | corr_id | client_ip | escopo → status | duration
+            header = f"{timestamp}{Colors.PIPE} |{reset} {levelname:<8}{Colors.PIPE} |{reset}"
+            header += f"{name}{Colors.PIPE} |{reset} "  # skybridge.request (azul)
+            header += f"{fixed_parts[0]}{Colors.PIPE} |{reset} "  # corr_id
+            header += f"{fixed_parts[1]}{Colors.PIPE} |{reset} "  # client_ip
+            header += f"{message_prefix}{Colors.DIM} →{reset} "  # escopo: GET /api/health (dinâmico)
+            header += f"{status_formatted}{Colors.PIPE} |{reset} "  # status (dinâmico)
+            header += f"{duration_formatted}"  # duration (dinâmico)
+
+            return header
+
+        # Para outros loggers, formata extras normalmente
         if extra_lines:
             # Une os extras na mesma linha se não tiver quebras
             flat_extras = [e for e in extra_lines if "\n" not in e]

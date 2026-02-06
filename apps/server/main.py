@@ -44,7 +44,7 @@ def get_log_config() -> dict:
     Retorna configuração de logging do uvicorn.
 
     Usa ColorFormatter do Skybridge para formatação consistente.
-    Desabilita uvicorn.access pois o RequestLoggingMiddleware cuida disso.
+    NOTA: uvicorn.access desabilitado pois RequestLoggingMiddleware (RF002) cuida do logging de requests.
     """
     from runtime.config.config import get_workspace_logs_dir
     logs_dir = get_workspace_logs_dir()
@@ -72,7 +72,7 @@ def get_log_config() -> dict:
                 "propagate": False,
             },
             "uvicorn.access": {
-                "handlers": [],  # ← DESABILITADO - RequestLoggingMiddleware cuida
+                "handlers": [],  # ← DESABILITADO - RequestLoggingMiddleware (RF002) cuida
                 "level": "INFO",
                 "propagate": False,
             },
