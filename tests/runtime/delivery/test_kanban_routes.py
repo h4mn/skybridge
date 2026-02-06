@@ -1,5 +1,21 @@
 # -*- coding: utf-8 -*-
 """
+⚠️ ARQUIVO MANTIDO PARA REFERÊNCIA DO PRD026 ⚠️
+
+Este arquivo contém testes da Fase 1 (legado) do Kanban que usava TrelloAdapter.
+A Fase 2 (PRD024) implementou kanban.db como fonte única da verdade, tornando
+estes testes obsoletos para uso em produção.
+
+MOTIVO DA MANUTENÇÃO:
+- Pesquisa para PRD026 (integração Kanban com fluxo real)
+- Referência de como o TrelloAdapter funcionava
+- Pode ser útil para implementar sincronização Trello ↔ kanban.db
+
+NÃO EXECUTAR ESTES TESTES - estão desatualizados em relação à arquitetura atual.
+Use tests/integration/kanban/*.py para testes da Fase 2.
+
+---
+
 Testes das rotas Kanban (Fase 1: Leitura).
 
 DOC: runtime/delivery/kanban_routes.py - /api/kanban/board
