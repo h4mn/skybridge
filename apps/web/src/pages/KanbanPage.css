@@ -1,0 +1,7 @@
+/**
+ * Estilos da página Kanban
+ */
+
+.kanban-page {
+  min-height: calc(100vh - 200px);
+}

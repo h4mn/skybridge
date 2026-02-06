@@ -1,0 +1,171 @@
+/**
+ * Estilos para Kanban Board (Fase 2: kanban.db)
+ *
+ * Cards vivos: borda pulsante azul + animação
+ */
+
+/* Container do board */
+.kanban-board {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 16px;
+  min-height: calc(100vh - 200px);
+}
+
+/* Coluna Kanban */
+.kanban-column {
+  flex: 1 1 300px;
+  min-width: 280px;
+  max-width: 400px;
+}
+
+.kanban-column-over {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: 8px;
+}
+
+.kanban-column-card {
+  min-height: 400px;
+}
+
+/* Container de cards dentro da coluna */
+.kanban-cards-container {
+  min-height: 200px;
+}
+
+.kanban-empty {
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  padding: 32px 16px;
+}
+
+/* Card Kanban */
+.kanban-card {
+  cursor: grab;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.kanban-card:active {
+  cursor: grabbing;
+}
+
+.kanban-card-dragging {
+  opacity: 0.5;
+}
+
+/* =============================================================================
+ * CARDS VIVOS (being_processed = true)
+ * Borda pulsante azul + animação contínua
+ * ============================================================================= */
+
+.kanban-card-alive {
+  position: relative;
+  border: 2px solid #3b82f6;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  animation: pulse-border 2s ease-in-out infinite;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%);
+}
+
+/* Animação de borda pulsante */
+@keyframes pulse-border {
+  0%, 100% {
+    border-color: #3b82f6;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    border-color: #60a5fa;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.4);
+  }
+}
+
+/* Badge de card vivo */
+.kanban-live-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+  animation: pulse-badge 2s ease-in-out infinite;
+}
+
+.live-badge-icon {
+  font-size: 14px;
+  animation: bounce-icon 1s ease-in-out infinite;
+}
+
+.live-badge-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #3b82f6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Animação do badge */
+@keyframes pulse-badge {
+  0%, 100% {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05));
+  }
+  50% {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(59, 130, 246, 0.1));
+  }
+}
+
+/* Animação do ícone */
+@keyframes bounce-icon {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+/* Progress bar animada */
+.kanban-card-alive .progress {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.kanban-card-alive .progress-bar {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa, #3b82f6);
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Hover effect para cards vivos */
+.kanban-card-alive:hover {
+  border-color: #2563eb;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 40px rgba(59, 130, 246, 0.3);
+  transform: translateY(-2px);
+}
+
+/* =============================================================================
+ * Responsividade
+ * ============================================================================= */
+
+@media (max-width: 768px) {
+  .kanban-board {
+    flex-direction: column;
+  }
+
+  .kanban-column {
+    min-width: 100%;
+    max-width: 100%;
+  }
+}
