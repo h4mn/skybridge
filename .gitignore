@@ -1,5 +1,5 @@
 # Workspace - dados gerados (nao versionar)
-workspace/
+/workspace/           # Apenas na raiz (não src/runtime/workspace/)
 !workspace/.gitkeep
 !workspace/skybridge/.gitkeep
 !workspace/skybridge/logs/.gitkeep
