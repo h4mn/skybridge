@@ -1,5 +1,6 @@
 # Release workflow for Skybridge (PL001)
 # Triggered on push to main, automates version bumping and releases using git tags
+# Ver docs/guide/release.md para documentação detalhada do processo
 
 name: Release
 
@@ -129,25 +130,13 @@ jobs:
           NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           echo "New version: $NEW_VERSION"
           echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
-
-      - name: Create and push git tag
-        if: steps.parse_commits.outputs.bump != 'none'
-        run: |
-          NEW_VERSION=${{ steps.bump_version.outputs.new_version }}
-
-          # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Create annotated tag (PL001: git tags as source of truth)
-          git tag -a "v${NEW_VERSION}" -m "Release v${NEW_VERSION}"
-          git push origin "v${NEW_VERSION}"
+          echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
 
       - name: Update CHANGELOG
         if: steps.parse_commits.outputs.bump != 'none'
         run: |
           NEW_VERSION=${{ steps.bump_version.outputs.new_version }}
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null | grep -v "v${NEW_VERSION}" || echo "")
+          LATEST_TAG=${{ steps.bump_version.outputs.latest_tag }}
 
           echo "🔍 Generating changelog for ${NEW_VERSION} (from ${LATEST_TAG:-initial})..."
 
@@ -169,6 +158,19 @@ jobs:
 
           # Extract new section for GitHub Release notes
           sed -n "/## \[${NEW_VERSION}\]/,/## \[/p" CHANGELOG.md | head -n -1 > release_notes.md
+
+      - name: Create and push git tag
+        if: steps.parse_commits.outputs.bump != 'none'
+        run: |
+          NEW_VERSION=${{ steps.bump_version.outputs.new_version }}
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create annotated tag (PL001: git tags as source of truth)
+          git tag -a "v${NEW_VERSION}" -m "Release v${NEW_VERSION}"
+          git push origin "v${NEW_VERSION}"
 
       - name: Create GitHub Release
         if: steps.parse_commits.outputs.bump != 'none'
