@@ -23,6 +23,7 @@ class CardStatus(Enum):
     DONE = "done"
     BLOCKED = "blocked"
     CANCELLED = "cancelled"
+    UNKNOWN = "unknown"  # Lista não reconhecida (requer atenção manual)
 
 
 class CardPriority(Enum):
@@ -73,7 +74,8 @@ class Card:
             self.labels = []
         if self.created_at is None:
             self.created_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        if self.updated_at is None:
+            self.updated_at = datetime.utcnow()
 
     def is_blocked(self) -> bool:
         """Verifica se o card está bloqueado."""

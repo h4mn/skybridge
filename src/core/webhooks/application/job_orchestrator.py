@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import subprocess
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -22,6 +23,12 @@ if TYPE_CHECKING:
 from core.agents.worktree_validator import safe_worktree_cleanup
 from core.webhooks.application.worktree_manager import (
     WorktreeManager,
+)
+from core.webhooks.domain.trigger_mappings import (
+    EVENT_TYPE_TO_SKILL,
+    AUTONOMY_LEVEL_TO_SKILL,
+    build_card_moved_event_type,
+    get_trello_list_slug,
 )
 from core.domain_events.job_events import (
     JobStartedEvent,
@@ -35,44 +42,6 @@ from kernel.contracts.result import Result
 from runtime.observability.snapshot.git_diff import get_git_diff
 
 logger = logging.getLogger(__name__)
-
-
-# Mapeamento de event_type para skill (PRD013)
-EVENT_TYPE_TO_SKILL = {
-    # Issues - apenas opened/reopened/edited precisam de resolução
-    "issues.opened": "resolve-issue",
-    "issues.reopened": "resolve-issue",
-    "issues.edited": "resolve-issue",
-    # Issues closed/deleted não executam agente (None)
-    "issues.closed": None,
-    "issues.deleted": None,
-    "issues.labeled": None,
-    "issues.unlabeled": None,
-    "issues.assigned": None,
-    "issues.unassigned": None,
-    # Issue comments - responder via Discord (TODO)
-    "issue_comment.created": "respond-discord",
-    "issue_comment.edited": "respond-discord",
-    "issue_comment.deleted": None,
-    # Pull requests (TODO)
-    "pull_request.opened": None,
-    "pull_request.closed": None,
-    "pull_request.edited": None,
-    # PRD020: Trello webhooks
-    "card.moved.💡 Brainstorm": "analyze-issue",
-    "card.moved.📋 A Fazer": "resolve-issue",
-    "card.moved.🚧 Em Andamento": "resolve-issue",
-    "card.moved.👁️ Em Revisão": "review-issue",
-    "card.moved.🚀 Publicar": "publish-issue",
-}
-
-# PRD020: Mapeamento de autonomy_level para skill override
-AUTONOMY_LEVEL_TO_SKILL = {
-    "analysis": "analyze-issue",
-    "development": "resolve-issue",
-    "review": "review-issue",
-    "publish": "publish-issue",
-}
 
 
 class JobOrchestrator:
@@ -234,10 +203,9 @@ class JobOrchestrator:
         if autonomy_level is not None:
             # Usa getattr para pegar o valor .value do enum sem depender de isinstance
             autonomy_value = getattr(autonomy_level, "value", None)
-            if autonomy_value:
-                skill = AUTONOMY_LEVEL_TO_SKILL.get(autonomy_value)
-                if skill:
-                    return skill
+            if autonomy_value and autonomy_value in AUTONOMY_LEVEL_TO_SKILL:
+                # Retorna o skill do mapeamento (pode ser None para não disparar agente)
+                return AUTONOMY_LEVEL_TO_SKILL[autonomy_value]
 
         # Fallback para mapeamento padrão por event_type
         return EVENT_TYPE_TO_SKILL.get(event_type)

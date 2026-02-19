@@ -285,8 +285,9 @@ class SQLiteKanbanAdapter:
                     id, list_id, title, description, position, labels, due_date,
                     being_processed, processing_started_at, processing_job_id,
                     processing_step, processing_total_steps,
-                    issue_number, issue_url, pr_url, trello_card_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    issue_number, issue_url, pr_url, trello_card_id,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     card.id,
@@ -305,6 +306,8 @@ class SQLiteKanbanAdapter:
                     card.issue_url,
                     card.pr_url,
                     card.trello_card_id,
+                    card.created_at.isoformat() if card.created_at else None,
+                    card.updated_at.isoformat() if card.updated_at else None,
                 ),
             )
             self._conn.commit()
@@ -370,14 +373,18 @@ class SQLiteKanbanAdapter:
             processing_job_id = None
 
             # Aplica atualizações
+            converted_updates = {}
             for key, value in updates.items():
                 if hasattr(card, key):
+                    # Converte valor para SQL
                     if key == "labels" and value is not None:
                         value = json.dumps(value) if isinstance(value, list) else value
                     elif key == "due_date" and value is not None:
                         value = value.isoformat() if isinstance(value, datetime) else value
                     elif key == "processing_started_at" and value is not None:
                         value = value.isoformat() if isinstance(value, datetime) else value
+
+                    converted_updates[key] = value
 
                     # Rastreia mudanças para histórico
                     if key == "list_id":
@@ -392,9 +399,9 @@ class SQLiteKanbanAdapter:
             # Monta SQL UPDATE dinâmico
             set_clauses = []
             values = []
-            for key in updates.keys():
+            for key, value in converted_updates.items():
                 set_clauses.append(f"{key} = ?")
-                values.append(updates[key])
+                values.append(value)
 
             if set_clauses:
                 sql = f"UPDATE cards SET {', '.join(set_clauses)} WHERE id = ?"

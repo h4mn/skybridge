@@ -13,6 +13,27 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
+# Re-exporta configuração de listas para conveniência
+from core.kanban.domain.kanban_lists_config import (
+    KanbanListDefinition,
+    KanbanListsConfig,
+    get_agent_type_to_list_mapping,
+    get_kanban_lists_config,
+)
+
+__all__ = [
+    # Domain Models
+    "KanbanBoard",
+    "KanbanList",
+    "KanbanCard",
+    "CardHistory",
+    # Listas Config
+    "KanbanListDefinition",
+    "KanbanListsConfig",
+    "get_kanban_lists_config",
+    "get_agent_type_to_list_mapping",
+]
+
 
 @dataclass
 class KanbanBoard:
@@ -39,7 +60,8 @@ class KanbanBoard:
         """Inicializa timestamps."""
         if self.created_at is None:
             self.created_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        if self.updated_at is None:
+            self.updated_at = datetime.utcnow()
 
 
 @dataclass
@@ -69,7 +91,8 @@ class KanbanList:
         """Inicializa timestamps."""
         if self.created_at is None:
             self.created_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        if self.updated_at is None:
+            self.updated_at = datetime.utcnow()
 
 
 @dataclass
@@ -137,7 +160,8 @@ class KanbanCard:
             self.labels = []
         if self.created_at is None:
             self.created_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        if self.updated_at is None:
+            self.updated_at = datetime.utcnow()
 
     @property
     def processing_progress_percent(self) -> float:

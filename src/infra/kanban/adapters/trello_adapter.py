@@ -53,8 +53,6 @@ class TrelloAdapter(KanbanPort):
         self.api_key = api_key
         self.api_token = api_token
         self.board_id = board_id
-        self._lists_cache: dict[str, str] = {}  # Cache de nome -> idList
-        self._list_status_cache: dict[str, CardStatus] = {}  # Cache de idList -> CardStatus
         self._client = httpx.AsyncClient(
             base_url=TRELLO_API_BASE,
             params={
@@ -72,7 +70,7 @@ class TrelloAdapter(KanbanPort):
         """
         Busca o ID de uma lista pelo nome no board.
 
-        Usa cache para evitar múltiplas chamadas à API.
+        NOTA: Cache removido por não ser necessário - volume de operações não justifica otimização.
 
         Args:
             list_name: Nome da lista (ex: "To Do", "In Progress", "Done")
@@ -81,10 +79,6 @@ class TrelloAdapter(KanbanPort):
         Returns:
             Result com o ID da lista ou mensagem de erro.
         """
-        # Verifica cache primeiro
-        if list_name in self._lists_cache:
-            return Result.ok(self._lists_cache[list_name])
-
         # Usa board_id fornecido ou o padrão
         target_board = board_id or self.board_id
         if not target_board:
@@ -102,8 +96,6 @@ class TrelloAdapter(KanbanPort):
             for lst in lists_data:
                 if lst.get("name", "").lower() == list_name.lower():
                     list_id = lst["id"]
-                    # Salva no cache
-                    self._lists_cache[list_name] = list_id
                     logger.info(f"Lista encontrada: {list_name} -> {list_id}")
                     return Result.ok(list_id)
 
@@ -225,25 +217,72 @@ class TrelloAdapter(KanbanPort):
         card_id: str,
         status: CardStatus,
         correlation_id: Optional[str] = None,
+        target_list_id: Optional[str] = None,
     ) -> Result[Card, str]:
         """
         Atualiza o status de um card movendo-o entre listas.
 
         PUT /1/cards/{id}
+
+        Args:
+            card_id: ID do card no Trello
+            status: Novo status (CardStatus enum)
+            correlation_id: ID de correlação para rastreamento
+            target_list_id: ID da lista no Trello (se fornecido, usa diretamente,
+                            sem buscar por nome - RECOMENDADO para evitar problemas
+                            com nomes que têm emojis ou mudanças)
+
+        NOTA: Sempre que possível, passe target_list_id diretamente para
+        evitar dependência de nomes de listas que podem mudar.
         """
         try:
-            # Mapear CardStatus para idList do Trello
-            # TODO: Implementar cache de listas para evitar múltiplas chamadas
-            # Por enquanto, apenas adiciona comentário com novo status
+            # Se target_list_id fornecido, usa diretamente (RECOMENDADO)
+            if target_list_id:
+                logger.info(f"Usando target_list_id direto: {target_list_id}")
+                list_id = target_list_id
+            else:
+                # Fallback: mapeamento CardStatus → nome da lista (EVITAR USAR)
+                # DOC: Este mapeamento é frágil pois depende de nomes com emojis
+                status_to_list_name = {
+                    CardStatus.BACKLOG: "🧠 Brainstorm",
+                    CardStatus.TODO: "📋 A Fazer",
+                    CardStatus.IN_PROGRESS: "🚧 Em Andamento",
+                    CardStatus.REVIEW: "👀 Em Revisão",
+                    CardStatus.DONE: "🚀 Publicar",
+                    CardStatus.BLOCKED: "📥 Issues",
+                    CardStatus.CHALLENGE: "🧠 Brainstorm",
+                }
 
-            comment = f"Status atualizado para: {status.value}"
-            if correlation_id:
-                comment += f"\n\nCorrelation ID: {correlation_id}"
+                list_name = status_to_list_name.get(status)
+                if not list_name:
+                    return Result.err(f"Status {status.value} não mapeado para lista Trello")
 
-            await self.add_card_comment(card_id, comment)
+                # Busca ID da lista de destino
+                list_id_result = await self._get_list_id(list_name)
+                if list_id_result.is_err:
+                    return Result.err(f"Erro ao buscar lista '{list_name}': {list_id_result.error}")
+
+                list_id = list_id_result.unwrap()
+
+            # Move o card atualizando idList
+            response = await self._client.put(
+                f"/cards/{card_id}",
+                json={"idList": list_id}
+            )
+            response.raise_for_status()
+
+            success_msg = f"Card {card_id} movido para lista {list_id} (status={status.value})"
+            logger.info(success_msg)
+            print(f"[TRELLO_ADAPTER] ✅ {success_msg}")  # Print explícito
 
             # Buscar card atualizado
             return await self.get_card(card_id)
+
+        except httpx.HTTPStatusError as e:
+            error_msg = f"Erro HTTP {e.response.status_code} ao mover card {card_id}: {e.response.text[:200]}"
+            logger.error(error_msg)
+            print(f"[TRELLO_ADAPTER] ❌ {error_msg}")  # Print explícito para garantir visibilidade
+            return Result.err(f"Erro HTTP {e.response.status_code}: {e.response.text[:200]}")
 
         except Exception as e:
             logger.error(f"Erro ao atualizar card {card_id}: {e}")
@@ -315,14 +354,31 @@ class TrelloAdapter(KanbanPort):
         Lista cards com filtros opcionais.
 
         GET /1/boards/{id}/cards ou GET /1/lists/{id}/cards
+
+        NOTA: Busca listas do board para popular o nome da lista em cada card,
+        pois a API de cards retorna apenas idList sem o nome.
         """
         try:
             cards_data = []
+            target_board = board_id or self.board_id
 
-            if board_id:
-                response = await self._client.get(f"/boards/{board_id}/cards")
+            if target_board:
+                response = await self._client.get(f"/boards/{target_board}/cards")
                 response.raise_for_status()
                 cards_data = response.json()
+
+                # Busca listas do board para mapear idList → nome
+                lists_response = await self._client.get(f"/boards/{target_board}/lists")
+                lists_response.raise_for_status()
+                lists_data = lists_response.json()
+
+                # Cria mapeamento idList → nome da lista
+                list_names = {lst["id"]: lst.get("name", "") for lst in lists_data}
+
+                # Popula o campo "list" em cada card com o nome da lista
+                for card_data in cards_data:
+                    card_data["list"] = {"name": list_names.get(card_data.get("idList", ""), "Unknown")}
+
             elif list_name:
                 # TODO: Implementar busca de lista por nome
                 return Result.err("Busca por list_name ainda não implementada")
@@ -347,15 +403,90 @@ class TrelloAdapter(KanbanPort):
         """
         Converte resposta da API Trello para entidade Card.
 
+        REGRA DE OURO: NÃO EXISTE PADRÃO.
+        - Lista reconhecida → CardStatus correspondente
+        - Lista NÃO reconhecida → CardStatus.UNKNOWN (requer atenção manual)
+
+        NOTA: UNKNOWN é usado para marcar cards que precisam de correção
+        manual, ao invés de usar um padrão silencioso que mascara problemas.
+
+        DOC: Listas válidas são configuradas via KanbanListsConfig. Se uma
+        lista não reconhecida for encontrada, isso indica uma desincronização
+        entre Trello e configuração local.
+
         Args:
             data: Dicionário com dados da API do Trello
 
         Returns:
-            Card instanciado
+            Card instanciado (status pode ser UNKNOWN se lista não reconhecida)
         """
-        # Mapear status Trello para CardStatus
-        status = self._map_status(data.get("idList", ""))
+        # Determina status baseado no nome da lista (se disponível)
+        status = None  # Sem padrão - determinado explicitamente
+        list_match_found = False
+
+        if "list" in data and isinstance(data["list"], dict):
+            list_name = data["list"].get("name", "")
+            list_name_lower = list_name.lower()
+
+            # Mapeamento de padrões de nome de lista → CardStatus
+            if "brainstorm" in list_name_lower:
+                status = CardStatus.BACKLOG
+                list_match_found = True
+            elif "a fazer" in list_name_lower or "todo" in list_name_lower:
+                status = CardStatus.TODO
+                list_match_found = True
+            elif "em andamento" in list_name_lower or "progress" in list_name_lower:
+                status = CardStatus.IN_PROGRESS
+                list_match_found = True
+            elif "em revisão" in list_name_lower or "review" in list_name_lower:
+                status = CardStatus.REVIEW
+                list_match_found = True
+            elif "publicar" in list_name_lower or "done" in list_name_lower or "pronto" in list_name_lower:
+                status = CardStatus.DONE
+                list_match_found = True
+            elif "issues" in list_name_lower:
+                status = CardStatus.BLOCKED
+                list_match_found = True
+
+            # Se lista existe mas não foi reconhecida
+            if not list_match_found and list_name:
+                logger.warning(
+                    f"[TRELLO_ADAPTER] ⚠️ Lista não reconhecida: '{list_name}'. "
+                    f"ERRO: Lista não mapeada para CardStatus. "
+                    f"Usando CardStatus.UNKNOWN (requer atenção manual). "
+                    f"Verifique KanbanListsConfig para listas válidas."
+                )
+                # Lista existe mas não reconhecida - UNKNOWN requer atenção manual
+                status = CardStatus.UNKNOWN
+            elif not list_name:
+                logger.warning(
+                    f"[TRELLO_ADAPTER] ⚠️ Campo 'list.name' vazio no card {data.get('id')}. "
+                    f"Usando CardStatus.UNKNOWN (requer atenção manual)."
+                )
+                status = CardStatus.UNKNOWN
+        else:
+            # Campo 'list' ausente completamente
+            logger.warning(
+                f"[TRELLO_ADAPTER] ⚠️ Campo 'list' ausente no card {data.get('id')}. "
+                f"Usando CardStatus.UNKNOWN (requer atenção manual). "
+                f"Verifique se a API do Trello retornou dados completos."
+            )
+            status = CardStatus.UNKNOWN
+
         labels = [label["name"] for label in data.get("labels", []) if label.get("name")]
+
+        # Parse timestamps da API Trello
+        # dateLastActivity é o último update do card (sempre UTC)
+        updated_at = None
+        if data.get("dateLastActivity"):
+            try:
+                # Trello retorna UTC (termina com Z)
+                dt = datetime.fromisoformat(data["dateLastActivity"].replace("Z", "+00:00"))
+                # Converte para UTC naive (remove timezone mas mantém valor UTC)
+                # Isso garante que comparações funcionam mesmo com timezone diferente
+                updated_at = dt.replace(tzinfo=None)
+            except (ValueError, AttributeError):
+                pass
 
         return Card(
             id=data["id"],
@@ -363,117 +494,11 @@ class TrelloAdapter(KanbanPort):
             description=data.get("desc"),
             status=status,
             labels=labels,
-            due_date=datetime.fromisoformat(data["due"]) if data.get("due") else None,
+            due_date=datetime.fromisoformat(data["due"]).replace(tzinfo=None) if data.get("due") else None,
             url=data["url"],
             external_source="trello",
+            updated_at=updated_at,
         )
-
-    async def initialize_status_cache(self, board_id: str | None = None) -> Result[None, str]:
-        """
-        Inicializa o cache de mapeamento idList → CardStatus.
-
-        Busca todas as listas do board e mapeia para CardStatus baseado no nome.
-        Deve ser chamado explicitamente antes de usar get_card() se quiser status correto.
-
-        Args:
-            board_id: ID do board (usa self.board_id se não fornecido)
-
-        Returns:
-            Result OK se cache foi populado, erro se falhou
-        """
-        target_board = board_id or self.board_id
-        if not target_board:
-            return Result.err("board_id não fornecido")
-
-        try:
-            # Busca listas do board
-            response = await self._client.get(f"/boards/{target_board}/lists")
-            response.raise_for_status()
-            lists_data = response.json()
-
-            # Mapeamento de nomes de lista para CardStatus (específico para SPEC009)
-            name_to_status = {
-                # Lista comuns
-                "backlog": CardStatus.BACKLOG,
-                "to do": CardStatus.TODO,
-                "todo": CardStatus.TODO,
-                "doing": CardStatus.IN_PROGRESS,
-                "in progress": CardStatus.IN_PROGRESS,
-                "em andamento": CardStatus.IN_PROGRESS,
-                "review": CardStatus.REVIEW,
-                "testing": CardStatus.REVIEW,
-                "em teste": CardStatus.REVIEW,
-                "em revisão": CardStatus.REVIEW,
-                "done": CardStatus.DONE,
-                "pronto": CardStatus.DONE,
-                "publicar": CardStatus.DONE,
-                "blocked": CardStatus.BLOCKED,
-                # SPEC009 - Fluxo Multi-Agente (nomes com emojis)
-                "🧠 brainstorm": CardStatus.BACKLOG,
-                "💡 brainstorm": CardStatus.BACKLOG,
-                "📋 a fazer": CardStatus.TODO,
-                "🚧 em andamento": CardStatus.IN_PROGRESS,
-                "👀 em revisão": CardStatus.REVIEW,
-                "✅ em teste": CardStatus.REVIEW,
-                "⚔️ desafio": CardStatus.CHALLENGE,
-                "🚀 publicar": CardStatus.DONE,
-                "✅ pronto": CardStatus.DONE,
-            }
-
-            # Popula o cache
-            for lst in lists_data:
-                list_id = lst["id"]
-                list_name = lst.get("name", "").lower().strip()
-
-                # Busca status pelo nome (match exato ou parcial)
-                status = name_to_status.get(list_name)
-
-                # Se não encontrou por nome exato, tenta match parcial
-                if status is None:
-                    for key, value in name_to_status.items():
-                        if key in list_name or list_name in key:
-                            status = value
-                            break
-
-                # Se ainda não encontrou, usa posição como fallback
-                if status is None:
-                    pos = lists_data.index(lst)
-                    if pos == 0:
-                        status = CardStatus.BACKLOG
-                    elif pos == 1:
-                        status = CardStatus.TODO
-                    elif pos == 2:
-                        status = CardStatus.IN_PROGRESS
-                    elif pos == len(lists_data) - 1:
-                        status = CardStatus.DONE
-                    else:
-                        status = CardStatus.TODO
-
-                self._list_status_cache[list_id] = status
-                logger.info(f"Status cache: {list_name} ({list_id}) → {status.value}")
-
-            return Result.ok(None)
-
-        except httpx.HTTPStatusError as e:
-            return Result.err(f"Erro HTTP {e.response.status_code}: {e.response.text}")
-        except Exception as e:
-            logger.error(f"Erro ao popular cache de status: {e}")
-            return Result.err(f"Erro ao popular cache: {str(e)}")
-
-    def _map_status(self, trello_list_id: str) -> CardStatus:
-        """
-        Mapeia ID da lista Trello para CardStatus.
-
-        Usa o cache populado por initialize_status_cache(). Se o cache não estiver
-        populado, retorna CardStatus.TODO como fallback.
-
-        Args:
-            trello_list_id: ID da lista do Trello
-
-        Returns:
-            CardStatus correspondente à lista, ou TODO se não encontrado no cache
-        """
-        return self._list_status_cache.get(trello_list_id, CardStatus.TODO)
 
     async def auto_configure_lists(
         self,

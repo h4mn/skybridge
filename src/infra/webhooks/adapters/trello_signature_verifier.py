@@ -39,10 +39,12 @@ class TrelloSignatureVerifier(WebhookSignaturePort):
         signature = base64(HMAC-SHA1(payload + callbackURL, secret))
 
     Example:
-        >>> verifier = TrelloSignatureVerifier(callback_url="https://example.com/webhook/trello")
+        >>> verifier = TrelloSignatureVerifier(callback_url="https://example.com/api/webhooks/trello")
         >>> signature = "YWJjMTIz..."  # header X-Trello-Webhook
         >>> verifier.verify(payload, signature, secret)
         True
+
+    NOTA: Usar /api/webhooks/trello (PADRÃO ADR023), não /webhook/trello (obsoleto).
     """
 
     HEADER_NAME: Final[str] = "X-Trello-Webhook"
