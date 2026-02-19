@@ -48,6 +48,105 @@ logger = logging.getLogger(__name__)
 
 _event_bus = KanbanEventBus.get_instance()
 
+# ============================================================================
+# TrelloSyncService Singleton (BUGFIX: evitar múltiplos workers)
+# ============================================================================
+# PROBLEMA: Cada requisição para /sync/from-trello criava uma nova instância
+# de TrelloSyncService com seu próprio worker. Workers não eram parados,
+# causando múltiplas tentativas de sync/deleção do mesmo card ("itera 10 vezes").
+# SOLUÇÃO: Usar singleton global para reusar a mesma instância.
+_sync_service_singleton = None
+
+
+# ============================================================================
+# TrelloSyncService Helper (lazy loading)
+# ============================================================================
+
+def _get_trello_sync_service(db_path: Path, workspace_id: str):
+    """
+    Retorna instância do TrelloSyncService se configurado.
+
+    NOTA: O db_adapter retornado JÁ ESTÁ CONECTADO. O chamador deve desconectá-lo após o uso.
+
+    Args:
+        db_path: Caminho para o kanban.db
+        workspace_id: ID do workspace
+
+    Returns:
+        Tupla (TrelloSyncService, db_adapter) ou (None, None) se não configurado
+    """
+    try:
+        from runtime.config.config import get_trello_config
+        from core.kanban.application.trello_sync_service import TrelloSyncService
+        from infra.kanban.adapters.trello_adapter import TrelloAdapter
+
+        trello_config = get_trello_config()
+
+        if not trello_config.api_key or not trello_config.api_token:
+            logger.debug(f"[TRELLO_SYNC] Credenciais não configuradas para workspace {workspace_id}")
+            return None, None
+
+        if not trello_config.board_id:
+            logger.debug(f"[TRELLO_SYNC] TRELLO_BOARD_ID não configurado para workspace {workspace_id}")
+            return None, None
+
+        # Cria adapters e CONECTA o db_adapter
+        db_adapter = SQLiteKanbanAdapter(db_path)
+        db_adapter.connect()
+        trello_adapter = TrelloAdapter(
+            trello_config.api_key,
+            trello_config.api_token,
+            trello_config.board_id
+        )
+
+        return TrelloSyncService(db_adapter, trello_adapter), db_adapter
+
+    except Exception as e:
+        logger.warning(f"[TRELLO_SYNC] Erro ao criar TrelloSyncService: {e}")
+        return None, None
+
+
+async def _sync_card_move_to_trello(card_id: str, db_path: Path, workspace_id: str, old_list_id: str, new_list_id: str) -> None:
+    """
+    Sincroniza movimento de card para o Trello (fire-and-forget).
+
+    Args:
+        card_id: ID do card movido
+        db_path: Caminho para o kanban.db
+        workspace_id: ID do workspace
+        old_list_id: ID da lista antiga
+        new_list_id: ID da lista nova
+    """
+    # Só sincroniza se realmente mudou de lista
+    if old_list_id == new_list_id:
+        return
+
+    print(f"[SYNC_TRELLO] Iniciando sync: {card_id[:40]}... | {old_list_id[:20]}... → {new_list_id[:20]}...")
+
+    sync_service, db_adapter = _get_trello_sync_service(db_path, workspace_id)
+    if not sync_service:
+        print(f"[SYNC_TRELLO] ERRO: _get_trello_sync_service retornou None")
+        return
+
+    print(f"[SYNC_TRELLO] TrelloSyncService criado, chamando sync_card_moved...")
+
+    try:
+        result = await sync_service.sync_card_moved(card_id)
+        if result.is_ok:
+            logger.info(f"[TRELLO_SYNC] Card {card_id} movido no Trello")
+            print(f"[SYNC_TRELLO] ✅ SUCESSO: Card {card_id[:40]}... movido no Trello")
+        else:
+            logger.warning(f"[TRELLO_SYNC] Erro ao mover card {card_id} no Trello: {result.error}")
+            print(f"[SYNC_TRELLO] ❌ ERRO: {result.error}")
+    except Exception as e:
+        logger.error(f"[TRELLO_SYNC] Exceção ao sync card {card_id}: {e}")
+        print(f"[SYNC_TRELLO] ❌ EXCEÇÃO: {e}")
+    finally:
+        # Sempre desconecta o adapter
+        if db_adapter:
+            db_adapter.disconnect()
+            print(f"[SYNC_TRELLO] Adapter desconectado")
+
 
 async def _emit_card_event(event_type: str, card: KanbanCard, workspace_id: str) -> None:
     """
@@ -58,6 +157,8 @@ async def _emit_card_event(event_type: str, card: KanbanCard, workspace_id: str)
         card: Objeto de domínio do card
         workspace_id: ID do workspace
     """
+    print(f"[SSE_EMIT] {event_type}: {card.id[:40]}... | list_id={card.list_id} | workspace={workspace_id}")
+
     card_data = {
         "id": card.id,
         "list_id": card.list_id,
@@ -582,6 +683,8 @@ def create_kanban_router() -> APIRouter:
         """
         Atualiza um card (mover entre listas, editar campos).
 
+        Sincroniza movimentos de lista com o Trello se configurado.
+
         Args:
             request: Request FastAPI
             card_id: ID do card
@@ -599,6 +702,12 @@ def create_kanban_router() -> APIRouter:
         adapter.connect()
 
         try:
+            # Busca card atual para detectar mudança de lista
+            old_card_result = adapter.get_card(card_id)
+            old_list_id = None
+            if old_card_result.is_ok:
+                old_list_id = old_card_result.value.list_id
+
             # Monta dicionário de updates (apenas campos não-None)
             updates = {}
             if data.title is not None:
@@ -633,6 +742,17 @@ def create_kanban_router() -> APIRouter:
 
             # Emite evento SSE para clientes conectados
             await _emit_card_event("card_updated", updated_card, workspace_id)
+
+            # Sincroniza movimento com Trello (fire-and-forget)
+            new_list_id = updated_card.list_id
+            if old_list_id and old_list_id != new_list_id:
+                # DEBUG: Print antes de sync
+                print(f"[DEBUG] Card movido: {card_id} | {old_list_id} → {new_list_id} | sync para Trello iniciado")
+                # Não espera o sync completar (fire-and-forget)
+                import asyncio
+                asyncio.create_task(
+                    _sync_card_move_to_trello(card_id, db_path, workspace_id, old_list_id, new_list_id)
+                )
 
             return CardSchema.from_domain(updated_card)
         finally:
@@ -709,21 +829,106 @@ def create_kanban_router() -> APIRouter:
     # ENDPOINTS: SYNC
     # ==========================================================================
 
-    @router.post("/sync/from-trello")
-    async def sync_from_trello(request: Request) -> dict:
+    class SyncFromTrelloRequest(BaseModel):
+        """Request para sync manual do Trello."""
+        board_id: str = Field(..., description="ID do board no Trello")
+        force: bool = Field(False, description="Força sync ignorando timestamps (útil quando local está desatualizado)")
+
+    class SyncFromTrelloResponse(BaseModel):
+        """Response de sync manual do Trello."""
+        synced_count: int = Field(..., description="Número de cards sincronizados")
+        status: str = Field(..., description="Status da operação (success/error)")
+        message: Optional[str] = Field(None, description="Mensagem adicional")
+
+    @router.post("/sync/from-trello", response_model=SyncFromTrelloResponse)
+    async def sync_from_trello(request: Request, data: SyncFromTrelloRequest) -> SyncFromTrelloResponse:
         """
         Sincroniza manualmente Trello → kanban.db.
 
-        TODO: Implementar após criar TrelloSyncService completo.
+        DOC: PRD026 RF-015 - Endpoint manual de sync
 
         Args:
             request: Request FastAPI
+            data: Request body com board_id e force (opcional)
 
         Returns:
-            Status da sincronização
+            Contagem de cards sincronizados
+
+        Raises:
+            HTTPException 500: Erro ao sincronizar
         """
-        # TODO: Implementar
-        return {"ok": True, "message": "Sync not implemented yet"}
+        from core.kanban.application.trello_sync_service import TrelloSyncService
+        from runtime.config.config import get_trello_config
+        from infra.kanban.adapters.trello_adapter import TrelloAdapter
+
+        workspace_id = request.headers.get("X-Workspace", "core")
+        db_path = _get_kanban_db_path(workspace_id)
+
+        # Cria adapter do kanban.db
+        db_adapter = SQLiteKanbanAdapter(db_path)
+        db_adapter.connect()
+
+        try:
+            # Cria TrelloAdapter com configuração real
+            trello_config = get_trello_config()
+            trello_adapter = None
+
+            if trello_config.api_key and trello_config.api_token and trello_config.board_id:
+                trello_adapter = TrelloAdapter(
+                    trello_config.api_key,
+                    trello_config.api_token,
+                    trello_config.board_id
+                )
+
+            if not trello_adapter:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Credenciais do Trello não configuradas"
+                )
+
+            # Cria TrelloSyncService e executa sync
+            # BUGFIX: Usa singleton para evitar múltiplos workers deletando o mesmo card
+            # Quando múltiplas requisições sync ocorrem, cada uma criava um worker
+            # que tentava deletar cards, causando "iterações 10 vezes"
+
+            # Usa singleton global se já existe
+            global _sync_service_singleton
+            if _sync_service_singleton is None:
+                logger.info("Criando TrelloSyncService (singleton)")
+                _sync_service_singleton = TrelloSyncService(db_adapter, trello_adapter)
+                await _sync_service_singleton.start_queue_worker()
+            elif _sync_service_singleton.db != db_adapter:
+                logger.info("Workspace mudou, recriando TrelloSyncService (singleton)")
+                await _sync_service_singleton.stop_queue_worker()
+                _sync_service_singleton = TrelloSyncService(db_adapter, trello_adapter)
+                await _sync_service_singleton.start_queue_worker()
+            else:
+                logger.debug("Reutilizando TrelloSyncService existente (singleton)")
+
+            sync_service = _sync_service_singleton
+            logger.info(f"🔄 [SYNC START] Iniciando sync_from_trello (force={data.force})")
+            result = await sync_service.sync_from_trello(data.board_id, force=data.force)
+            logger.info(f"🔄 [SYNC END] Sync finalizado - result: {result.is_ok}")
+
+            if result.is_err:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=result.error
+                )
+
+            synced_count = result.value
+
+            # TODO: Emitir eventos SSE para cada card atualizado
+            # Por ora, apenas retorna a contagem
+
+            return SyncFromTrelloResponse(
+                synced_count=synced_count,
+                status="success",
+                message=f"{synced_count} cards sincronizados do Trello"
+            )
+
+        finally:
+            db_adapter.disconnect()
 
     @router.post("/initialize")
     async def initialize_kanban(request: Request) -> dict:
@@ -820,15 +1025,18 @@ def create_kanban_router() -> APIRouter:
                     logger.info(f"[KanbanSSE] Estado inicial enviado: {len(lists_result.value)} lists, {len(cards_result.value)} cards")
 
                 # Consome eventos do EventBus e envia via SSE
-                iteration = 0
-                async for event in _event_bus.subscribe(workspace_id):
-                    # Envia evento real
-                    yield event.to_sse_format()
+                # Usa async for com timeout para heartbeat contínuo
+                try:
+                    event_subscription = _event_bus.subscribe(workspace_id)
 
-                    # Envia heartbeat periodicamente
-                    iteration += 1
-                    if iteration % 10 == 0:  # Heartbeat a cada 10 eventos
-                        yield f": heartbeat {iteration}\n\n"
+                    # O subscribe já é um async generator que yields KanbanEvent
+                    async for event in event_subscription:
+                        # Envia evento real
+                        yield event.to_sse_format()
+
+                except StopAsyncIteration:
+                    # EventBus encerrou
+                    yield f"event: shutdown\ndata: {json.dumps({'reason': 'eventbus_stopped'})}\n\n"
 
             except Exception as e:
                 logger.error(f"[KanbanSSE] Erro no generator: {e}")

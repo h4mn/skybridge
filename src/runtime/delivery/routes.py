@@ -1554,30 +1554,70 @@ def create_rpc_router() -> APIRouter:
 
     # ========== Webhook Endpoints (PRD013) ==========
 
-    # TODO(REMOVE): Remover rota de fallback após 03/02/2026
-    # Rota temporária para compatibilidade com webhooks configurados sem /api
-    # Algumas instalações antigas têm webhooks apontando para /webhooks/{source}
-    # em vez de /api/webhooks/{source}. Esta rota processa essas requisições.
-    @router.head("/webhooks/{source}")
-    @router.post("/webhooks/{source}")
-    async def receive_webhook_fallback(source: str, http_request: Request):
+    # TRELLO: Rota específica que deve vir ANTES da rota genérica
+    # para que FastAPI faça match correto (/webhooks/trello antes de /webhooks/{source})
+    # NOTA: Rota é SÍNCRONA (não usa async def) porque receive_trello_webhook()
+    #       usa asyncio.run() internamente, o que conflitaria com event loop existente
+    @router.head("/webhooks/trello")
+    @router.post("/webhooks/trello")
+    async def receive_webhook_trello(http_request: Request):
         """
-        Rota de fallback para webhooks sem prefixo /api.
+        Recebe webhook do Trello.
 
-        ATENÇÃO: Esta rota é temporária e deve ser removida após 03/02/2026.
-        Webhooks devem ser configurados com /api/webhooks/{source}.
+        PRD020: Fluxo bidirecional Trello ↔ GitHub.
+        Diferencia da rota genérica porque não verifica assinatura e usa handler específico.
+
+        NOTA: receive_trello_webhook() cria seu próprio event loop em thread separada,
+        então esta rota pode ser async sem conflitos.
         """
-        # Log de aviso para monitorar uso da URL antiga
-        logger.warning(
-            f"Webhook recebido em URL sem /api: /webhooks/{source} - "
-            f"Por favor atualize a configuração do webhook para /api/webhooks/{source}"
+        from core.webhooks.application.handlers import receive_trello_webhook
+
+        correlation_id = getattr(http_request.state, "correlation_id", str(uuid.uuid4()))
+
+        # HEAD requests são usados para validação de webhook (Trello faz isso antes de criar)
+        if http_request.method == "HEAD":
+            logger.debug(
+                "HEAD request recebido para Trello (validação de webhook)",
+                extra={"correlation_id": correlation_id},
+            )
+            return Response(status_code=200)
+
+        # Parseia payload JSON - request.body() é um coroutine, precisa de await
+        import json
+        try:
+            body_bytes = await http_request.body()
+            payload_data = json.loads(body_bytes.decode())
+        except Exception as e:
+            logger.error(
+                f"Erro ao fazer parse do JSON: {e}",
+                extra={"correlation_id": correlation_id},
+            )
+            return JSONResponse(
+                status_code=400,
+                content={"ok": False, "error": "Invalid JSON"},
+            )
+
+        logger.info(
+            f"Webhook Trello recebido",
+            extra={"correlation_id": correlation_id, "action_type": payload_data.get("action", {}).get("type", "unknown")},
         )
 
-        # Processa normalmente delegando para o handler principal
-        return await receive_webhook(source, http_request)
+        # Processa webhook
+        result = receive_trello_webhook({"payload": payload_data})
+        if result.is_ok:
+            return JSONResponse(status_code=200, content={"ok": True, "result": result.value})
+        else:
+            logger.error(
+                f"Erro ao processar webhook Trello: {result.error}",
+                extra={"correlation_id": correlation_id},
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"ok": False, "error": result.error},
+            )
 
-    @router.head("/api/webhooks/{source}")
-    @router.post("/api/webhooks/{source}")
+    @router.head("/webhooks/{source}")
+    @router.post("/webhooks/{source}")
     async def receive_webhook(source: str, http_request: Request):
         """
         Recebe webhook de fonte externa (GitHub, Discord, etc).
@@ -1851,5 +1891,65 @@ def create_rpc_router() -> APIRouter:
                 status_code=200,
                 content={"ok": True, "metrics": {}},
             )
+
+    return router
+
+
+def create_webhook_fallback_router() -> APIRouter:
+    """
+    Cria router separado para rota de fallback SEM prefixo /api.
+    DOC: Este router é incluído SEM prefixo para capturar /webhooks/{source}
+    """
+    router = APIRouter()
+
+    @router.head("/webhooks/{source}")
+    @router.post("/webhooks/{source}")
+    async def receive_webhook_fallback(source: str, http_request: Request):
+        """
+        Rota de fallback para webhooks sem prefixo /api.
+
+        ATENÇÃO: Esta rota captura /webhooks/{source} (SEM /api).
+        A rota /api/webhooks/{source} é processada por create_rpc_router().
+
+        PRD026: Retorna 410 Gone para URL obsoleta /webhooks/{source}.
+        Webhooks Trello devem apontar para /api/webhooks/trello.
+        """
+        # TRELLO: Detectar Trello em rota antiga e retornar 410 Gone
+        if source == "trello":
+            logger.info(
+                f"Webhook Trello recebido em URL obsoleta /webhooks/trello "
+                f"- retornando 410 Gone"
+            )
+            return JSONResponse(
+                status_code=410,
+                content={
+                    "ok": False,
+                    "error": "Gone",
+                    "message": "This webhook endpoint is deprecated. Please use /api/webhooks/trello instead.",
+                    "new_url": "/api/webhooks/trello"
+                },
+            )
+
+        # Requisições HEAD são usadas para validação de webhook
+        if http_request.method == "HEAD":
+            logger.debug(f"HEAD request recebido para source={source} (fallback) - validação de webhook")
+            return Response(status_code=200)
+
+        # Log de aviso para monitorar uso da URL antiga
+        logger.warning(
+            f"Webhook recebido em URL sem /api: /webhooks/{source} "
+            f"- Por favor atualize a configuração do webhook para /api/webhooks/{source}"
+        )
+
+        # Retorna 410 Gone para todos os sources (rota obsoleta)
+        return JSONResponse(
+            status_code=410,
+            content={
+                "ok": False,
+                "error": "Gone",
+                "message": f"Webhook endpoint /webhooks/{source} is deprecated. Please use /api/webhooks/{source} instead.",
+                "new_url": f"/api/webhooks/{source}"
+            },
+        )
 
     return router

@@ -13,6 +13,7 @@ from runtime.observability.snapshot.diff import compare_snapshots, render_diff
 from runtime.observability.snapshot.extractors.fileops_extractor import FileOpsExtractor
 from runtime.observability.snapshot.extractors.health_extractor import HealthExtractor
 from runtime.observability.snapshot.extractors.tasks_extractor import TasksExtractor
+from runtime.observability.snapshot.extractors.trello_extractor import TrelloExtractor
 from runtime.observability.snapshot.models import Snapshot, SnapshotSubject
 from runtime.observability.snapshot.registry import ExtractorRegistry
 from runtime.observability.snapshot.storage import list_snapshots, load_snapshot, save_diff, save_snapshot
@@ -32,6 +33,10 @@ def register_default_extractors() -> None:
         ExtractorRegistry.register(HealthExtractor())
     except ValueError:
         pass  # Já registrado
+    try:
+        ExtractorRegistry.register(TrelloExtractor("", ""))
+    except ValueError:
+        pass  # Já registrado (TrelloExtractor unificado Trello + Kanban)
 
 
 # Registra extratores apenas uma vez
@@ -264,7 +269,7 @@ try:
         input_schema={
             "type": "object",
             "properties": {
-                "subject": {"type": "string", "enum": ["fileops", "tasks", "health"]},
+                "subject": {"type": "string", "enum": ["fileops", "tasks", "health", "trello"]},
             },
             "required": ["subject"],
         },
