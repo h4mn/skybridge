@@ -1,5 +1,7 @@
 # Workspace - dados gerados (nao versionar)
-/workspace/           # Apenas na raiz (não src/runtime/workspace/)
+/workspace/
+/workspace/core/
+/workspace/core/tmp_path/
 !workspace/.gitkeep
 !workspace/skybridge/.gitkeep
 !workspace/skybridge/logs/.gitkeep
@@ -48,7 +50,6 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
-workspace/core/tmp_path/  # DOC: ADR024 - Temporários de testes (limpo pós-commit)
 
 # Logs
 *.log

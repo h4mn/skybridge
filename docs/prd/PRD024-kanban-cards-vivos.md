@@ -59,6 +59,59 @@ Implementar **Kanban Board completo** com:
 
 ### 2.2 Requisitos Não-Funcionais
 
+---
+
+## 🚨🚨🚨 REGRAS CRÍTICAS - CARDS VIVOS 🚨🚨🚨
+
+### ⚠️⚠️⚠️ NÃO DEVE EXISTIR LISTA PADRÃO!!! ⚠️⚠️⚠️
+
+**PROIBIDO**: Ao criar/mover cards, **NUNCA** usar lista padrão/fallback.
+
+```python
+# ❌ PROIBIDO - VIOLAÇÃO CRÍTICA
+if list_id is None:
+    list_id = DEFAULT_LIST_ID  # PROIBIDO!!!
+```
+
+**CORRETO**: Erro claro exigindo lista explícita.
+
+```python
+# ✅ CORRETO
+if list_id is None:
+    return Result.err(
+        "list_id OBRIGATÓRIO. "
+        "NÃO existe lista padrão. "
+        "Especifique: issues, backlog, todo, progress, review, publish"
+    )
+```
+
+### ⚠️⚠️⚠️ NEM ERRO SILENCIOSO!!! ⚠️⚠️⚠️
+
+**PROIBIDO**: Silenciar erro ao mover card para lista inexistente.
+
+- Se lista não existe → **ERROR** (log + return)
+- Se trello_list_id é None → **ERROR** (se requerido)
+- Se status não mapeável → **ERROR**
+
+```python
+# ❌ PROIBIDO
+try:
+    move_card(card_id, list_id)
+except ListNotFoundError:
+    logger.info("Lista não encontrada, usando A Fazer")
+    move_card(card_id, TODO_LIST)  # PROIBIDO!!!
+
+# ✅ CORRETO
+result = move_card(card_id, list_id)
+if result.is_err:
+    logger.error(f"[KANBAN] Falha ao mover: {result.error}")
+    return Result.err(f"Lista não existe: {result.error}")
+```
+
+---
+
+### 2.2 Requisitos Não-Funcionais
+
 | ID | Requisito | Especificação |
 |----|-----------|---------------|
 | RNF-001 | Performance | Rendering < 2s, SSE latency < 100ms |
