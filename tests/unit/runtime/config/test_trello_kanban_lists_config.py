@@ -3,17 +3,9 @@
 Testes para TrelloKanbanListsConfig.
 
 TDD Estrito: Testes que documentam o comportamento esperado da configuração.
-Bug: O código trello_service.py tenta acessar atributos que não existem.
 
 DOC: runtime/config/config.py - TrelloKanbanListsConfig
-
-Bug identificado:
-- trello_service.py tenta acessar kanban_config.todo (não existe)
-- trello_service.py tenta acessar kanban_config.progress (não existe)
-- trello_service.py tenta acessar kanban_config.label_mapping (não existe)
-- trello_service.py tenta acessar kanban_config.auto_create_lists (não existe)
-- trello_service.py tenta acessar kanban_config.get_list_names() (não existe)
-- trello_service.py tenta acessar kanban_config.get_list_colors() (não existe)
+DOC: core.kanban.domain.kanban_lists_config - FONTE ÚNICA DA VERDADE
 """
 import pytest
 
@@ -25,23 +17,29 @@ class TestTrelloKanbanListsConfigProperties:
 
     def test_todo_property_returns_nome_lista_a_fazer(self):
         """
-        DOC: Propriedade 'todo' deve retornar nome da lista 'A Fazer'.
+        DOC: Propriedade 'todo' deve retornar nome da lista 'A Fazer' (SEM emoji).
 
         Compatibilidade com código legado em trello_service.py que usa:
             target_list_name=self.kanban_config.todo
+
+        NOTA: get_list_names() retorna nomes SEM emoji (FONTE ÚNICA DA VERDADE).
+        Para nomes com emoji, use get_list_names_with_emoji().
         """
         config = TrelloKanbanListsConfig()
-        assert config.todo == "📋 A Fazer"
+        assert config.todo == "A Fazer"
 
     def test_progress_property_returns_nome_lista_em_andamento(self):
         """
-        DOC: Propriedade 'progress' deve retornar nome da lista 'Em Andamento'.
+        DOC: Propriedade 'progress' deve retornar nome da lista 'Em Andamento' (SEM emoji).
 
         Compatibilidade com código legado em trello_service.py que usa:
             target_list_name=self.kanban_config.progress
+
+        NOTA: get_list_names() retorna nomes SEM emoji (FONTE ÚNICA DA VERDADE).
+        Para nomes com emoji, use get_list_names_with_emoji().
         """
         config = TrelloKanbanListsConfig()
-        assert config.progress == "🚧 Em Andamento"
+        assert config.progress == "Em Andamento"
 
 
 class TestTrelloKanbanListsConfigLabelMapping:
@@ -115,10 +113,12 @@ class TestTrelloKanbanListsConfigListMethods:
 
     def test_get_list_names_returns_list(self):
         """
-        DOC: get_list_names() deve retornar lista de nomes das listas.
+        DOC: get_list_names() deve retornar lista de nomes das listas (SEM emoji).
 
         Compatibilidade com código legado em trello_service.py que usa:
             list_names = self.kanban_config.get_list_names()
+
+        NOTA: Retorna nomes SEM emoji. Para nomes com emoji, use get_list_names_with_emoji().
         """
         config = TrelloKanbanListsConfig()
         names = config.get_list_names()
@@ -127,17 +127,35 @@ class TestTrelloKanbanListsConfigListMethods:
 
     def test_get_list_names_contains_standard_lists(self):
         """
-        DOC: get_list_names() deve conter listas padrão Kanban.
+        DOC: get_list_names() deve conter listas padrão Kanban (SEM emoji).
 
-        Listas esperadas: Brainstorm, Issues, A Fazer, Em Andamento, Em Revisão, Publicar
+        get_list_names() retorna nomes SEM emoji (FONTE ÚNICA DA VERDADE).
+        Para nomes com emoji, use get_list_names_with_emoji().
+
+        Listas esperadas: Issues, Brainstorm, A Fazer, Em Andamento, Em Revisão, Publicar
         """
         config = TrelloKanbanListsConfig()
         names = config.get_list_names()
-        assert "🧠 Brainstorm" in names
+        assert "Issues" in names
+        assert "Brainstorm" in names
+        assert "A Fazer" in names
+        assert "Em Andamento" in names
+        assert "Em Revisão" in names
+        assert "Publicar" in names
+
+    def test_get_list_names_with_emoji_contains_standard_lists(self):
+        """
+        DOC: get_list_names_with_emoji() deve conter listas padrão Kanban COM emoji.
+
+        Para uso no Trello e frontend onde emojis são necessários.
+        """
+        config = TrelloKanbanListsConfig()
+        names = config.get_list_names_with_emoji()
         assert "📥 Issues" in names
+        assert "🧠 Brainstorm" in names
         assert "📋 A Fazer" in names
         assert "🚧 Em Andamento" in names
-        assert "👁️ Em Revisão" in names or "👀 Em Revisão" in names
+        assert "👀 Em Revisão" in names
         assert "🚀 Publicar" in names
 
     def test_get_list_colors_returns_dict(self):
@@ -146,6 +164,8 @@ class TestTrelloKanbanListsConfigListMethods:
 
         Compatibilidade com código legado em trello_service.py que usa:
             list_colors = self.kanban_config.get_list_colors()
+
+        NOTA: Chaves são nomes SEM emoji. Para chaves com emoji, use get_list_colors_with_emoji().
         """
         config = TrelloKanbanListsConfig()
         colors = config.get_list_colors()
@@ -158,6 +178,7 @@ class TestTrelloKanbanListsConfigListMethods:
         DOC: get_list_colors() deve ter cores para todas as listas.
 
         Cada lista em get_list_names() deve ter uma cor correspondente.
+        Chaves são nomes SEM emoji (FONTE ÚNICA DA VERDADE).
         """
         config = TrelloKanbanListsConfig()
         names = config.get_list_names()

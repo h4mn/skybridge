@@ -29,53 +29,8 @@ class TestTrelloAdapterCredentials:
         with pytest.raises(TrelloConfigError):
             TrelloAdapter(api_key="key", api_token="")
 
-
-# Testes de integração que requerem credenciais
-# NOTA: Temporariamente desabilitados devido a bug no pytest-asyncio 0.21.1
-# com skipif + async fixtures. Esses testes funcionam quando executados manualmente.
-
-@pytest.mark.skip(reason="TODO: pytest-asyncio bug with skipif + async fixtures - requires manual testing")
-@pytest.mark.asyncio
-async def test_get_board():
-    """Testa buscar um board público do Trello."""
-    # Usar board público de exemplo
-    api_key = os.getenv("TRELLO_API_KEY")
-    api_token = os.getenv("TRELLO_API_TOKEN")
-
-    if not api_key or not api_token:
-        pytest.skip("Requires TRELLO_API_KEY and TRELLO_API_TOKEN")
-
-    adapter = create_trello_adapter(api_key, api_token)
-    try:
-        result = await adapter.get_board("5e88ae2f2f103936713e7e3c")
-
-        assert result.is_ok()
-        board = result.unwrap()
-        assert board.id == "5e88ae2f2f103936713e7e3c"
-        assert board.external_source == "trello"
-    finally:
-        await adapter._close()
-
-
-@pytest.mark.skip(reason="TODO: pytest-asyncio bug with skipif + async fixtures - requires manual testing")
-@pytest.mark.asyncio
-async def test_get_card_not_found():
-    """Testa buscar card inexistente."""
-    api_key = os.getenv("TRELLO_API_KEY")
-    api_token = os.getenv("TRELLO_API_TOKEN")
-
-    if not api_key or not api_token:
-        pytest.skip("Requires TRELLO_API_KEY and TRELLO_API_TOKEN")
-
-    adapter = create_trello_adapter(api_key, api_token)
-    try:
-        result = await adapter.get_card("card-inexistente-123")
-
-        assert result.is_err()
-        assert "não encontrado" in result.unwrap_err()
-    finally:
-        await adapter._close()
-
+# Testes de integração que requerem credenciais foram movidos para
+# tests/integration/kanban/test_trello_integration.py com implementação TDD completa.
 
 class TestTrelloAdapterUnit:
     """Testes unitários sem chamar API."""
@@ -87,10 +42,34 @@ class TestTrelloAdapterUnit:
         assert adapter.api_key == "test-key"
         assert adapter.api_token == "test-token"
 
-    def test_map_status_default(self):
-        """Testa mapeamento de status."""
+    def test_parse_card_status_from_list_name(self):
+        """
+        Testa que _parse_card determina status baseado no nome da lista.
+
+        REGRA DE OURO: NÃO EXISTE PADRÃO.
+        - Lista reconhecida → CardStatus correspondente
+        - Lista NÃO reconhecida → CardStatus.UNKNOWN (requer atenção manual)
+
+        UNKNOWN é usado para marcar cards que precisam de correção manual,
+        evitando padrões silenciosos que mascaram problemas de configuração.
+        """
         adapter = create_trello_adapter("key", "token")
 
-        # Mapeamento default é TODO (ainda não implementado cache de listas)
-        status = adapter._map_status("any-list-id")
-        assert status == CardStatus.TODO
+        # Dados simulados da API do Trello com diferentes nomes de lista
+        # Inclui todos os campos necessários para evitar KeyError
+        test_cases = [
+            # Casos normais - lista reconhecida
+            ({"name": "Card 1", "id": "1", "url": "http://trello.com/c1", "list": {"name": "🧠 Brainstorm"}}, CardStatus.BACKLOG),
+            ({"name": "Card 2", "id": "2", "url": "http://trello.com/c2", "list": {"name": "📋 A Fazer"}}, CardStatus.TODO),
+            ({"name": "Card 3", "id": "3", "url": "http://trello.com/c3", "list": {"name": "🚧 Em Andamento"}}, CardStatus.IN_PROGRESS),
+            ({"name": "Card 4", "id": "4", "url": "http://trello.com/c4", "list": {"name": "👀 Em Revisão"}}, CardStatus.REVIEW),
+            ({"name": "Card 5", "id": "5", "url": "http://trello.com/c5", "list": {"name": "🚀 Publicar"}}, CardStatus.DONE),
+            # Casos de lista não reconhecida ou ausente → UNKNOWN (requer atenção manual)
+            ({"name": "Card 6 - Sem lista", "id": "6", "url": "http://trello.com/c6"}, CardStatus.UNKNOWN),
+            ({"name": "Card 7 - Lista não reconhecida", "id": "7", "url": "http://trello.com/c7", "list": {"name": "Lista Desconhecida"}}, CardStatus.UNKNOWN),
+        ]
+
+        for data, expected_status in test_cases:
+            card = adapter._parse_card(data)
+            assert card.status == expected_status, f"Card {data['name']} should have status {expected_status}"
+

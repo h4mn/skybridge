@@ -18,8 +18,8 @@ from unittest.mock import Mock, AsyncMock
 
 from fastapi.testclient import TestClient
 
-from src.core.kanban.application.kanban_initializer import KanbanInitializer
-from src.core.kanban.application.kanban_event_bus import KanbanEventBus
+from core.kanban.application.kanban_initializer import KanbanInitializer
+from core.kanban.application.kanban_event_bus import KanbanEventBus
 
 
 @pytest.fixture
@@ -45,11 +45,13 @@ def mock_event_bus():
     """Mock do EventBus para testes síncronos."""
     mock = Mock(spec=KanbanEventBus)
 
-    # Mock publish como async
+    # Cria um AsyncMock para publish
     async def mock_publish(event_type, data, workspace_id):
         pass
 
-    mock.publish = AsyncMock(side_effect=mock_publish)
+    # Usa AsyncMock diretamente
+    mock.publish = AsyncMock()
+    mock.publish.side_effect = mock_publish
     mock.get_subscribers_count = Mock(return_value=0)
 
     return mock
@@ -64,11 +66,12 @@ def app_client(kanban_db_path: Path, workspace_id: str, mock_event_bus, monkeypa
         from pathlib import Path
         return Path("workspace") / ws_id / "data" / "kanban.db"
 
-    import src.runtime.delivery.kanban_routes as kanban_routes
+    # Usa o mesmo módulo que será usado pelo router
+    from runtime.delivery import kanban_routes
     monkeypatch.setattr(kanban_routes, "_get_kanban_db_path", mock_get_db_path)
     monkeypatch.setattr(kanban_routes, "_event_bus", mock_event_bus)
 
-    from src.runtime.delivery.kanban_routes import create_kanban_router
+    from runtime.delivery.kanban_routes import create_kanban_router
     from fastapi import FastAPI
 
     app = FastAPI()
@@ -98,7 +101,7 @@ class TestKanbanSSEIntegration:
         - EventBus.publish é chamado com dados corretos
         """
         # Arrange: Obtém mock do EventBus
-        from src.runtime.delivery import kanban_routes
+        from runtime.delivery import kanban_routes
         event_bus_mock = kanban_routes._event_bus
 
         # Act: Cria card via API
@@ -134,7 +137,7 @@ class TestKanbanSSEIntegration:
         - PATCH /cards emite evento card_updated
         - Evento contém dados atualizados
         """
-        from src.runtime.delivery import kanban_routes
+        from runtime.delivery import kanban_routes
         event_bus_mock = kanban_routes._event_bus
 
         # Arrange: Cria card
@@ -176,7 +179,7 @@ class TestKanbanSSEIntegration:
         - DELETE /cards emite evento card_deleted
         - Evento contém dados do card antes de deletar
         """
-        from src.runtime.delivery import kanban_routes
+        from runtime.delivery import kanban_routes
         event_bus_mock = kanban_routes._event_bus
 
         # Arrange: Cria card

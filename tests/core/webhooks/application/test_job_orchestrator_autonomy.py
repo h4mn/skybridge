@@ -12,6 +12,8 @@ from datetime import datetime
 
 from core.webhooks.application.job_orchestrator import (
     JobOrchestrator,
+)
+from core.webhooks.domain.trigger_mappings import (
     EVENT_TYPE_TO_SKILL,
     AUTONOMY_LEVEL_TO_SKILL,
 )
@@ -47,9 +49,13 @@ class TestAutonomyLevelToSkillMapping:
         """DEVELOPMENT deve mapear para 'resolve-issue'."""
         assert AUTONOMY_LEVEL_TO_SKILL.get("development") == "resolve-issue"
 
-    def test_review_maps_to_review_issue(self):
-        """REVIEW deve mapear para 'review-issue'."""
-        assert AUTONOMY_LEVEL_TO_SKILL.get("review") == "review-issue"
+    def test_review_maps_to_none(self):
+        """
+        REVIEW deve mapear para None.
+
+        PRD020: Em Revisão é revisão humana, não dispara agente.
+        """
+        assert AUTONOMY_LEVEL_TO_SKILL.get("review") is None
 
     def test_publish_maps_to_publish_issue(self):
         """PUBLISH deve mapear para 'publish-issue'."""
@@ -78,12 +84,13 @@ class TestJobOrchestratorAutonomyLevel:
     def test_get_skill_for_event_type_considers_autonomy_level(self, mock_orchestrator):
         """
         DoD #4: autonomy_level em JobOrchestrator.
+        PRD026: issues.opened NÃO dispara agente diretamente.
 
         _get_skill_for_event_type deve considerar autonomy_level.
         """
-        # Sem autonomy_level, usa mapeamento padrão
+        # PRD026: Sem autonomy_level, issues.opened retorna None (não dispara agente)
         skill = JobOrchestrator._get_skill_for_event_type("issues.opened")
-        assert skill == "resolve-issue"
+        assert skill is None  # PRD026: issue aberta só cria card, não executa agente
 
         # Com autonomy_level, usa mapeamento específico
         skill = JobOrchestrator._get_skill_for_event_type(
@@ -109,12 +116,16 @@ class TestJobOrchestratorAutonomyLevel:
         assert skill == "resolve-issue"
 
     def test_get_skill_for_event_type_with_review(self, mock_orchestrator):
-        """REVIEW deve retornar 'review-issue'."""
+        """
+        REVIEW deve retornar None.
+
+        PRD020: Em Revisão é revisão humana, não dispara agente.
+        """
         skill = JobOrchestrator._get_skill_for_event_type(
             "issues.opened",
             AutonomyLevel.REVIEW
         )
-        assert skill == "review-issue"
+        assert skill is None
 
     def test_get_skill_for_event_type_with_publish(self, mock_orchestrator):
         """PUBLISH deve retornar 'publish-issue'."""
@@ -125,12 +136,15 @@ class TestJobOrchestratorAutonomyLevel:
         assert skill == "publish-issue"
 
     def test_get_skill_for_event_type_autonomy_overrides_default(self, mock_orchestrator):
-        """autonomy_level deve sobrescrever mapeamento padrão."""
-        # Padrão para issues.opened
+        """
+        autonomy_level deve sobrescrever mapeamento padrão.
+        PRD026: issues.opened tem padrão None, autonomy_level sobrescreve.
+        """
+        # PRD026: Padrão para issues.opened é None (não dispara agente)
         default_skill = JobOrchestrator._get_skill_for_event_type("issues.opened")
-        assert default_skill == "resolve-issue"
+        assert default_skill is None
 
-        # Com autonomy_level=ANALYSIS, deve sobrescrever
+        # Com autonomy_level=ANALYSIS, deve sobrescrever para analyze-issue
         override_skill = JobOrchestrator._get_skill_for_event_type(
             "issues.opened",
             AutonomyLevel.ANALYSIS
@@ -196,29 +210,65 @@ class TestEventTypeToSkillMapping:
     """Testes de mapeamento event_type → skills."""
 
     def test_mapping_includes_trello_events(self):
-        """Mapeamento deve incluir eventos do Trello."""
-        trello_events = [
-            "card.moved.💡 Brainstorm",
-            "card.moved.📋 A Fazer",
-            "card.moved.🚧 Em Andamento",
-            "card.moved.👁️ Em Revisão",
-            "card.moved.🚀 Publicar",
+        """
+        Mapeamento deve incluir eventos do Trello.
+
+        PRD024: Usa slugs do KanbanListsConfig (evita problemas com emojis).
+        PRD020: Apenas Brainstorm, A Fazer e Publicar devem disparar agentes.
+        """
+        # Eventos que devem disparar agentes (mapear para skills não-None)
+        trello_trigger_events = [
+            "card.moved.backlog",   # Brainstorm → analyze-issue
+            "card.moved.todo",      # A Fazer → resolve-issue
+            "card.moved.publish",   # Publicar → publish-issue
         ]
 
-        for event_type in trello_events:
+        for event_type in trello_trigger_events:
             assert event_type in EVENT_TYPE_TO_SKILL, f"Evento {event_type} não mapeado"
+            # Verifica que o skill não é None (realmente dispara agente)
+            assert EVENT_TYPE_TO_SKILL[event_type] is not None
 
     def test_trello_brainstorm_maps_to_analyze_issue(self):
-        """Evento 'card.moved.💡 Brainstorm' deve mapear para 'analyze-issue'."""
-        assert EVENT_TYPE_TO_SKILL.get("card.moved.💡 Brainstorm") == "analyze-issue"
+        """
+        Evento 'card.moved.backlog' deve mapear para 'analyze-issue'.
+
+        PRD024: Usa slug 'backlog' para Brainstorm.
+        """
+        assert EVENT_TYPE_TO_SKILL.get("card.moved.backlog") == "analyze-issue"
 
     def test_trello_a_fazer_maps_to_resolve_issue(self):
-        """Evento 'card.moved.📋 A Fazer' deve mapear para 'resolve-issue'."""
-        assert EVENT_TYPE_TO_SKILL.get("card.moved.📋 A Fazer") == "resolve-issue"
+        """
+        Evento 'card.moved.todo' deve mapear para 'resolve-issue'.
+
+        PRD024: Usa slug 'todo' para A Fazer.
+        """
+        assert EVENT_TYPE_TO_SKILL.get("card.moved.todo") == "resolve-issue"
 
     def test_trello_publicar_maps_to_publish_issue(self):
-        """Evento 'card.moved.🚀 Publicar' deve mapear para 'publish-issue'."""
-        assert EVENT_TYPE_TO_SKILL.get("card.moved.🚀 Publicar") == "publish-issue"
+        """
+        Evento 'card.moved.publish' deve mapear para 'publish-issue'.
+
+        PRD024: Usa slug 'publish' para Publicar.
+        """
+        assert EVENT_TYPE_TO_SKILL.get("card.moved.publish") == "publish-issue"
+
+    def test_trello_em_andamento_nao_dispara(self):
+        """
+        Evento 'card.moved.progress' não deve disparar agente.
+
+        PRD020: Em Andamento é estado intermediário, não trigger.
+        """
+        skill = EVENT_TYPE_TO_SKILL.get("card.moved.progress")
+        assert skill is None
+
+    def test_trello_em_revisao_nao_dispara(self):
+        """
+        Evento 'card.moved.review' não deve disparar agente.
+
+        PRD020: Em Revisão é revisão humana, não trigger.
+        """
+        skill = EVENT_TYPE_TO_SKILL.get("card.moved.review")
+        assert skill is None
 
 
 @pytest.mark.integration

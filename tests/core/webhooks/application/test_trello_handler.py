@@ -276,12 +276,16 @@ class TestTrelloEventsDoD:
         """
         DoD #7: Webhook Trello recebe eventos.
 
-        Verifica que endpoint /webhook/trello existe.
+        Verifica que endpoint /api/webhooks/{source} existe (padrão ADR023).
+        O endpoint usa path parameter, então verificamos o padrão /api/webhooks/{source}.
         """
-        from core.webhooks.infrastructure.github_webhook_server import app
+        from runtime.bootstrap.app import get_app
 
+        app = get_app().app
         routes = [route.path for route in app.routes]
-        assert "/webhook/trello" in routes, "Endpoint /webhook/trello não encontrado"
+        # O endpoint usa path parameter: /api/webhooks/{source}
+        # Então verificamos se o padrão existe
+        assert "/api/webhooks/{source}" in routes, "Endpoint /api/webhooks/{source} não encontrado"
 
 
 if __name__ == "__main__":

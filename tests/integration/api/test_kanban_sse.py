@@ -14,8 +14,8 @@ from unittest.mock import Mock, AsyncMock
 
 from fastapi.testclient import TestClient
 
-from src.core.kanban.application.kanban_initializer import KanbanInitializer
-from src.core.kanban.application.kanban_event_bus import KanbanEventBus
+from core.kanban.application.kanban_initializer import KanbanInitializer
+from core.kanban.application.kanban_event_bus import KanbanEventBus
 
 
 @pytest.fixture
@@ -34,11 +34,18 @@ def kanban_db_path(workspace_id: str, tmp_path: Path) -> Path:
 
 @pytest.fixture
 def mock_event_bus():
+    """Mock do EventBus para testes."""
     mock = Mock(spec=KanbanEventBus)
+
+    # Cria um AsyncMock para publish
     async def mock_publish(event_type, data, workspace_id):
         pass
-    mock.publish = AsyncMock(side_effect=mock_publish)
+
+    # Usa AsyncMock diretamente
+    mock.publish = AsyncMock()
+    mock.publish.side_effect = mock_publish
     mock.get_subscribers_count = Mock(return_value=0)
+
     return mock
 
 
@@ -50,11 +57,12 @@ def app_client(kanban_db_path: Path, workspace_id: str, mock_event_bus, monkeypa
         from pathlib import Path
         return Path("workspace") / ws_id / "data" / "kanban.db"
 
-    import src.runtime.delivery.kanban_routes as kanban_routes
+    # Usa o mesmo módulo que será usado pelo router
+    from runtime.delivery import kanban_routes
     monkeypatch.setattr(kanban_routes, "_get_kanban_db_path", mock_get_db_path)
     monkeypatch.setattr(kanban_routes, "_event_bus", mock_event_bus)
 
-    from src.runtime.delivery.kanban_routes import create_kanban_router
+    from runtime.delivery.kanban_routes import create_kanban_router
     from fastapi import FastAPI
 
     app = FastAPI()
@@ -76,7 +84,7 @@ class TestKanbanEventBusIntegration:
         self, app_client: TestClient, workspace_id: str
     ):
         """DOC: POST /cards emite card_created no EventBus."""
-        from src.runtime.delivery import kanban_routes
+        from runtime.delivery import kanban_routes
         event_bus_mock = kanban_routes._event_bus
 
         response = app_client.post(
@@ -97,7 +105,7 @@ class TestKanbanEventBusIntegration:
         self, app_client: TestClient, workspace_id: str
     ):
         """DOC: PATCH /cards emite card_updated no EventBus."""
-        from src.runtime.delivery import kanban_routes
+        from runtime.delivery import kanban_routes
         event_bus_mock = kanban_routes._event_bus
 
         create_response = app_client.post(
@@ -126,7 +134,7 @@ class TestKanbanEventBusIntegration:
         self, app_client: TestClient, workspace_id: str
     ):
         """DOC: DELETE /cards emite card_deleted no EventBus."""
-        from src.runtime.delivery import kanban_routes
+        from runtime.delivery import kanban_routes
         event_bus_mock = kanban_routes._event_bus
 
         create_response = app_client.post(
@@ -153,7 +161,7 @@ class TestKanbanEventBusIntegration:
         self, app_client: TestClient, workspace_id: str
     ):
         """DOC: Mover card entre listas emite card_updated."""
-        from src.runtime.delivery import kanban_routes
+        from runtime.delivery import kanban_routes
         event_bus_mock = kanban_routes._event_bus
 
         create_response = app_client.post(
@@ -182,7 +190,7 @@ class TestKanbanEventBusIntegration:
         self, app_client: TestClient, workspace_id: str
     ):
         """DOC: Atualizar being_processed emite card_updated."""
-        from src.runtime.delivery import kanban_routes
+        from runtime.delivery import kanban_routes
         event_bus_mock = kanban_routes._event_bus
 
         create_response = app_client.post(

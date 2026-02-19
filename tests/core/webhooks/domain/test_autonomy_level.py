@@ -176,13 +176,15 @@ class TestAutonomyLevelSkills:
         DoD #4: autonomy_level em JobOrchestrator.
 
         Verifica mapeamento de autonomy_level para skills.
+
+        PRD020: REVIEW (Em Revisão) não dispara agente - é revisão humana.
         """
-        from core.webhooks.application.job_orchestrator import AUTONOMY_LEVEL_TO_SKILL
+        from core.webhooks.domain.trigger_mappings import AUTONOMY_LEVEL_TO_SKILL
 
         expected_mapping = {
             "analysis": "analyze-issue",
             "development": "resolve-issue",
-            "review": "review-issue",
+            "review": None,  # PRD020: revisão humana, não dispara agente
             "publish": "publish-issue",
         }
 
@@ -190,21 +192,21 @@ class TestAutonomyLevelSkills:
 
     def test_analysis_maps_to_analyze_issue_skill(self):
         """ANALYSIS deve mapear para skill 'analyze-issue'."""
-        from core.webhooks.application.job_orchestrator import AUTONOMY_LEVEL_TO_SKILL
+        from core.webhooks.domain.trigger_mappings import AUTONOMY_LEVEL_TO_SKILL
 
         skill = AUTONOMY_LEVEL_TO_SKILL.get("analysis")
         assert skill == "analyze-issue"
 
     def test_development_maps_to_resolve_issue_skill(self):
         """DEVELOPMENT deve mapear para skill 'resolve-issue'."""
-        from core.webhooks.application.job_orchestrator import AUTONOMY_LEVEL_TO_SKILL
+        from core.webhooks.domain.trigger_mappings import AUTONOMY_LEVEL_TO_SKILL
 
         skill = AUTONOMY_LEVEL_TO_SKILL.get("development")
         assert skill == "resolve-issue"
 
     def test_publish_maps_to_publish_issue_skill(self):
         """PUBLISH deve mapear para skill 'publish-issue'."""
-        from core.webhooks.application.job_orchestrator import AUTONOMY_LEVEL_TO_SKILL
+        from core.webhooks.domain.trigger_mappings import AUTONOMY_LEVEL_TO_SKILL
 
         skill = AUTONOMY_LEVEL_TO_SKILL.get("publish")
         assert skill == "publish-issue"
@@ -218,18 +220,20 @@ class TestAutonomyLevelEventTypes:
         DoD #5: Regras por lista Trello implementadas.
 
         Verifica mapeamento de event_types Trello para skills.
+
+        PRD024: Usa slugs do KanbanListsConfig (evita problemas com emojis em branches).
         """
-        from core.webhooks.application.job_orchestrator import EVENT_TYPE_TO_SKILL
+        from core.webhooks.domain.trigger_mappings import EVENT_TYPE_TO_SKILL
 
-        # Event types Trello devem estar mapeados
-        assert "card.moved.💡 Brainstorm" in EVENT_TYPE_TO_SKILL
-        assert EVENT_TYPE_TO_SKILL["card.moved.💡 Brainstorm"] == "analyze-issue"
+        # Event types Trello devem estar mapeados (usando slugs PRD024)
+        assert "card.moved.backlog" in EVENT_TYPE_TO_SKILL
+        assert EVENT_TYPE_TO_SKILL["card.moved.backlog"] == "analyze-issue"
 
-        assert "card.moved.📋 A Fazer" in EVENT_TYPE_TO_SKILL
-        assert EVENT_TYPE_TO_SKILL["card.moved.📋 A Fazer"] == "resolve-issue"
+        assert "card.moved.todo" in EVENT_TYPE_TO_SKILL
+        assert EVENT_TYPE_TO_SKILL["card.moved.todo"] == "resolve-issue"
 
-        assert "card.moved.🚀 Publicar" in EVENT_TYPE_TO_SKILL
-        assert EVENT_TYPE_TO_SKILL["card.moved.🚀 Publicar"] == "publish-issue"
+        assert "card.moved.publish" in EVENT_TYPE_TO_SKILL
+        assert EVENT_TYPE_TO_SKILL["card.moved.publish"] == "publish-issue"
 
 
 class TestAutonomyLevelEdgeCases:
@@ -350,12 +354,16 @@ class TestAutonomyLevelDoD:
         """
         DoD #7: Webhook Trello recebe eventos.
 
-        Verifica que endpoint /webhook/trello existe.
+        Verifica que endpoint /api/webhooks/{source} existe (padrão ADR023).
+        O endpoint usa path parameter, então verificamos o padrão /api/webhooks/{source}.
         """
-        from core.webhooks.infrastructure.github_webhook_server import app
+        from runtime.bootstrap.app import get_app
 
+        app = get_app().app
         routes = [route.path for route in app.routes]
-        assert "/webhook/trello" in routes, "Endpoint /webhook/trello não encontrado"
+        # O endpoint usa path parameter: /api/webhooks/{source}
+        # Então verificamos se o padrão existe
+        assert "/api/webhooks/{source}" in routes, "Endpoint /api/webhooks/{source} não encontrado"
 
 
 @pytest.mark.unit

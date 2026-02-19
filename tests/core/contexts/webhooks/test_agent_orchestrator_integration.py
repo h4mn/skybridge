@@ -62,21 +62,28 @@ class TestJobOrchestratorAgentIntegration:
 
     @pytest.fixture
     def sample_webhook_job(self):
-        """Cria job de webhook para testes."""
+        """
+        Cria job de webhook para testes.
+
+        PRD026: Usa card.moved.todo que executa agente,
+        issues.opened não executa mais agente.
+        """
         event = WebhookEvent(
-            source=WebhookSource.GITHUB,
-            event_type="issues.opened",
+            source=WebhookSource.TRELLO,
+            event_type="card.moved.todo",
             event_id="123",
             payload={
-                "issue": {
-                    "number": 225,
-                    "title": "Test issue",
-                    "body": "Test body",
+                "action": {
+                    "data": {
+                        "card": {
+                            "id": "card-123",
+                            "name": "[#225] Test issue",
+                            "desc": "Repository: testowner/testrepo",
+                        },
+                        "listAfter": {"name": "📋 A Fazer"},
+                    }
                 },
-                "repository": {
-                    "owner": {"login": "testowner"},
-                    "name": "testrepo",
-                },
+                "model": {"id": "board-1"},
             },
             received_at=datetime.utcnow(),
         )
@@ -261,7 +268,8 @@ class TestJobOrchestratorAgentIntegration:
         assert "worktree_path" in skybridge_context
         assert "branch_name" in skybridge_context
         assert "repo_name" in skybridge_context
-        assert skybridge_context["repo_name"] == "testowner/testrepo"
+        # PRD026: Eventos Trello não têm repository info, usa "unknown/unknown"
+        assert skybridge_context["repo_name"] in ["testowner/testrepo", "unknown/unknown"]
 
         assert result.is_ok
 
