@@ -7,6 +7,8 @@ Ponto de entrada que combina:
 - WebUI estático (/web)
 - Logging unificado (estratégia híbrida LOG-001 + LOG-002)
 - Ngrok integration
+
+PRD022 REFACTOR: SkybridgeServer estende BaseApp com Template Method Pattern.
 """
 
 import sys
@@ -24,6 +26,8 @@ load_dotenv()
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
+# PRD022: Importar BaseApp para Template Method Pattern
+from runtime.bootstrap.base_app import BaseApp
 from runtime.bootstrap.app import get_app
 from runtime.config.config import get_config, load_ngrok_config
 from runtime.observability.logger import (
@@ -134,16 +138,26 @@ def ensure_webui_built() -> bool:
         return False
 
 
-class SkybridgeServer:
+class SkybridgeServer(BaseApp):
     """
-    Servidor unificado Skybridge.
+    Servidor unificado Skybridge (PRD022 refactor).
 
     Combina API FastAPI com WebUI estático.
+    Extende BaseApp para usar Template Method Pattern.
+
+    Diferença vs SkybridgeApp:
+    - Adiciona rotas WebUI (/web/*)
+    - Usa log_config customizado (ColorFormatter)
+    - Mantém compatibilidade com SSL via BaseApp
     """
 
     def __init__(self):
+        # Chama __init__ de BaseApp
+        super().__init__()
+        # SkybridgeApp existente (FastAPI com middlewares, rotas /api/*)
         self.skybridge_app = get_app()
         self.app = self.skybridge_app.app
+        # Adiciona rotas WebUI
         self._setup_static_routes()
 
     def _setup_static_routes(self):
@@ -181,7 +195,7 @@ class SkybridgeServer:
             """Redireciona /web para /web/."""
             return RedirectResponse(url="/web/")
 
-        # /web/ retorna 404 quando dist não existe, ou index.html quando existe
+        # /web/ retorna index.html ou 404
         @self.app.get("/web/")
         async def webui_index():
             """Retorna index.html ou 404."""
@@ -238,31 +252,63 @@ class SkybridgeServer:
                 content={"detail": "WebUI not built. Run 'cd apps/web && npm run build'"}
             )
 
-    def run(
-        self,
-        host: str,
-        port: int,
-        log_config: dict = None,
-        access_log: bool = False,
-    ):
-        """
-        Executa o servidor com uvicorn.
+    # ========== PRD022 REFACTOR: Template Method Pattern ==========
+    def _get_host(self) -> str:
+        """Retorna host da config."""
+        return self.config.host
 
-        Args:
-            host: Host para bind
-            port: Porta para listen
-            log_config: Configuração de logging do uvicorn
-            access_log: Desabilitado (middleware cuida)
+    def _get_port(self) -> int:
+        """Retorna porta da config."""
+        return self.config.port
+
+    def _get_uvicorn_kwargs(self, host: str, port: int) -> dict:
         """
-        uvicorn.run(
-            app=self.app,
-            host=host,
-            port=port,
-            log_config=log_config,
-            access_log=access_log,
-            loop="asyncio",  # Força uso do asyncio event loop
-            timeout_graceful_shutdown=10,  # Dá 10s para shutdown gracioso
-        )
+        Retorna kwargs específicos para uvicorn: SkybridgeServer usa log_config customizado.
+
+        Diferença vs SkybridgeApp:
+        - SkybridgeApp: log_level padrão, SSL quando habilitado
+        - SkybridgeServer: log_config customizado (ColorFormatter), access_log=False
+
+        Contrato de logging:
+        - get_log_config() é chamado uma vez e cacheado
+        - Cada subclasse define seu estilo de logging
+
+        PRD022 REFACTOR: Agora suporta SSL via BaseApp (compartilhado)
+        """
+        from runtime.config.config import get_ssl_config
+
+        uvicorn_kwargs = {
+            "app": self.app,
+            "host": host,
+            "port": port,
+            # NOTA: log_config é customizado (não usa log_level direto)
+            "log_config": get_log_config(),
+            "access_log": False,  # Middleware cuida
+            "loop": "asyncio",
+            "timeout_graceful_shutdown": 10,
+        }
+
+        # PRD022 REFACTOR: Suporte SSL via BaseApp (compartilhado)
+        ssl_config = get_ssl_config()
+        if ssl_config.enabled:
+            if ssl_config.cert_file and ssl_config.key_file:
+                uvicorn_kwargs["ssl_certfile"] = ssl_config.cert_file
+                uvicorn_kwargs["ssl_keyfile"] = ssl_config.key_file
+            else:
+                self.logger.warning(
+                    "SSL habilitado mas cert/key não configurados",
+                    extra={"cert_file": ssl_config.cert_file, "key_file": ssl_config.key_file},
+                )
+
+        return uvicorn_kwargs
+
+    def _before_run(self) -> None:
+        """Hook antes de rodar (SkybridgeServer não precisa)."""
+        pass
+
+    def _after_run(self) -> None:
+        """Hook depois de rodar (SkybridgeServer não precisa)."""
+        pass
 
 
 def main():
@@ -326,12 +372,11 @@ def main():
     # Cria e executa servidor unificado
     server = SkybridgeServer()
 
-    # Executa servidor
+    # Executa servidor (PRD022: Template Method Pattern)
+    # log_config e access_log agora são definidos em _get_uvicorn_kwargs()
     server.run(
         host=config.host,
         port=config.port,
-        log_config=get_log_config(),
-        access_log=False,  # Desabilita uvicorn.access - middleware cuida
     )
 
 

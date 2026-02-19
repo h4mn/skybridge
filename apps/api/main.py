@@ -2,6 +2,8 @@
 API App — Thin adapter para interface HTTP.
 
 Ponto de entrada da aplicação Skybridge API.
+
+ATENÇÃO: DESCONTINUADO! A PARTIR DE PRD022, USAR apps.server.main
 """
 
 import sys
@@ -24,6 +26,8 @@ def main():
     """Ponto de entrada."""
     config = get_config()
     logger = get_logger(level=config.log_level)
+
+    logger.error(f"ATENÇÃO: DESCONTINUADO! A PARTIR DE PRD022, USAR apps.server.main")
 
     # Banner de entrada estilo Claude
     print_banner(f"{config.title}", __version__)
@@ -74,7 +78,7 @@ def main():
 
     # Run app
     app = get_app()
-    app.run()
+    # app.run() # ATENÇÃO: DESCONTINUADO! A PARTIR DE PRD022, USAR apps.server.main
 
 
 if __name__ == "__main__":
