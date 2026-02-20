@@ -11,7 +11,7 @@ import pytest
 import asyncio
 from datetime import datetime
 
-from src.core.kanban.application.kanban_event_bus import (
+from core.kanban.application.kanban_event_bus import (
     KanbanEventBus,
     KanbanEvent,
 )

@@ -122,9 +122,13 @@ class TrelloService:
             )
 
             # Move automaticamente para "🚧 Em Andamento"
+            # NOTA: Usa get_list_names_with_emoji()[3] para pegar nome COM emoji
+            list_names_with_emoji = self.kanban_config.get_list_names_with_emoji()
+            target_list_name = list_names_with_emoji[3] if len(list_names_with_emoji) > 3 else self.kanban_config.progress
+
             move_result = await self.adapter.move_card_to_list(
                 card_id=card_id,
-                target_list_name=self.kanban_config.progress,
+                target_list_name=target_list_name,
             )
 
             if move_result.is_err:

@@ -64,6 +64,62 @@ O fluxo atual não permite controle granular do processo de desenvolvimento via 
 
 ### Mapeamento de Listas → Ações
 
+---
+
+## 🚨🚨🚨 REGRAS CRÍTICAS - MAPEAMENTO DE LISTAS 🚨🚨🚨
+
+### ⚠️⚠️⚠️ NÃO DEVE EXISTIR LISTA PADRÃO!!! ⚠️⚠️⚠️
+
+**PROIBIDO**: Ao mover card no Trello, se a lista não for reconhecida, **NÃO usar lista padrão**.
+
+```python
+# ❌ PROIBIDO - VIOLAÇÃO CRÍTICA
+if list_name not in mapping:
+    target_list = DEFAULT_TODO_LIST  # PROIBIDO!!!
+```
+
+**CORRETO**: Erro claro explicitando qual lista não foi mapeada.
+
+```python
+# ✅ CORRETO - Sem fallback silencioso
+if list_name not in mapping:
+    return Result.err(
+        f"Lista Trello '{list_name}' NÃO mapeada para ação. "
+        f"Listas válidas: {valid_lists}. "
+        f"Configure o mapeamento antes de usar!"
+    )
+```
+
+### ⚠️⚠️⚠️ NEM ERRO SILENCIOSO!!! ⚠️⚠️⚠️
+
+**PROIBIDO**: Se webhook do Trello enviar lista desconhecida, **NÃO silenciar**.
+
+- Log do erro com LEVEL=ERROR
+- Retornar 400/422 para o Trello
+- **NÃO** criar card em lista padrão
+- **NÃO** processar com fallback
+
+```python
+# ❌ PROIBIDO
+try:
+    action = mapping[list_name]
+except KeyError:
+    logger.warning(f"Lista {list_name} não encontrada, usando padrão")
+    action = DEFAULT_ACTION  # PROIBIDO!!!
+
+# ✅ CORRETO
+if list_name not in mapping:
+    logger.error(f"[TRELLO WEBHOOK] Lista não mapeada: {list_name}")
+    return Response(
+        content=f"Lista '{list_name}' não reconhecida",
+        status_code=422
+    )
+```
+
+---
+
+### Mapeamento de Listas → Ações
+
 | Lista Trello | Ação | autonomy_level |
 |--------------|------|----------------|
 | `Issues` (backlog) | Criação automática via GitHub webhook | - |

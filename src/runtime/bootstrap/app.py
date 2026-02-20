@@ -18,6 +18,9 @@ import asyncio
 # RequestLoggingMiddleware (RF002)
 from runtime.delivery.middleware.request_log import RequestLoggingMiddleware
 
+# PRD022: Template Method Pattern
+from runtime.bootstrap.base_app import BaseApp
+
 from runtime.config.config import get_config, get_fileops_config
 from runtime.observability.logger import get_logger, print_separator, Colors
 from kernel import get_query_registry
@@ -251,7 +254,7 @@ class CorrelationMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class SkybridgeApp:
+class SkybridgeApp(BaseApp):
     """
     Aplicação Skybridge FastAPI.
 
@@ -259,11 +262,13 @@ class SkybridgeApp:
     - Configurar FastAPI
     - Registrar middlewares
     - Registrar queries
+
+    PRD022: Extende BaseApp para usar Template Method Pattern.
     """
 
     def __init__(self):
-        self.config = get_config()
-        self.logger = get_logger(level=self.config.log_level)
+        # Chama __init__ de BaseApp (config e logger)
+        super().__init__()
 
         # CRÍTICO: Criar EventBus global ANTES de qualquer outra coisa
         # Isso garante que endpoints SSE e worker compartilhem o mesmo EventBus
@@ -553,24 +558,26 @@ class SkybridgeApp:
         self.app.include_router(create_kanban_router(), prefix="/api")  # Kanban Fase 1
         self.logger.info("Rotas configuradas com prefixo /api (incluindo WebSocket console, Workspaces e Kanban)")
 
-    def run(self, host: str | None = None, port: int | None = None):
-        """Executa o servidor com uvicorn."""
+    # ========== PRD022: Template Method Pattern ==========
+    def _get_host(self) -> str:
+        """Retorna host da config."""
+        return self.config.host
+
+    def _get_port(self) -> int:
+        """Retorna porta da config."""
+        return self.config.port
+
+    def _get_uvicorn_kwargs(self, host: str, port: int) -> dict:
+        """
+        Retorna kwargs específicos para uvicorn: SkybridgeApp usa log_level padrão.
+
+        Contrato de logging:
+        - SkybridgeApp: log_level padrão (via uvicorn)
+        - SkybridgeServer: log_config customizado (ColorFormatter)
+
+        SSL é adicionado pelo BaseApp.run() automaticamente.
+        """
         import uvicorn
-
-        from runtime.config.config import get_ssl_config
-
-        host = host or self.config.host
-        port = port or self.config.port
-        ssl_config = get_ssl_config()
-
-        self.logger.info(
-            f"Iniciando {self.config.title}",
-            extra={
-                "host": host,
-                "port": port,
-                "docs": f"http://{host}:{port}{self.config.docs_url}",
-            },
-        )
 
         uvicorn_kwargs = {
             "app": self.app,
@@ -578,27 +585,15 @@ class SkybridgeApp:
             "port": port,
             "log_level": self.config.log_level.lower(),
         }
-        if ssl_config.enabled:
-            if ssl_config.cert_file and ssl_config.key_file:
-                uvicorn_kwargs["ssl_certfile"] = ssl_config.cert_file
-                uvicorn_kwargs["ssl_keyfile"] = ssl_config.key_file
-            else:
-                self.logger.warning(
-                    "SSL habilitado mas cert/key não configurados",
-                    extra={"cert_file": ssl_config.cert_file, "key_file": ssl_config.key_file},
-                )
+        return uvicorn_kwargs
 
-        # Separador antes dos logs do uvicorn
-        print()
-        print_separator("─", 60)
+    def _before_run(self) -> None:
+        """Hook antes de rodar (SkybridgeApp não precisa)."""
+        pass
 
-        uvicorn.run(
-            **uvicorn_kwargs,
-        )
-
-        # Separador depois dos logs do uvicorn
-        print()
-        print_separator("═", 60)
+    def _after_run(self) -> None:
+        """Hook depois de rodar (SkybridgeApp não precisa)."""
+        pass
 
 
 # Singleton global

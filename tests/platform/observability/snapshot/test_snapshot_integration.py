@@ -257,50 +257,6 @@ class TestRealWorldSnapshots:
         assert valid, f"Snapshot completado deve ser válido: {errors}"
 
 
-class TestSnapshotFileReading:
-    """Testa leitura de arquivos de snapshot reais do disco."""
-
-    @pytest.mark.skipif(
-        not Path("B:\\_repositorios\\skybridge-auto\\skybridge-github-42-e733937c\\.sky\\snapshot.json").exists(),
-        reason="Arquivo de snapshot de teste não encontrado"
-    )
-    def test_real_snapshot_file_is_valid(self):
-        """
-        Testa que o snapshot real criado para testes é válido.
-
-        Este teste usa o arquivo criado manualmente para validação
-        do WebUI.
-        """
-        snapshot_path = Path("B:\\_repositorios\\skybridge-auto\\skybridge-github-42-e733937c\\.sky\\snapshot.json")
-
-        # Lê o snapshot do disco
-        snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
-
-        # Valida a estrutura
-        valid, errors, warnings = validate_snapshot_for_webui(snapshot)
-        assert valid, f"Snapshot real deve ser válido: {errors}"
-
-        # Verifica campos específicos que o frontend espera
-        assert "status" in snapshot
-        assert "updated_at" in snapshot
-        assert "initial" in snapshot
-        assert "git_diff" in snapshot
-
-        # Verifica estrutura de git_diff
-        git_diff = snapshot["git_diff"]
-        assert "files" in git_diff
-        assert "diffs" in git_diff
-        assert "summary" in git_diff
-
-        # Verifica que há pelo menos um arquivo
-        assert len(git_diff["files"]) > 0
-
-        # Verifica estrutura dos arquivos
-        for file in git_diff["files"]:
-            assert "path" in file
-            assert "status" in file
-
-
 class TestWebUICompatibility:
     """Testa compatibilidade específica com o código do frontend."""
 

@@ -47,6 +47,55 @@ Integrar o **Trello** como interface visual de acompanhamento de jobs do Skybrid
 └─────────────────────────────┘
 ```
 
+---
+
+## 🚨🚨🚨 REGRAS CRÍTICAS - INTEGRACÃO TRELLO 🚨🚨🚨
+
+### ⚠️⚠️⚠️ NÃO DEVE EXISTIR LISTA PADRÃO!!! ⚠️⚠️⚠️
+
+**PROIBIDO**: Usar qualquer lista como valor padrão em operações Trello.
+
+```python
+# ❌ PROIBIDO - VIOLAÇÃO CRÍTICA
+status = CardStatus.TODO  # Padrão silencioso - PROIBIDO!!!
+target_list = default_list  # Padrão silencioso - PROIBIDO!!!
+if list not found:
+    return default_list  # Mascara problema - PROIBIDO!!!
+```
+
+**CORRETO**: Quebrar explicitamente com erro claro.
+
+```python
+# ✅ CORRETO - Sem valores padrão
+if not found:
+    return Result.err(
+        f"Lista '{list_name}' NÃO encontrada. "
+        f"Listas válidas: {valid_lists}. "
+        f"NÃO existe lista padrão - configure corretamente!"
+    )
+```
+
+### ⚠️⚠️⚠️ NEM ERRO SILENCIOSO!!! ⚠️⚠️⚠️
+
+**PROIBIDO**: Silenciar erros de mapeamento de lista.
+
+- Se `list_name` não reconhecido → **ERRO CLARO**
+- Se `trello_list_id` não mapeado → **ERRO CLARO**
+- Se `CardStatus` não mapeável → **ERRO CLARO**
+
+```python
+# ❌ PROIBIDO
+except Exception:
+    logger.warning("Lista não encontrada, usando padrão")
+    return default_list  # Mascara problema!!!
+
+# ✅ CORRETO
+except Exception as e:
+    return Result.err(f"ERRO CRÍTICO: Lista não mapeada - {e}")
+```
+
+---
+
 ### Componentes
 
 #### 1. TrelloAdapter (Infra)
@@ -253,6 +302,38 @@ TRELLO_BOARD_ID=id_do_board
 Cards são criados na lista "🎯 Foco Janeiro - Março" por padrão.
 Configurar via `TrelloIntegrationService(default_list_name=...)`.
 
+### FONTE ÚNICA DA VERDADE - Listas Kanban (PRD026)
+
+**ATUALIZADO (2026-02-07):** Para garantir consistência entre todos os componentes,
+o método `TrelloKanbanListsConfig.get_list_names()` em `src/runtime/config/config.py` é a
+**FONTE ÚNICA DA VERDADE** para os nomes das listas Kanban.
+
+**Orderem (conforme PRD024):**
+1. Issues
+2. Brainstorm
+3. A Fazer
+4. Em Andamento
+5. Em Revisão
+6. Publicar
+
+**Componentes que DEVEM usar `get_list_names()`:**
+- `KanbanInitializer` - Cria listas no kanban.db
+- `TrelloSyncService` - Sincronização Trello ↔ kanban.db
+- `TrelloService.initialize_board()` - Configura board Trello
+- `AGENT_TYPE_TO_LIST` (em kanban_job_event_handler.py) - Mapeamento agente → lista
+
+**Exemplo de uso correto:**
+```python
+from runtime.config.config import get_trello_kanban_lists_config
+
+config = get_trello_kanban_lists_config()
+listas = config.get_list_names()  # ["Issues", "Brainstorm", "A Fazer", ...]
+
+# SEMPRE usar esta função, nunca hardcoded listas!
+# ERRADO: default_lists = ["Issues", "Brainstorm", ...]
+# CORRETO: default_lists = get_trello_kanban_lists_config().get_list_names()
+```
+
 ## Uso
 
 ### Criar Card a Partir de Issue
@@ -291,6 +372,23 @@ await service.mark_card_complete(
 )
 ```
 
+## Padrão de Endpoints (ADR023)
+
+**DECISÃO CRÍTICA:** Todos os webhooks DEVEM seguir o padrão `/api/webhooks/{source}`.
+
+| Fonte | Endpoint Correto | Handler | Status |
+|-------|------------------|---------|--------|
+| GitHub | `/api/webhooks/github` | `webhooks.github.receive` | ✅ Ativo |
+| Trello | `/api/webhooks/trello` | `webhooks.trello.receive` | ✅ Ativo |
+| **OBSOLETO** | `/webhook/trello` | *(removido)* | ❌ **NÃO USAR** |
+
+**Variáveis de Ambiente:**
+```bash
+# Callback URL para webhooks do Trello (usar /api/webhooks/trello!)
+TRELLO_WEBHOOK_CALLBACK_URL=https://seu-dominio.com/api/webhooks/trello
+TRELLO_WEBHOOK_SECRET=sua_secret_para_verificacao_hmac
+```
+
 ## Implementação
 
 **Worktree:** `kanban/skybridge-trello-adapter`
@@ -299,7 +397,7 @@ await service.mark_card_complete(
 **Arquivos criados:**
 - `src/infra/kanban/adapters/trello_adapter.py`
 - `src/core/kanban/application/trello_integration_service.py`
-- `src/core/webhooks/infrastructure/github_webhook_server.py`
+- `src/runtime/delivery/routes.py` (endpoint `/api/webhooks/trello`)
 - `src/core/kanban/testing/*.py` (demos)
 
 **Arquivos modificados:**

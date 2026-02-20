@@ -133,13 +133,15 @@ A PRD024 definiu o Kanban como "fonte única da verdade" para visualizar o traba
 
 ### 3.3 Domain Events → Kanban Actions
 
-| Domain Event | Emitido Por | Ação no Kanban | Handler |
-|--------------|------------|----------------|---------|
-| `IssueReceivedEvent` | `WebhookProcessor` | Criar card na lista "Issues" | `handle_issue_received()` |
-| `JobStartedEvent` | `JobOrchestrator` | Marcar card como "vivo" + mover para lista correta | `handle_job_started()` |
-| `JobCompletedEvent` | `JobOrchestrator` | Mover para "Em Revisão" + desmarcar "vivo" | `handle_job_completed()` |
-| `JobFailedEvent` | `JobOrchestrator` | Mover para "Issues" + desmarcar "vivo" + label erro | `handle_job_failed()` |
-| `PRCreatedEvent` | `GitService` | Guardar `pr_url` no card | `handle_pr_created()` |
+| Domain Event | Emitido Por | Ação no Kanban | Handler | Status |
+|--------------|------------|----------------|---------|--------|
+| `IssueReceivedEvent` | `WebhookProcessor` | Criar card na lista "Issues" | `handle_issue_received()` | ✅ Implementado |
+| `JobStartedEvent` | `JobOrchestrator` | Marcar card como "vivo" + mover para lista correta | `handle_job_started()` | ✅ Implementado |
+| `JobCompletedEvent` | `JobOrchestrator` | Mover para "Em Revisão" + desmarcar "vivo" | `handle_job_completed()` | ✅ Implementado |
+| `JobFailedEvent` | `JobOrchestrator` | Mover para "Issues" + desmarcar "vivo" + label erro | `handle_job_failed()` | ✅ Implementado |
+| `PRCreatedEvent` | `GitService` | Guardar `pr_url` no card | `handle_pr_created()` | ✅ Implementado |
+| `TrelloWebhookReceivedEvent` | `receive_trello_webhook()` | **Mover card baseado em movimento no Trello** | `_on_trello_webhook_received()` | ✅ **IMPLEMENTADO** |
+| `sync_from_trello()` | `POST /api/kanban/sync/from-trello` | **Criar cards que só existem no Trello + atualizar existentes** | `TrelloSyncService.sync_from_trello()` | ✅ **IMPLEMENTADO** |
 
 ---
 
@@ -299,15 +301,37 @@ A PRD024 definiu o Kanban como "fonte única da verdade" para visualizar o traba
 **Prioridade:** 🟡 Importante
 **Esforço:** 16 horas
 
-#### RF-013: Sincronização bidirecional Trello → kanban.db
-- **Descrição:** Mudanças no Trello devem refletir no kanban.db
+**Contexto PRD020:** O PRD020 define o fluxo bidirecional Trello ↔ GitHub. Esta fase conecta o Kanban a esse fluxo, permitindo que movimentos de cards no Trello sejam refletidos no kanban.db em tempo real.
+
+#### RF-013: Sincronização completa Trello → kanban.db
+- **Descrição:** Cards do Trello devem ser sincronizados com o kanban.db
 - **Arquivo:** `core/kanban/application/trello_sync_service.py`
+- **Método:** `sync_from_trello(board_id: str)`
+- **Status:** ✅ **IMPLEMENTADO**
 - **Critérios de Aceite:**
-  - [ ] `sync_from_trello()` é implementado
-  - [ ] Polling periódico (5 minutos) OU webhook do Trello
-  - [ ] Cards movidos no Trello são movidos no kanban.db
-  - [ ] Cards renomeados no Trello são atualizados no kanban.db
-  - [ ] Conflicts são resolvidos (última escrita vence)
+  - [x] `sync_from_trello()` busca todos os cards do Trello
+  - [x] **Cards que SÓ existem no Trello são CRIADOS no kanban.db**
+  - [x] Cards que existem em ambos são ATUALIZADOS se Trello é mais recente
+  - [x] Mapeamento de listas Trello → listas Kanban:
+    - "Issues" → "Issues"
+    - "💡 Brainstorm" → "Brainstorm"
+    - "📋 A Fazer" → "A Fazer"
+    - "🚧 Em Andamento" → "Em Andamento"
+    - "👁️ Em Revisão" → "Em Revisão"
+    - "🚀 Publicar" → "Publicar"
+  - [x] `trello_card_id` é preenchido ao criar card
+  - [x] Retorna contagem de cards sincronizados
+
+#### RF-013a: KanbanJobEventHandler deve escutar TrelloWebhookReceivedEvent
+- **Descrição:** Quando card é movido no Trello via webhook, kanban.db deve ser atualizado em tempo real
+- **Arquivo:** `core/kanban/application/kanban_job_event_handler.py`
+- **Evento:** `TrelloWebhookReceivedEvent` (já emitido por `receive_trello_webhook`)
+- **Status:** ✅ **IMPLEMENTADO**
+- **Critérios de Aceite:**
+  - [x] Handler se inscreve em `TrelloWebhookReceivedEvent`
+  - [x] Quando webhook chega, card é movido no kanban.db
+  - [x] Card é encontrado por `trello_card_id` correspondente
+  - [x] SSE emite evento `card_updated` para WebUI
 
 #### RF-014: Fila de sincronização assíncrona
 - **Descrição:** Sincronização não deve bloquear operações CRUD
@@ -325,6 +349,16 @@ A PRD024 definiu o Kanban como "fonte única da verdade" para visualizar o traba
   - [ ] Sync é executado imediatamente
   - [ ] Response retorna contagem de cards sincronizados
   - [ ] SSE emite eventos para cada card atualizado
+
+#### RF-016: Padrão REST para endpoints de webhook (ADR023)
+- **Descrição:** TODOS os webhooks DEVEM usar o padrão `/api/webhooks/{source}`
+- **Status:** ✅ **IMPLEMENTADO**
+- **Critérios de Aceite:**
+  - [x] Endpoint `/api/webhooks/trello` (em `routes.py`)
+  - [x] Handler `webhooks.trello.receive` registrado no query registry
+  - [x] Usa EventBus para emitir `TrelloWebhookReceivedEvent`
+  - [x] **NÃO existe** endpoint `/webhook/trello` (obsoleto, removido)
+  - [x] Código segue padrão REST puro `/api/*` (ADR023)
 
 ---
 
@@ -448,6 +482,73 @@ A PRD024 definiu o Kanban como "fonte única da verdade" para visualizar o traba
 
 ---
 
+### UC-005: Card Movido no Trello → Kanban Atualizado
+
+**Ator:** Usuário movendo card no Trello
+**Pré-condições:** Card existe no kanban.db com `trello_card_id` preenchido, webhook Trello configurado
+**Fluxo Principal:**
+
+1. Usuário move card no Trello (ex: de "A Fazer" → "Em Andamento")
+2. Trello envia webhook para `POST /api/webhooks/trello`
+3. `routes.py` recebe webhook (handler `webhooks.trello.receive`)
+4. `receive_trello_webhook()` processa payload:
+   - Extrai `action.type` = "updateCard"
+   - Extrai `listBefore.name` e `listAfter.name`
+   - Emite `TrelloWebhookReceivedEvent` no EventBus
+5. EventBus entrega evento para `KanbanJobEventHandler`
+6. `KanbanJobEventHandler._on_trello_webhook_received()` é chamado
+7. Busca card no kanban.db por `trello_card_id`
+8. Move card para lista correspondente:
+   - "📋 A Fazer" → "A Fazer"
+   - "🚧 Em Andamento" → "Em Andamento"
+   - "👁️ Em Revisão" → "Em Revisão"
+   - "🚀 Publicar" → "Publicar"
+9. SSE emite `card_updated` para WebUI
+10. Usuário vê card mover instantaneamente no Kanban
+
+**Pós-condições:** Card movido no kanban.db, WebUI mostra nova posição
+
+**Fluxo Alternativo:**
+- **7a:** Card não existe no kanban.db → Criar novo card (caso card tenha sido criado diretamente no Trello)
+
+---
+
+## 6.1 Arquitetura do Webhook Trello (PRD020)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    FLUXO WEBHOOK TRELLO → KANBAN.DB                          │
+│                                                                              │
+│  1. Usuário move card no Trello                                              │
+│       ↓                                                                      │
+│  2. Trello envia POST /api/webhooks/trello                                   │
+│       ↓                                                                      │
+│  3. routes.py recebe webhook (handler `webhooks.trello.receive`)             │
+│       ↓                                                                      │
+│  4. receive_trello_webhook() processa:                                      │
+│       ├─ Verifica assinatura HMAC-SHA1                                      │
+│       ├─ Extrai action.type, listBefore, listAfter                          │
+│       └─ Emite TrelloWebhookReceivedEvent → EventBus                         │
+│       ↓                                                                      │
+│  5. EventBus entrega para inscritos:                                         │
+│       ├─ [TrelloEventListener] → Cria job (PRD020)                           │
+│       └─ [KanbanJobEventHandler] → Atualiza kanban.db (PRD026) ← ALVO!       │
+│       ↓                                                                      │
+│  6. KanbanJobEventHandler._on_trello_webhook_received():                    │
+│       ├─ Busca card por trello_card_id                                       │
+│       ├─ Muda list_id baseado em listAfter.name                             │
+│       ├─ Atualiza updated_at timestamp                                       │
+│       └─ SSE emite card_updated                                             │
+│       ↓                                                                      │
+│  7. WebUI recebe SSE → Card move instantaneamente                            │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**NOTA CRÍTICA:** O passo 5b (`KanbanJobEventHandler` ouvindo `TrelloWebhookReceivedEvent`) **NÃO está implementado**. É o objetivo da RF-013.
+
+---
+
 ## 7. Roadmap de Implementação
 
 ### 7.1 Cronograma (6 dias úteis)
@@ -518,10 +619,15 @@ A PRD024 definiu o Kanban como "fonte única da verdade" para visualizar o traba
 - [ ] Teste: job completo → card em "Em Revisão"
 
 #### Fase 6: Sincronização
-- [ ] `sync_from_trello()` implementado
-- [ ] Fila assíncrona funcionando
-- [ ] Endpoint `/sync/from-trello` funcionando
-- [ ] Teste: mudança no Trello → refletida no Kanban
+- [x] `KanbanJobEventHandler` escuta `TrelloWebhookReceivedEvent`
+- [x] `sync_from_trello()` CRIA cards que só existem no Trello
+- [x] `sync_from_trello()` ATUALIZA cards que existem em ambos
+- [x] `_on_trello_webhook_received()` implementado
+- [x] Fila assíncrona funcionando
+- [x] Endpoint `/api/kanban/sync/from-trello` funcionando
+- [x] **Sky-RPC removido de `github_webhook_server.py`**
+- [x] Teste: mudança no Trello → refletida no Kanban (automaticamente via webhook)
+- [x] Teste: cards que só existem no Trello → criados no Kanban via `sync_from_trello()`
 
 ---
 
@@ -536,6 +642,8 @@ A PRD024 definiu o Kanban como "fonte única da verdade" para visualizar o traba
 | `core/kanban/application/kanban_job_event_handler.py` | 211-217 | Implementar `register_listeners()` |
 | `core/kanban/application/kanban_job_event_handler.py` | NOVO | Adicionar `handle_issue_received()` |
 | `core/kanban/application/kanban_job_event_handler.py` | NOVO | Adicionar `handle_pr_created()` |
+| `core/kanban/application/kanban_job_event_handler.py` | NOVO | **Adicionar `_on_trello_webhook_received()` (RF-013)** |
+| `core/webhooks/infrastructure/github_webhook_server.py` | 314-318 | **Remover Sky-RPC, usar EventBus direto (RF-016)** |
 | `apps/web/src/components/Kanban/KanbanBoard.tsx` | 140 | Usar workspace do contexto |
 | `apps/web/src/pages/Kanban.tsx` | 42-55 | Adicionar botão "Novo Card" |
 | `docs/prd/PRD024-kanban-cards-vivos.md` | - | Atualizar status das tasks |
@@ -590,6 +698,39 @@ A PRD024 definiu o Kanban como "fonte única da verdade" para visualizar o traba
 | Cards "vivos" não sincronizarem | Média | Médio | Testes e2e + logs detalhados |
 | Performance degradar com SSE | Baixa | Médio | Limitar taxa de emissão de eventos |
 | Conflito Trello vs Kanban | Média | Baixo | Última escrita vence, log de conflitos |
+| **Sky-RPC ainda existe no código** | **Alta** | **Alto** | **RF-016: Remover Sky-RPC do webhook server** |
+
+---
+
+## 11.1 Problema Crítico Encontrado: Sky-RPC Não Foi Removido
+
+**Data da descoberta:** 2026-02-07
+
+**Problema:**
+A ADR023 declara que Sky-RPC foi "completamente removida", mas o código ainda usa Sky-RPC em `src/core/webhooks/infrastructure/github_webhook_server.py`:
+
+```python
+# LINHA 314-318 - github_webhook_server.py
+# Processa webhook via Sky-RPC handler
+from kernel.registry.query_registry import get_query_registry
+
+# Chama handler via Sky-RPC
+handler_wrapper = get_query_registry().get("webhooks.trello.receive")
+```
+
+**Impacto:**
+1. Webhook do Trello depende de Sky-RPC que deveria estar abolido
+2. Documentação (ADR023) não reflete o código real
+3. Duplicidade de padrões: REST puro (/api/*) vs Sky-RPC (get_query_registry)
+
+**Causa raiz:**
+- ADR023 DoD marca `[x] Rotas Sky-RPC removidas` mas isso não foi verificado no código
+- O webhook server standalone (`github_webhook_server.py`) não foi migrado
+
+**Resolução:**
+- RF-016 deste PRD remove Sky-RPC do webhook server
+- Endpoint `/webhook/trello` deve emitir `TrelloWebhookReceivedEvent` diretamente (já está fazendo isso dentro do handler)
+- Migrar para chamada direta do handler sem `get_query_registry()`
 
 ---
 
@@ -625,3 +766,16 @@ A PRD024 definiu o Kanban como "fonte única da verdade" para visualizar o traba
 | Versão | Data | Autor | Mudanças |
 |--------|------|-------|----------|
 | 1.0 | 2026-02-04 | Sky | Criação inicial - Documenta pendências críticas do PRD024 |
+| 1.1 | 2026-02-07 | Sky | **Investigação webhooks + Sky-RPC** |
+| | | | - Adiciona RF-013: `KanbanJobEventHandler` escuta `TrelloWebhookReceivedEvent` |
+| | | | - Adiciona RF-016: Remover Sky-RPC do webhook server |
+| | | | - Adiciona UC-005: Fluxo completo webhook Trello → Kanban |
+| | | | - Documenta problema crítico: Sky-RPC não foi removido (ADR023) |
+| | | | - Atualiza tabela Domain Events com `TrelloWebhookReceivedEvent` |
+| | | | - Atualiza arquivos a modificar (Fase 6) |
+| 1.2 | 2026-02-07 | Sky | **Implementação sincronização completa** |
+| | | | - `sync_from_trello()` CRIA cards que só existem no Trello |
+| | | | - `_on_trello_webhook_received()` implementado |
+| | | | - Sky-RPC removido de `github_webhook_server.py` |
+| | | | - RF-013 dividida em RF-013 (sync) e RF-013a (webhook) |
+| | | | - Teste `test_sync_from_trello_deve_criar_cards_que_nao_existem_no_kanban_db` adicionado |

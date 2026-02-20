@@ -253,10 +253,10 @@ class TestTrelloWebhookFlowE2E:
             # 1. Webhook foi processado com sucesso
             assert result.is_ok, f"Trello webhook processing failed: {result.error}"
 
-            # 2. Card foi movido para "Em Andamento"
+            # 2. Card foi movido para "Em Andamento" (sem emoji, FONTE ÚNICA DA VERDADE)
             mock_adapter.move_card_to_list.assert_called_once()
             call_args = mock_adapter.move_card_to_list.call_args
-            assert call_args[1]["target_list_name"] == "🚧 Em Andamento"
+            assert call_args[1]["target_list_name"] == "Em Andamento"
 
             # 3. Job foi criado para o agente
             job_events = [e for e in captured_events if isinstance(e, JobCreatedEvent)]

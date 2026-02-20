@@ -18,8 +18,10 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.json import JSON
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+# Add project root to path (fixes imports when running as script)
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "src"))
 
 from runtime.config.config import get_config
 from version import __version__
@@ -52,6 +54,10 @@ def main(
 from apps.cli.workspace import workspace_app, get_active_workspace
 app.add_typer(workspace_app, name="workspace")
 app.add_typer(workspace_app, name="ws")  # Alias curto
+
+# Kanban commands (PRD026)
+from apps.cli.kanban import kanban_app
+app.add_typer(kanban_app, name="kanban")
 
 # Configuração padrão
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
@@ -233,6 +239,9 @@ def show_help():
     help_text.append("  sb workspace list               Lista todos os workspaces\n", style="white")
     help_text.append("  sb ws create <id>               Cria novo workspace\n", style="white")
     help_text.append("  sb ws use <id>                  Define workspace ativo\n", style="white")
+    help_text.append("\nKanban:\n", style="bold white")
+    help_text.append("  sb kanban snapshot             Mostra comparação Kanban.db vs Trello\n", style="white")
+    help_text.append("  sb kanban sync                 Sincroniza Trello → kanban.db\n", style="white")
     help_text.append("\nAgent:\n", style="bold white")
     help_text.append("  sb agent issue                  Cria issue no GitHub\n", style="white")
     help_text.append("\nOutros:\n", style="bold white")

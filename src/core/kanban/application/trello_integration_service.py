@@ -330,3 +330,77 @@ class TrelloIntegrationService:
         except Exception as e:
             logger.error(f"Erro ao finalizar card {card_id}: {e}")
             return Result.err(f"Erro ao finalizar card: {str(e)}")
+
+    async def list_cards(self) -> Result[list, str]:
+        """
+        Lista todos os cards do board.
+
+        Returns:
+            Result com lista de cards ou mensagem de erro
+        """
+        try:
+            result = await self.adapter.list_cards()
+            if result.is_err:
+                return Result.err(result.error)
+
+            return Result.ok(result.unwrap())
+
+        except Exception as e:
+            logger.error(f"Erro ao listar cards: {e}")
+            return Result.err(f"Erro ao listar cards: {str(e)}")
+
+    async def move_card_to_list(
+        self,
+        card_id: str,
+        target_list_name: str,
+    ) -> Result[None, str]:
+        """
+        Move um card para outra lista.
+
+        Args:
+            card_id: ID do card no Trello
+            target_list_name: Nome da lista de destino (com emoji, ex: "🚀 Publicar")
+
+        Returns:
+            Result vazio ou mensagem de erro
+        """
+        try:
+            result = await self.adapter.move_card_to_list(
+                card_id=card_id,
+                target_list_name=target_list_name,
+            )
+            if result.is_err:
+                return Result.err(result.error)
+
+            logger.info(f"Card {card_id} movido para '{target_list_name}'")
+            return Result.ok(None)
+
+        except Exception as e:
+            logger.error(f"Erro ao mover card {card_id}: {e}")
+            return Result.err(f"Erro ao mover card: {str(e)}")
+
+    async def add_card_comment(
+        self,
+        card_id: str,
+        comment: str,
+    ) -> Result[None, str]:
+        """
+        Adiciona um comentário ao card.
+
+        Args:
+            card_id: ID do card no Trello
+            comment: Comentário a adicionar
+
+        Returns:
+            Result vazio ou mensagem de erro
+        """
+        try:
+            result = await self.adapter.add_card_comment(card_id, comment)
+            if result.is_err:
+                return Result.err(result.error)
+
+            return Result.ok(None)
+
+        except Exception as e:
+            logger.error(f"Erro ao adicionar comentário ao card {card_id}: {e}")
+            return Result.err(f"Erro ao adicionar comentário: {str(e)}")

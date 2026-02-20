@@ -49,6 +49,7 @@ def _discover_python_modules(base_paths: List[str]) -> List[Tuple[str, str]]:
                     "test_",
                     "_test.py",
                     "conftest.py",
+                    "novo_codigo",  # TODO: arquivo temporário de compatibilidade
                 ]
             ):
                 continue

@@ -68,6 +68,7 @@ class KanbanPort(ABC):
         card_id: str,
         status: CardStatus,
         correlation_id: Optional[str] = None,
+        target_list_id: Optional[str] = None,
     ) -> Result[Card, str]:
         """
         Atualiza o status de um card.
@@ -76,6 +77,8 @@ class KanbanPort(ABC):
             card_id: ID do card a atualizar
             status: Novo status
             correlation_id: ID opcional para rastreamento
+            target_list_id: ID direto da lista no Trello (RECOMENDADO - usa ID direto
+                            em vez de buscar por nome para evitar problemas com emojis)
 
         Returns:
             Result.ok(Card) com o card atualizado

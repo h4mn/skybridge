@@ -191,7 +191,7 @@ class TrelloEventListener:
         """
         Handler para JobCompletedEvent.
 
-        Move o card do Trello para a lista "Done" (ou similar).
+        Move o card do Trello para a lista "🚀 Publicar" (Done).
         Emite TrelloCardMovedEvent após mover.
 
         Args:
@@ -203,27 +203,69 @@ class TrelloEventListener:
 
             logger.info(
                 f"Job {event.job_id} completado, movendo card Trello "
-                f"para 'Done' (issue #{event.issue_number})"
+                f"para '🚀 Publicar' (issue #{event.issue_number})"
             )
 
-            # TODO: Implementar mover card para lista "Done"
-            # Isso requer que o TrelloService tenha um método para mover cards
-            # e que o job_id ou metadata contenha o card_id do Trello
+            # Busca card pelo issue_number
+            card = await self._find_card_by_issue(event.issue_number)
+            if not card:
+                logger.debug(
+                    f"Card Trello não encontrado para issue #{event.issue_number}"
+                )
+                return
 
-            # Por enquanto, apenas log
-            logger.debug("Mover card Trello para 'Done' ainda não implementado")
+            # Move para lista "🚀 Publicar"
+            move_result = await self.trello_service.move_card_to_list(
+                card_id=card.id,
+                target_list_name="🚀 Publicar",
+            )
+
+            if move_result.is_ok:
+                logger.info(
+                    f"Card {card.id} movido para '🚀 Publicar' "
+                    f"(job {event.job_id} completado)"
+                )
+
+                # Adiciona comentário de conclusão
+                comment = f"""✅ **Job Completado!**
+
+**Job ID:** {event.job_id}
+**Issue:** #{event.issue_number}
+
+O processamento foi concluído com sucesso. O card foi movido para '🚀 Publicar'.
+
+---
+
+> "Qualidade em autonomia é autonomia sustentável" – made by Sky 🚀"""
+
+                await self.trello_service.add_card_comment(card.id, comment)
+
+                # Emite TrelloCardMovedEvent
+                await self.event_bus.publish(
+                    TrelloCardMovedEvent(
+                        aggregate_id=card.id,
+                        card_id=card.id,
+                        card_name=card.title,
+                        from_list="Desconhecido",
+                        to_list="🚀 Publicar",
+                        issue_number=event.issue_number,
+                    )
+                )
+            else:
+                logger.warning(
+                    f"Falha ao mover card para '🚀 Publicar': {move_result.error}"
+                )
 
         except Exception as e:
             logger.error(
                 f"Erro ao processar JobCompletedEvent para job {event.job_id}: {e}",
-                # exc_info removido - SkybridgeLogger não suporta
             )
 
     async def _on_job_failed(self, event: JobFailedEvent) -> None:
         """
         Handler para JobFailedEvent.
 
-        Move o card do Trello para a lista "Failed" (ou similar).
+        Move o card do Trello para a lista "📥 Issues" (Failed).
         Emite TrelloCardMovedEvent após mover.
 
         Args:
@@ -238,13 +280,60 @@ class TrelloEventListener:
                 f"(issue #{event.issue_number})"
             )
 
-            # TODO: Implementar mover card para lista "Failed"
-            logger.debug("Mover card Trello para 'Failed' ainda não implementado")
+            # Busca card pelo issue_number
+            card = await self._find_card_by_issue(event.issue_number)
+            if not card:
+                logger.debug(
+                    f"Card Trello não encontrado para issue #{event.issue_number}"
+                )
+                return
+
+            # Move para lista "📥 Issues" (onde cards com erro ficam)
+            move_result = await self.trello_service.move_card_to_list(
+                card_id=card.id,
+                target_list_name="📥 Issues",
+            )
+
+            if move_result.is_ok:
+                logger.info(
+                    f"Card {card.id} movido para '📥 Issues' "
+                    f"(job {event.job_id} falhou)"
+                )
+
+                # Adiciona comentário de erro
+                comment = f"""❌ **Job Falhou!**
+
+**Job ID:** {event.job_id}
+**Issue:** #{event.issue_number}
+**Erro:** {event.error_message}
+
+O processamento falhou e o card foi movido para '📥 Issues' para análise.
+
+---
+
+> "Falhar é aprender, aprender é evoluir" – made by Sky 🚀"""
+
+                await self.trello_service.add_card_comment(card.id, comment)
+
+                # Emite TrelloCardMovedEvent
+                await self.event_bus.publish(
+                    TrelloCardMovedEvent(
+                        aggregate_id=card.id,
+                        card_id=card.id,
+                        card_name=card.title,
+                        from_list="Desconhecido",
+                        to_list="📥 Issues",
+                        issue_number=event.issue_number,
+                    )
+                )
+            else:
+                logger.warning(
+                    f"Falha ao mover card para '📥 Issues': {move_result.error}"
+                )
 
         except Exception as e:
             logger.error(
                 f"Erro ao processar JobFailedEvent para job {event.job_id}: {e}",
-                # exc_info removido - SkybridgeLogger não suporta
             )
 
     async def _on_pr_created(self, event: PRCreatedEvent) -> None:

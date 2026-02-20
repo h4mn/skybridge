@@ -30,8 +30,11 @@ _trello_service = None
 _trello_kanban_service = None
 
 # PRD020: Mapeamento listas Trello → AutonomyLevel
+# Usa nomes COM emoji porque o webhook do Trello envia nomes com emoji
+# DOC: core.kanban.domain.kanban_lists_config - FONTE ÚNICA DA VERDADE para emojis
 LIST_TO_AUTONOMY = {
-    "💡 Brainstorm": "analysis",
+    "📥 Issues": "analysis",
+    "🧠 Brainstorm": "analysis",
     "📋 A Fazer": "development",
     "🚧 Em Andamento": "development",
     "👁️ Em Revisão": "review",
@@ -336,6 +339,9 @@ def receive_trello_webhook(args: dict) -> Result:
     action_data = payload.get("action", {}).get("data", {})
     model = payload.get("model", {})
 
+    # Lista TODO é usada em múltiplos lugares, definir antes do bloco condicional
+    todo_list_name = "📋 A Fazer"
+
     import asyncio
     import json
     import logging
@@ -349,7 +355,6 @@ def receive_trello_webhook(args: dict) -> Result:
 
     # Log ANTES de processar (fora da thread) - usa print para garantir que aparece
     print(f"📩 [DEBUG] Webhook Trello recebido | action_type={action_type} | timestamp={timestamp_ms}")
-    print(f"📦 [PAYLOAD COMPLETO]:\n{json.dumps(payload, indent=2, ensure_ascii=False)}")
     logger.info(f"📩 Webhook Trello recebido | action_type={action_type} | timestamp={timestamp_ms}")
     logger.info(f"   Payload keys: {list(payload.keys())}")
 
@@ -362,6 +367,10 @@ def receive_trello_webhook(args: dict) -> Result:
             card_name = card_data.get("name", "")
             card_desc = card_data.get("desc", "")
 
+            # PRD026: Detectar arquivamento/deleção de card
+            # Se card.closed == true, trata como arquivado/deletado
+            card_closed = card_data.get("closed", False)
+
             # Extrai informações de movimento do payload
             list_before = action_data.get("listBefore", {})
             list_after = action_data.get("listAfter", {})
@@ -371,148 +380,176 @@ def receive_trello_webhook(args: dict) -> Result:
 
             # Log da transição detectada (INFO para sempre aparecer)
             logger.info(
-                f"📦 Card movido: '{card_name}' | "
-                f"{list_before_name} → {list_after_name}"
+                f"📦 Card atualizado: '{card_name}' | "
+                f"listas: {list_before_name} → {list_after_name}"
             )
             logger.info(f"   Card ID: {card_id}")
-            logger.info(f"   De: {list_before_name} ({list_before.get('id', 'N/A')})")
-            logger.info(f"   Para: {list_after_name} ({list_after.get('id', 'N/A')})")
 
-            # PRD020: Emitir TrelloWebhookReceivedEvent
+            # PRD020: Emitir TrelloWebhookReceivedEvent (obter event_bus PRIMEIRO)
             event_bus = get_event_bus()
-            from core.domain_events.trello_events import TrelloWebhookReceivedEvent
-            await event_bus.publish(
-                TrelloWebhookReceivedEvent(
-                    aggregate_id=card_id,
-                    webhook_id=trello_webhook_id,
-                    action_type=action_type,
-                    card_id=card_id,
-                    card_name=card_name,
-                    list_before_name=list_before_name,
-                    list_after_name=list_after_name,
+
+            # Se card foi arquivado/deletado, não processar movimento
+            if card_closed:
+                logger.info(
+                    f"📦 Card arquivado/deletado: '{card_name}' (ID: {card_id})"
                 )
-            )
-            logger.info(f"✅ TrelloWebhookReceivedEvent emitido para card '{card_name}'")
 
-            # Determinar autonomy_level baseado na lista de destino
-            from core.webhooks.domain.autonomy_level import AutonomyLevel
-            autonomy_level_str = LIST_TO_AUTONOMY.get(list_after_name, "development")
-            try:
-                autonomy_level = AutonomyLevel(autonomy_level_str)
-            except ValueError:
-                autonomy_level = AutonomyLevel.DEVELOPMENT
-
-            logger.info(f"   Autonomy Level: {autonomy_level.value} (baseado na lista '{list_after_name}')")
-
-            # Verifica se foi movido PARA "📋 A Fazer"
-            from runtime.config.config import get_trello_kanban_lists_config
-
-            kanban_config = get_trello_kanban_lists_config()
-            # Nomes das listas (não IDs) para comparação
-            todo_list_name = "📋 A Fazer"
-            in_progress_list_name = "🚧 Em Andamento"
-
-            if list_after_name == todo_list_name:
-                logger.info(f"✅ Card detectado em '{todo_list_name}' - movendo para '{in_progress_list_name}'...")
-
-                # Card foi movido para "📋 A Fazer" - mover automaticamente para "🚧 Em Andamento"
-                handle_result = await trello_service.handle_card_moved_to_todo(
-                    card_id=card_id
+                # PRD026: Emitir TrelloCardArchivedEvent
+                from core.domain_events.trello_events import TrelloCardArchivedEvent
+                await event_bus.publish(
+                    TrelloCardArchivedEvent(
+                        aggregate_id=card_id,
+                        card_id=card_id,
+                        card_name=card_name,
+                        reason="archived via webhook"
+                    )
                 )
-                if handle_result.is_err:
-                    logger.error(f"❌ Erro ao processar card movido para '📋 A Fazer': {handle_result.error}")
-                    return Result.err(handle_result.error)
-
-                logger.info(f"✅ Card movido automaticamente para '{in_progress_list_name}'")
-
-                # PRD020: Extrair issue_number do card e criar job
-                issue_number = extract_issue_number_from_card(card_name, card_desc)
-                repository = extract_repository_from_card(card_desc)
-
-                if issue_number:
-                    # Criar WebhookEvent e WebhookJob
-                    from core.webhooks.domain import WebhookSource, WebhookEvent, WebhookJob
-                    from core.domain_events.job_events import JobCreatedEvent
-
-                    webhook_event = WebhookEvent(
-                        source=WebhookSource.TRELLO,
-                        event_type=f"card.moved.{list_after_name}",
-                        event_id=card_id,
-                        payload=payload,
-                        received_at=datetime.utcnow(),
-                        delivery_id=trello_webhook_id,
+                logger.info(f"✅ TrelloCardArchivedEvent emitido para card '{card_name}'")
+            else:
+                # Se não foi arquivado, processa movimento normalmente (para jobs)
+                # PRD020: Emitir TrelloWebhookReceivedEvent
+                from core.domain_events.trello_events import TrelloWebhookReceivedEvent
+                await event_bus.publish(
+                    TrelloWebhookReceivedEvent(
+                        aggregate_id=card_id,
+                        webhook_id=trello_webhook_id,
+                        action_type=action_type,
+                        card_id=card_id,
+                        card_name=card_name,
+                        list_before_name=list_before_name,
+                        list_after_name=list_after_name,
                     )
+                )
+                logger.info(f"✅ TrelloWebhookReceivedEvent emitido para card '{card_name}'")
 
-                    job = WebhookJob.create(webhook_event)
-                    job.autonomy_level = autonomy_level
-                    job.metadata.update({
-                        "trello_card_id": card_id,
-                        "trello_card_name": card_name,
-                        "trello_list_name": list_after_name,
-                    })
+                # Determinar autonomy_level baseado na lista de destino
+                from core.webhooks.domain.autonomy_level import AutonomyLevel
+                autonomy_level_str = LIST_TO_AUTONOMY.get(list_after_name, "development")
+                try:
+                    autonomy_level = AutonomyLevel(autonomy_level_str)
+                except ValueError:
+                    autonomy_level = AutonomyLevel.DEVELOPMENT
 
-                    # Enfileirar job
-                    job_queue = get_job_queue()
-                    job_id = await job_queue.enqueue(job)
+                logger.info(f"   Autonomy Level: {autonomy_level.value} (baseado na lista '{list_after_name}')")
 
-                    logger.info(f"✅ Job criado: job_id={job_id} | issue=#{issue_number} | autonomy={autonomy_level.value}")
+                # Verifica se foi movido PARA "📋 A Fazer"
+                from runtime.config.config import get_trello_kanban_lists_config
 
-                    # Emitir JobCreatedEvent
-                    await event_bus.publish(
-                        JobCreatedEvent(
-                            aggregate_id=job_id,
-                            job_id=job_id,
-                            issue_number=issue_number,
+                kanban_config = get_trello_kanban_lists_config()
+                # Nomes das listas (não IDs) para comparação
+                in_progress_list_name = "🚧 Em Andamento"
+
+                if list_after_name == todo_list_name:
+                    logger.info(f"✅ Card detectado em '{todo_list_name}' - movendo para '{in_progress_list_name}'...")
+
+                    # Card foi movido para "📋 A Fazer" - mover automaticamente para "🚧 Em Andamento"
+                    handle_result = await trello_service.handle_card_moved_to_todo(
+                        card_id=card_id
+                    )
+                    if handle_result.is_err:
+                        logger.error(f"❌ Erro ao processar card movido para '📋 A Fazer': {handle_result.error}")
+                        return Result.err(handle_result.error)
+
+                    logger.info(f"✅ Card movido automaticamente para '{in_progress_list_name}'")
+
+                    # PRD020: Extrair issue_number do card e criar job
+                    issue_number = extract_issue_number_from_card(card_name, card_desc)
+                    repository = extract_repository_from_card(card_desc)
+
+                    if issue_number:
+                        # Criar WebhookEvent e WebhookJob
+                        from core.webhooks.domain import WebhookSource, WebhookEvent, WebhookJob
+                        from core.domain_events.job_events import JobCreatedEvent
+                        from core.webhooks.domain.trigger_mappings import get_trello_list_slug, build_card_moved_event_type
+
+                        # Usa slug da lista Trello para event_type (evita problemas com emojis)
+                        list_slug = get_trello_list_slug(list_after_name)
+                        event_type = build_card_moved_event_type(list_slug) if list_slug else f"card.moved.{list_after_name}"
+
+                        webhook_event = WebhookEvent(
+                            source=WebhookSource.TRELLO,
+                            event_type=event_type,
+                            event_id=card_id,
+                            payload=payload,
+                            received_at=datetime.utcnow(),
+                            delivery_id=trello_webhook_id,
                         )
-                    )
 
-                    return Result.ok(
-                        {"processed": True, "action": "moved_to_progress", "job_id": job_id}
-                    )
-                else:
-                    logger.warning(f"⚠️ Card '{card_name}' não possui issue_number - pulando criação de job")
+                        job = WebhookJob.create(webhook_event)
+                        job.autonomy_level = autonomy_level
+                        job.metadata.update({
+                            "trello_card_id": card_id,
+                            "trello_card_name": card_name,
+                            "trello_list_name": list_after_name,  # Mantém nome original com emoji
+                        })
 
-            # PRD020: Para outras listas, também criar job se tiver issue_number
-            if list_after_name in LIST_TO_AUTONOMY and list_after_name != todo_list_name:
-                issue_number = extract_issue_number_from_card(card_name, card_desc)
-                if issue_number:
-                    from core.webhooks.domain import WebhookSource, WebhookEvent, WebhookJob
-                    from core.domain_events.job_events import JobCreatedEvent
+                        # Enfileirar job
+                        job_queue = get_job_queue()
+                        job_id = await job_queue.enqueue(job)
 
-                    webhook_event = WebhookEvent(
-                        source=WebhookSource.TRELLO,
-                        event_type=f"card.moved.{list_after_name}",
-                        event_id=card_id,
-                        payload=payload,
-                        received_at=datetime.utcnow(),
-                        delivery_id=trello_webhook_id,
-                    )
+                        logger.info(f"✅ Job criado: job_id={job_id} | issue=#{issue_number} | autonomy={autonomy_level.value}")
 
-                    job = WebhookJob.create(webhook_event)
-                    job.autonomy_level = autonomy_level
-                    job.metadata.update({
-                        "trello_card_id": card_id,
-                        "trello_card_name": card_name,
-                        "trello_list_name": list_after_name,
-                    })
-
-                    job_queue = get_job_queue()
-                    job_id = await job_queue.enqueue(job)
-
-                    logger.info(f"✅ Job criado: job_id={job_id} | issue=#{issue_number} | autonomy={autonomy_level.value} | lista={list_after_name}")
-
-                    event_bus = get_event_bus()
-                    await event_bus.publish(
-                        JobCreatedEvent(
-                            aggregate_id=job_id,
-                            job_id=job_id,
-                            issue_number=issue_number,
+                        # Emitir JobCreatedEvent
+                        await event_bus.publish(
+                            JobCreatedEvent(
+                                aggregate_id=job_id,
+                                job_id=job_id,
+                                issue_number=issue_number,
+                            )
                         )
-                    )
 
-                    return Result.ok(
-                        {"processed": True, "action": "job_created", "job_id": job_id}
-                    )
+                        return Result.ok(
+                            {"processed": True, "action": "moved_to_progress", "job_id": job_id}
+                        )
+                    else:
+                        logger.warning(f"⚠️ Card '{card_name}' não possui issue_number - pulando criação de job")
+
+                # PRD020: Para outras listas, também criar job se tiver issue_number
+                if list_after_name in LIST_TO_AUTONOMY and list_after_name != todo_list_name:
+                    issue_number = extract_issue_number_from_card(card_name, card_desc)
+                    if issue_number:
+                        from core.webhooks.domain import WebhookSource, WebhookEvent, WebhookJob
+                        from core.domain_events.job_events import JobCreatedEvent
+                        from core.webhooks.domain.trigger_mappings import get_trello_list_slug, build_card_moved_event_type
+
+                        # Usa slug da lista Trello para event_type (evita problemas com emojis)
+                        list_slug = get_trello_list_slug(list_after_name)
+                        event_type = build_card_moved_event_type(list_slug) if list_slug else f"card.moved.{list_after_name}"
+
+                        webhook_event = WebhookEvent(
+                            source=WebhookSource.TRELLO,
+                            event_type=event_type,
+                            event_id=card_id,
+                            payload=payload,
+                            received_at=datetime.utcnow(),
+                            delivery_id=trello_webhook_id,
+                        )
+
+                        job = WebhookJob.create(webhook_event)
+                        job.autonomy_level = autonomy_level
+                        job.metadata.update({
+                            "trello_card_id": card_id,
+                            "trello_card_name": card_name,
+                            "trello_list_name": list_after_name,
+                        })
+
+                        job_queue = get_job_queue()
+                        job_id = await job_queue.enqueue(job)
+
+                        logger.info(f"✅ Job criado: job_id={job_id} | issue=#{issue_number} | autonomy={autonomy_level.value} | lista={list_after_name}")
+
+                        event_bus = get_event_bus()
+                        await event_bus.publish(
+                            JobCreatedEvent(
+                                aggregate_id=job_id,
+                                job_id=job_id,
+                                issue_number=issue_number,
+                            )
+                        )
+
+                        return Result.ok(
+                            {"processed": True, "action": "job_created", "job_id": job_id}
+                        )
 
         return Result.ok({"processed": True, "action": "ignored"})
 
@@ -543,9 +580,20 @@ def receive_trello_webhook(args: dict) -> Result:
         return None
 
     # Executa em thread separada para evitar conflitos de loop
+    # Cria um NOVO event loop explicitamente ao invés de usar asyncio.run()
     import concurrent.futures
+
+    def run_in_new_loop():
+        """Cria um novo event loop e rota a função async."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(_process())
+        finally:
+            loop.close()
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(lambda: asyncio.run(_process()))
+        future = executor.submit(run_in_new_loop)
         result = future.result(timeout=30)
 
     return result

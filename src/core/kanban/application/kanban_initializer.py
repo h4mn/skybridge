@@ -4,16 +4,9 @@ Kanban Initializer - Cria estrutura inicial do kanban.db.
 
 Responsável por criar board e listas padrão do Kanban Skybridge.
 
-Listas padrão (conforme setup do Trello):
-1. Issues
-2. Brainstorm
-3. A Fazer
-4. Em Andamento
-5. Em Revisão
-6. Publicar
-
 DOC: core/kanban/application/kanban_initializer.py
 DOC: ADR024 - Workspace isolation
+DOC: ADR020 - Integração Trello (get_list_names como fonte única da verdade)
 """
 
 import logging
@@ -21,19 +14,9 @@ from pathlib import Path
 
 from core.kanban.domain.database import KanbanBoard, KanbanList
 from infra.kanban.adapters.sqlite_kanban_adapter import SQLiteKanbanAdapter
+from runtime.config.config import get_trello_kanban_lists_config
 
 logger = logging.getLogger(__name__)
-
-
-# Listas padrão do Kanban Skybridge (conforme Trello)
-DEFAULT_LISTS = [
-    {"name": "Issues", "position": 0},
-    {"name": "Brainstorm", "position": 1},
-    {"name": "A Fazer", "position": 2},
-    {"name": "Em Andamento", "position": 3},
-    {"name": "Em Revisão", "position": 4},
-    {"name": "Publicar", "position": 5},
-]
 
 
 class KanbanInitializer:
@@ -58,6 +41,7 @@ class KanbanInitializer:
         """
         self.db_path = Path(db_path)
         self.adapter = SQLiteKanbanAdapter(self.db_path)
+        self.config = get_trello_kanban_lists_config()
 
     def initialize(self) -> None:
         """
@@ -101,15 +85,24 @@ class KanbanInitializer:
             existing_lists = {lst.name for lst in lists_result.value}
             logger.info(f"Listas existentes: {existing_lists}")
 
+        # Obtém listas padrão da FONTE ÚNICA DA VERDADE (config.py)
+        # NOTA: Usa get_list_names_with_emoji() para compatibilidade com Trello
+        # O Trello usa nomes com emoji (ex: "🚧 Em Andamento")
+        default_list_names = self.config.get_list_names_with_emoji()
+
         # Cria apenas as listas padrão que não existem
         created_count = 0
-        for lst in DEFAULT_LISTS:
-            if lst["name"] not in existing_lists:
+        for position, list_name in enumerate(default_list_names):
+            if list_name not in existing_lists:
+                # Gera ID baseado no slug técnico em vez do nome com emoji
+                # Ex: "🚧 Em Andamento" → "list-progress" (em vez de "list-em-andamento")
+                list_def = self.config.get_definition_by_name(list_name)
+                slug = list_def.slug if list_def else "unknown"
                 list_obj = KanbanList(
-                    id=f"list-{lst['name'].lower().replace(' ', '-')}",
+                    id=f"list-{slug}",
                     board_id=board.id,
-                    name=lst["name"],
-                    position=lst["position"],
+                    name=list_name,
+                    position=position,
                 )
                 self.adapter.create_list(list_obj)
                 logger.info(f"Lista criada: {list_obj.id} - {list_obj.name}")

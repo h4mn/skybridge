@@ -124,13 +124,6 @@ class SPEC009InteractiveDemo(BaseDemo):
 
         adapter = TrelloAdapter(api_key, api_token, board_id)
 
-        # Inicializa cache de mapeamento de listas → CardStatus
-        self.log_progress(0, 6, "Inicializando cache de listas Trello...")
-        cache_result = await adapter.initialize_status_cache(board_id)
-        if cache_result.is_err:
-            return DemoResult.error(f"Erro ao inicializar cache: {cache_result.error}")
-        self.log_success("Cache de listas inicializado")
-
         # Nomes das listas do workflow SPEC009
         # Nota: Usar os nomes exatos do Trello board
         list_names = [
@@ -294,6 +287,7 @@ Tags: #demo #spec009 #multi-agent""",
             CardStatus.REVIEW: "👀 Em Revisão",
             CardStatus.CHALLENGE: "⚔️ Desafio",
             CardStatus.DONE: "🚀 Publicar",
+            CardStatus.UNKNOWN: "❓ Desconhecida (requer atenção)",
         }
         return mapping.get(status, "Desconhecida")
 

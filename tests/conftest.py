@@ -13,6 +13,9 @@ from unittest.mock import AsyncMock, Mock
 # Load environment variables from .env
 load_dotenv()
 
+# NOTA: pytest_asyncio configurado via pytest.ini (asyncio_mode = auto)
+# Não é necessário pytest_plugins aqui, pois o pytest.ini já configura
+
 # Add src directory to Python path
 src_path = Path(__file__).parent.parent / "src"
 if str(src_path) not in sys.path:
@@ -22,6 +25,25 @@ if str(src_path) not in sys.path:
 apps_path = Path(__file__).parent.parent / "apps"
 if str(apps_path) not in sys.path:
     sys.path.insert(0, str(apps_path))
+
+
+def pytest_configure(config):
+    """
+    Hook executado ANTES da coleta de testes.
+
+    Garante que o path esteja configurado corretamente antes de qualquer import.
+    """
+    # Garante que src e apps estão no path (antes da coleta)
+    import sys
+    from pathlib import Path
+
+    src_path = Path(__file__).parent.parent / "src"
+    apps_path = Path(__file__).parent.parent / "apps"
+
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+    if str(apps_path) not in sys.path:
+        sys.path.insert(0, str(apps_path))
 
 
 # ============================================================================

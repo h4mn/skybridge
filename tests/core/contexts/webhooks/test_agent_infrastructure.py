@@ -497,14 +497,19 @@ class TestEventTypeToSkillMapping:
     Garante que eventos que não precisam de agente retornem None.
     """
 
-    def test_issues_opened_returns_resolve_issue_skill(self):
-        """issues.opened retorna resolve-issue."""
+    def test_issues_opened_returns_none(self):
+        """
+        PRD026: issues.opened retorna None.
+
+        Issue aberta apenas cria card para triagem.
+        Agente só executa quando card é movido para "📋 A Fazer".
+        """
         from core.webhooks.application.job_orchestrator import (
             JobOrchestrator,
         )
 
         skill = JobOrchestrator._get_skill_for_event_type("issues.opened")
-        assert skill == "resolve-issue"
+        assert skill is None
 
     def test_issues_closed_returns_none(self):
         """issues.closed retorna None (não executa agente)."""
@@ -524,14 +529,19 @@ class TestEventTypeToSkillMapping:
         skill = JobOrchestrator._get_skill_for_event_type("issues.deleted")
         assert skill is None
 
-    def test_issues_reopened_returns_resolve_issue_skill(self):
-        """issues.reopened retorna resolve-issue."""
+    def test_issues_reopened_returns_none(self):
+        """
+        PRD026: issues.reopened retorna None.
+
+        Issue reaberta apenas cria card para triagem.
+        Agente só executa quando card é movido para "📋 A Fazer".
+        """
         from core.webhooks.application.job_orchestrator import (
             JobOrchestrator,
         )
 
         skill = JobOrchestrator._get_skill_for_event_type("issues.reopened")
-        assert skill == "resolve-issue"
+        assert skill is None
 
     def test_issue_comment_created_returns_respond_discord_skill(self):
         """issue_comment.created retorna respond-discord."""
@@ -550,6 +560,32 @@ class TestEventTypeToSkillMapping:
 
         skill = JobOrchestrator._get_skill_for_event_type("unknown.event")
         assert skill is None
+
+    def test_card_moved_to_todo_triggers_resolve_issue(self):
+        """
+        PRD026: card.moved.todo retorna resolve-issue.
+
+        Movimento manual para "📋 A Fazer" é que dispara o agente.
+        """
+        from core.webhooks.application.job_orchestrator import (
+            JobOrchestrator,
+        )
+
+        skill = JobOrchestrator._get_skill_for_event_type("card.moved.todo")
+        assert skill == "resolve-issue"
+
+    def test_card_moved_to_brainstorm_triggers_analyze(self):
+        """
+        PRD026: card.moved.backlog retorna analyze-issue.
+
+        Movimento para "🧠 Brainstorm" dispara análise.
+        """
+        from core.webhooks.application.job_orchestrator import (
+            JobOrchestrator,
+        )
+
+        skill = JobOrchestrator._get_skill_for_event_type("card.moved.backlog")
+        assert skill == "analyze-issue"
 
 
 class TestSkyDirectoryAndAgentLog:

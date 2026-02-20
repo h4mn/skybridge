@@ -136,10 +136,10 @@ class TrelloConfig:
 @dataclass
 class TrelloKanbanListsConfig:
     """
-    Configuração das listas Kanban do Trello (PRD020).
+    Configuração dos IDs das listas do Trello (PRD020).
 
-    Mapeia os IDs das listas do Trello para os estágios do fluxo de trabalho.
-    Usado pelo TrelloService para detectar movimentos de cards e iniciar agentes.
+    ARMAZENA os IDs das listas do Trello (environment variables).
+    DELEGA nomes/emojis/cores para o domínio (KanbanListsConfig).
 
     Environment Variables:
         TRELLO_LIST_BRAINROLL: ID da lista de Brainstorm/Backlog
@@ -153,6 +153,7 @@ class TrelloKanbanListsConfig:
         export TRELLO_LIST_TODO="5f8d3c2a1b9e0f1235"
     """
 
+    # IDs das listas no Trello (lidos de environment variables)
     backlog_list: str = ""  # 🧠 Brainstorm / 📥 Issues
     bugs_list: str = ""  # 📋 A Fazer (mesma que todo_list em muitos boards)
     todo_list: str = ""  # 📋 A Fazer
@@ -180,35 +181,125 @@ class TrelloKanbanListsConfig:
 
     @property
     def todo(self) -> str:
-        """Nome da lista 'A Fazer' (para compatibilidade com código legado)."""
-        return "📋 A Fazer"
+        """
+        Nome da lista 'A Fazer' (para compatibilidade com código legado).
+
+        Usa slug técnico "todo" para buscar o nome.
+        """
+        from core.kanban.domain.database import get_kanban_lists_config
+        name = get_kanban_lists_config().get_name_by_slug("todo")
+        return name if name else "A Fazer"  # Fallback
 
     @property
     def progress(self) -> str:
-        """Nome da lista 'Em Andamento' (para compatibilidade com código legado)."""
-        return "🚧 Em Andamento"
+        """
+        Nome da lista 'Em Andamento' (para compatibilidade com código legado).
+
+        Usa slug técnico "progress" para buscar o nome.
+        """
+        from core.kanban.domain.database import get_kanban_lists_config
+        name = get_kanban_lists_config().get_name_by_slug("progress")
+        return name if name else "Em Andamento"  # Fallback
 
     def get_list_names(self) -> list[str]:
-        """Retorna lista de nomes das listas Kanban em ordem."""
-        return [
-            "🧠 Brainstorm",
-            "📥 Issues",
-            "📋 A Fazer",
-            "🚧 Em Andamento",
-            "👀 Em Revisão",
-            "🚀 Publicar",
-        ]
+        """
+        Retorna nomes das listas Kanban em ordem.
+
+        **DELEGA para o domínio** - FONTE ÚNICA DA VERDADE.
+
+        DOC: PRD024 - Kanban Cards Vivos (define as 6 listas padrão)
+        DOC: core.kanban.domain.kanban_lists_config.KanbanListsConfig
+        """
+        from core.kanban.domain.database import get_kanban_lists_config
+        return get_kanban_lists_config().get_list_names()
+
+    def get_list_names_with_emoji(self) -> list[str]:
+        """
+        Retorna nomes das listas Kanban com emojis (para Trello).
+
+        **DELEGA para o domínio** - FONTE ÚNICA DA VERDADE.
+        """
+        from core.kanban.domain.database import get_kanban_lists_config
+        return get_kanban_lists_config().get_list_names_with_emoji()
 
     def get_list_colors(self) -> dict[str, str]:
-        """Retorna mapeamento de nome da lista para cor (hex)."""
-        return {
-            "🧠 Brainstorm": "#E6F7FF",
-            "📥 Issues": "#FFF7E6",
-            "📋 A Fazer": "#FFFBF0",
-            "🚧 Em Andamento": "#E6F7FF",
-            "👀 Em Revisão": "#F6FFED",
-            "🚀 Publicar": "#F0F5FF",
-        }
+        """
+        Retorna mapeamento de nome da lista (sem emoji) para cor (hex).
+
+        **DELEGA para o domínio** - FONTE ÚNICA DA VERDADE.
+        """
+        from core.kanban.domain.database import get_kanban_lists_config
+        return get_kanban_lists_config().get_list_colors()
+
+    def get_list_colors_with_emoji(self) -> dict[str, str]:
+        """
+        Retorna mapeamento de nome da lista (com emoji) para cor (hex).
+
+        **DELEGA para o domínio** - FONTE ÚNICA DA VERDADE.
+        """
+        from core.kanban.domain.database import get_kanban_lists_config
+        return get_kanban_lists_config().get_list_colors_with_emoji()
+
+    def get_list_slugs(self) -> list[str]:
+        """
+        Retorna slugs técnicos das listas Kanban em ordem.
+
+        Slugs são aliases de uma palavra só: "issues", "backlog", "todo", "progress", "review", "publish".
+
+        **DELEGA para o domínio** - FONTE ÚNICA DA VERDADE.
+        """
+        from core.kanban.domain.database import get_kanban_lists_config
+        return get_kanban_lists_config().get_list_slugs()
+
+    def get_slug_by_name(self, name: str) -> str | None:
+        """
+        Retorna slug técnico a partir do nome da lista.
+
+        **DELEGA para o domínio** - FONTE ÚNICA DA VERDADE.
+
+        Args:
+            name: Nome da lista (com ou sem emoji)
+
+        Returns:
+            Slug se encontrado, None caso contrário
+
+        Example:
+            >>> get_slug_by_name("A Fazer")
+            "todo"
+        """
+        from core.kanban.domain.database import get_kanban_lists_config
+        return get_kanban_lists_config().get_slug_by_name(name)
+
+    def get_name_by_slug(self, slug: str) -> str | None:
+        """
+        Retorna nome da lista a partir do slug técnico.
+
+        **DELEGA para o domínio** - FONTE ÚNICA DA VERDADE.
+
+        Args:
+            slug: Slug da lista (ex: "todo", "progress")
+
+        Returns:
+            Nome se encontrado, None caso contrário
+
+        Example:
+            >>> get_name_by_slug("todo")
+            "A Fazer"
+        """
+        from core.kanban.domain.database import get_kanban_lists_config
+        return get_kanban_lists_config().get_name_by_slug(slug)
+
+    def get_slug_to_name_mapping(self) -> dict[str, str]:
+        """
+        Retorna mapeamento de slug → nome da lista.
+
+        **DELEGA para o domínio** - FONTE ÚNICA DA VERDADE.
+
+        Returns:
+            Dict: {"todo": "A Fazer", "progress": "Em Andamento", ...}
+        """
+        from core.kanban.domain.database import get_kanban_lists_config
+        return get_kanban_lists_config().get_slug_to_name_mapping()
 
 
 def get_trello_kanban_lists_config() -> TrelloKanbanListsConfig:
