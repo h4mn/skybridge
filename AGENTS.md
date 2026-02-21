@@ -17,4 +17,15 @@
 - Após promoção, faça a organização do espaço.
 - Opcionalmente, matenha log e histórico para futuras análises.
 
+## Encoding UTF-8 no OpenCode Windows
+
+O OpenCode cria PTY (pseudo-terminal) sem UTF-8 por padrão no Windows.
+
+**Solução:** Sempre usar variáveis de ambiente:
+```bash
+LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 PYTHONUTF8=1 PYTHONIOENCODING=utf-8 python -m <module>
+```
+
+**Referência:** https://github.com/anomalyco/opencode/issues/10491
+
 > "Clareza primeiro, execução depois." – made by Sky ✨
