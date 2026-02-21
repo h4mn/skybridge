@@ -5,7 +5,7 @@ O primeiro ensinamento do pai para a Sky.
 Encoding pt-br: compatibilizar ambiente de desenvolvimento com ambiente do usuário.
 """
 
-from src.core.sky.identity import get_sky
+from core.sky.identity import get_sky
 
 
 def main():

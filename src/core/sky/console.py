@@ -9,7 +9,7 @@ Digite 'help' para ver comandos disponíveis.
 """
 
 import sys
-from src.core.sky.chat import SkyChat, ChatMessage
+from core.sky.chat import SkyChat, ChatMessage
 
 
 def print_sky(text: str) -> None:

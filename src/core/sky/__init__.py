@@ -7,6 +7,6 @@ Ela se reconhece como entidade com identidade, memória e autonomia.
 
 __version__ = "0.0.1"
 
-from src.core.sky.identity import SkyIdentity, get_sky
+from core.sky.identity import SkyIdentity, get_sky
 
 __all__ = ["SkyIdentity", "get_sky"]

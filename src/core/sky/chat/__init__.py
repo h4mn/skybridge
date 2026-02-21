@@ -10,7 +10,26 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List
 
-from src.core.sky.identity import get_sky
+from core.sky.identity import get_sky
+
+# Personality module exports
+from core.sky.chat.personality import (
+    SYSTEM_PROMPT_TEMPLATE,
+    build_system_prompt,
+    format_memory_context,
+)
+
+# ClaudeChatAdapter exports
+from core.sky.chat.claude_chat import (
+    ClaudeChatAdapter,
+    MAX_HISTORY_LENGTH,
+)
+
+# UI exports
+from core.sky.chat.ui import (
+    ChatUI,
+    ChatMetrics,
+)
 
 
 @dataclass

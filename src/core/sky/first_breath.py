@@ -5,7 +5,7 @@ Primeiro suspiro da Sky.
 Execute para ver a Sky se apresentar pela primeira vez.
 """
 
-from src.core.sky.identity import get_sky
+from core.sky.identity import get_sky
 
 
 def main():

@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List
 
-from src.core.sky.memory import get_memory
+from core.sky.memory import get_memory
 
 
 @dataclass

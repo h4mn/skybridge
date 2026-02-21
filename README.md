@@ -28,6 +28,33 @@ echo "NGROK_ENABLED=true" >> .env
 python -m apps.api.main
 ```
 
+## Chat Sky
+
+Converse com a Sky usando IA com memória semântica RAG.
+
+```bash
+# Chat com respostas fixas (padrão)
+sky
+
+# Chat com Claude SDK (inferência de IA)
+USE_CLAUDE_CHAT=true sky
+
+# Ou use o atalho pré-configurado
+sky_claude
+```
+
+**Comandos disponíveis:**
+- `/new` — Iniciar nova sessão (limpa histórico)
+- `/cancel` — Cancelar operação pendente
+- `/sair`, `quit`, `exit` — Encerrar chat
+
+**Variáveis de ambiente:**
+- `USE_CLAUDE_CHAT` — Habilita chat com Claude SDK (`true`/`false`)
+- `CLAUDE_MODEL` — Modelo Claude a usar (padrão: `glm-4.7`)
+- `VERBOSE` — Exibe métricas detalhadas (`true`/`false`)
+
+> 📖 Veja [docs/chat/CLAUDE_CHAT_QUICKSTART.md](docs/chat/CLAUDE_CHAT_QUICKSTART.md) para mais detalhes.
+
 ## Estrutura
 
 ```
