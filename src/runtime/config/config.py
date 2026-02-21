@@ -90,7 +90,7 @@ class WebhookConfig:
     stripe_secret: str | None
     worktree_base_path: str
     enabled_sources: list[str]
-    base_branch: str = "dev"  # Branch base para criar worktrees de agentes
+    base_branch: str = "auto"  # Branch base para criar worktrees de agentes
     delete_password: str | None = None  # Senha para deleção de worktrees no WebUI
 
 

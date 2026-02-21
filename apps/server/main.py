@@ -360,7 +360,7 @@ def main():
         except ImportError:
             logger.warning("pyngrok não instalado - pip install pyngrok")
         except Exception as e:
-            logger.error("Falha ao iniciar Ngrok", extra={"error": str(e)})
+            logger.error(f"Falha ao iniciar Ngrok: {e!s}", exc_info=True)
     else:
         # Imprime URLs locais coloridas
         print_local_urls(
