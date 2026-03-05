@@ -4,16 +4,38 @@ Guia rápido para usar o chat da Sky com inferência via Claude Agent SDK.
 
 ## Visão Geral
 
-O chat da Sky agora suporta dois modos de operação:
+O chat da Sky suporta três modos de operação:
 
 | Modo | Descrição | Comando |
 |------|-----------|---------|
+| **Textual TUI** | Interface moderna com header/footer fixos, bubbles, CSS (Recomendado) | `USE_TEXTUAL_UI=true sky` |
+| **Claude (Legacy)** | Inferência via LLM Claude Agent SDK com Rich console | `scripts\sky_claude.bat` |
 | **Legacy** | Respostas baseadas em padrões fixos (if/else) | `python scripts/sky_rag.py` |
-| **Claude** | Inferência via LLM Claude Agent SDK | `scripts\sky_claude.bat` |
 
 ## Modo Rápido
 
-### Usar Chat Claude (Recomendado)
+### Nova UI Textual (Recomendado)
+
+```bash
+# Usar nova interface Textual TUI
+USE_TEXTUAL_UI=true sky
+
+# Ou use o atalho
+scripts\sky_textual.bat
+```
+
+**Recursos da UI Textual:**
+- Tela de apresentação animada com letreiro "SkyBridge"
+- Header fixo (2 linhas) com título dinâmico e métricas
+- Barra de progresso do contexto (0-100% das 20 mensagens)
+- Message bubbles estilizados (Sky e usuário)
+- Indicador de "pensando" animado
+- Suporte a Markdown com syntax highlighting
+- Modais de confirmação para comandos destructivos
+- Toast notifications para alertas
+- Screens dedicadas para `/help` e `/config`
+
+### Usar Chat Claude (Legado)
 
 ```bash
 # Windows
@@ -206,6 +228,102 @@ USE_CLAUDE_CHAT=false python scripts/sky_rag.py
 - Para desenvolvedores: Veja `docs/chat/CLAUDE_CHAT_ARCHITECTURE.md`
 - Para configuração avançada: Veja `.env.example`
 - Para contribuir: Veja `openspec/changes/chat-claude-sdk/`
+
+## Customizando a UI Textual
+
+A UI Textual usa CSS para estilização, permitindo customização fácil.
+
+### Estrutura de CSS
+
+O arquivo CSS base é `assets/sky_chat.css`. A estrutura de diretórios é:
+
+```
+src/core/sky/chat/textual_ui/
+├── screens/       # Telas (WelcomeScreen, ChatScreen, etc.)
+├── widgets/       # Componentes reutilizáveis (bubbles, modais, etc.)
+├── workers/       # Workers assíncronos (Claude, RAG, Memory)
+└── styles/        # Arquivos CSS (se precisar separar)
+```
+
+### Classes CSS Principais
+
+```css
+/* Bubbles de mensagem */
+SkyBubble {
+    background: $panel;
+    border: round $primary;
+}
+
+UserBubble {
+    background: $primary;
+    border: round $accent;
+}
+
+/* Barra de contexto com cores dinâmicas */
+ProgressBar.--green { progress-bar-background: $success; }
+ProgressBar.--yellow { progress-bar-background: $warning; }
+ProgressBar.--orange { progress-bar-background: orange; }
+ProgressBar.--red { progress-bar-background: red; }
+
+/* Animação do verbo no título */
+.verbo-animado {
+    animation: color-sweep 2s linear infinite;
+}
+```
+
+### Criando um Tema Claro
+
+Para criar um tema claro, copie `sky_chat.css` e ajuste as cores:
+
+```css
+/* Tema Claro */
+Screen {
+    background: $primary;  /* Fundo claro */
+    color: $text;           /* Texto escuro */
+}
+
+SkyBubble {
+    background: $surface;
+    color: $text;
+}
+```
+
+### Variáveis de Cor do Textual
+
+O Textual define estas variáveis que você pode usar:
+
+- `$primary` - Cor primária
+- `$secondary` - Cor secundária
+- `$accent` - Cor de destaque
+- `$success` - Verde (sucesso)
+- `$warning` - Amarelo (aviso)
+- `$error` - Vermelho (erro)
+- `$panel` - Fundo de painéis
+- `$surface` - Fundo de superfícies
+- `$text` - Texto principal
+
+### Exemplo de Customização
+
+Para mudar a cor das bolhas da Sky:
+
+```css
+/* No seu CSS customizado */
+SkyBubble {
+    background: $accent;  /* Usar accent em vez de panel */
+    border: double $primary;  /* Borda dupla */
+}
+```
+
+Para mudar a largura da barra de título:
+
+```css
+AnimatedTitle {
+    width: 100%;  /* Largura total */
+    text-align: center;  /* Centralizado */
+}
+```
+
+
 
 ---
 

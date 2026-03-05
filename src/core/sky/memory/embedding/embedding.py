@@ -8,10 +8,15 @@ Interface e implementação para embeddings usando sentence-transformers.
 from __future__ import annotations
 
 import hashlib
+import os
 import sqlite3
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Optional
+
+from runtime.observability.logger import get_logger
+
+logger = get_logger("sky.memory.embedding", level="INFO")
 
 try:
     from sentence_transformers import SentenceTransformer  # type: ignore
@@ -98,6 +103,8 @@ class SentenceTransformerEmbedding(EmbeddingClient):
     def _init_cache(self) -> None:
         """Inicializa tabela de cache de embeddings."""
         conn = sqlite3.connect(self._db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         cursor = conn.cursor()
 
         cursor.execute("""
@@ -124,13 +131,37 @@ class SentenceTransformerEmbedding(EmbeddingClient):
         """
         Lazy load do modelo (só carrega quando necessário).
 
+        Configura HF_HUB_OFFLINE=1 para usar apenas cache local,
+        evitando verificações remotas e garantindo funcionamento offline.
+
         Returns:
             Instância do SentenceTransformer.
+
+        Raises:
+            RuntimeError: Se o modelo não está cacheado e não há conexão.
         """
         if self._model is None:
-            print(f"📥 Carregando modelo {self._model_name}...")
-            self._model = SentenceTransformer(self._model_name)
-            print("✅ Modelo carregado!")
+            os.environ["HF_HUB_OFFLINE"] = "1"
+            logger.structured("Carregando modelo de embedding", {
+                "model": self._model_name,
+            }, level="debug")
+            try:
+                self._model = SentenceTransformer(self._model_name)
+                logger.structured("Modelo de embedding carregado", {
+                    "model": self._model_name,
+                }, level="debug")
+            except Exception as e:
+                logger.structured("Erro ao carregar modelo de embedding", {
+                    "model": self._model_name,
+                    "error": str(e),
+                }, level="error")
+                raise RuntimeError(
+                    f"Não foi possível carregar o modelo '{self._model_name}' em modo offline.\n"
+                    f"O modelo precisa estar cacheado em ~/.cache/huggingface/hub/\n\n"
+                    f"Para baixar o modelo, execute uma vez com conexão:\n"
+                    f"  HF_HUB_OFFLINE=0 python -c \"from sentence_transformers import SentenceTransformer; SentenceTransformer('{self._model_name}')\"\n\n"
+                    f"Erro original: {e}"
+                ) from e
         return self._model
 
     def _hash_text(self, text: str) -> str:
@@ -184,6 +215,8 @@ class SentenceTransformerEmbedding(EmbeddingClient):
             Embedding se encontrado, None caso contrário.
         """
         conn = sqlite3.connect(self._db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         cursor = conn.cursor()
 
         cursor.execute(
@@ -207,6 +240,8 @@ class SentenceTransformerEmbedding(EmbeddingClient):
             embedding: Vetor de embedding.
         """
         conn = sqlite3.connect(self._db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         cursor = conn.cursor()
 
         serialized = self._serialize_embedding(embedding)
@@ -297,6 +332,8 @@ class SentenceTransformerEmbedding(EmbeddingClient):
     def clear_cache(self) -> None:
         """Limpa todo o cache de embeddings."""
         conn = sqlite3.connect(self._db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         cursor = conn.cursor()
         cursor.execute("DELETE FROM embeddings_cache")
         conn.commit()

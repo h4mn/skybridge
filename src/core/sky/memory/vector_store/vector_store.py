@@ -101,6 +101,10 @@ class VectorStore:
         self._conn = sqlite3.connect(self._db_path)
         conn = self._conn
 
+        # Configurar WAL para concorrência
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+
         # Carregar extensão sqlite-vec
         conn.enable_load_extension(True)
         sqlite_vec.load(conn)

@@ -38,6 +38,9 @@ from core.sky.chat import SkyChat, ChatMessage
 # Feature flag para usar Claude Chat
 USE_CLAUDE_CHAT = os.getenv("USE_CLAUDE_CHAT", "false").lower() in ("true", "1", "yes")
 
+# Feature flag para usar Textual TUI
+USE_TEXTUAL_UI = os.getenv("USE_TEXTUAL_UI", "false").lower() in ("true", "1", "yes")
+
 # Garantir que memória usa RAG
 memory = PersistentMemory(use_rag=True)
 
@@ -53,7 +56,7 @@ async def main_claude_async():
     DOC: spec.md - Cenário: Feature flag controla integração
     """
     from core.sky.chat import ClaudeChatAdapter
-    from core.sky.chat.ui import ChatUI, ChatMetrics
+    from core.sky.chat.legacy_ui import ChatUI, ChatMetrics
 
     chat = ClaudeChatAdapter(memory=memory)
     ui = ChatUI(verbose=os.getenv("VERBOSE", "false").lower() in ("true", "1"))
@@ -142,24 +145,21 @@ async def main_claude_async():
 
 def main():
     """Inicia o chat interativo com RAG."""
-    chat_type = "Claude SDK" if USE_CLAUDE_CHAT else "Legacy"
-
-    print(f"""
-╔════════════════════════════════════════════════════════════╗
-║           🌌 SKY - CONVERSE (RAG habilitado)              ║
-╠════════════════════════════════════════════════════════════╣
-║  Chat: {chat_type:<40} ║
-║  Memória semântica ATIVADA!                               ║
-║  Use: "o que eu te ensinei" para ver a diferença           ║
-║  'sair' ou 'quit' para encerrar                             ║
-╚════════════════════════════════════════════════════════════╝
-    """)
+    chat_type = "Textual TUI" if USE_TEXTUAL_UI else ("Claude SDK" if USE_CLAUDE_CHAT else "Legacy")
 
     sky = get_sky()
 
     # DOC: spec.md - Cenário: Feature flag controla integração
     # DOC: "Criar instância de adapter ou SkyChat baseado na flag"
-    if USE_CLAUDE_CHAT:
+
+    # Prioridade: Textual TUI > Claude SDK > Legacy
+    if USE_TEXTUAL_UI:
+        # Chat Textual TUI
+        from core.sky.chat.textual_ui import SkyApp
+        app = SkyApp()
+        app.run()
+
+    elif USE_CLAUDE_CHAT:
         # Chat Claude SDK é assíncrono - usa asyncio.run()
         asyncio.run(main_claude_async())
 

@@ -1,0 +1,148 @@
+/*
+========================================
+POC Chat App - Textual CSS
+========================================
+*/
+
+/* === Layout Principal === */
+Screen {
+    align: center middle;
+    layout: vertical;
+}
+
+/* === PocHeader (Header clicável) === */
+PocHeader {
+    height: 3;
+    dock: top;
+    layout: vertical;
+    padding: 0 2;
+}
+
+PocHeader.expanded {
+    height: 3;
+}
+
+/* === AnimatedTitle === */
+AnimatedTitle {
+    text-style: bold;
+}
+
+AnimatedTitle > Text {
+    text-style: bold;
+}
+
+/* === AnimatedVerb (o verbo animado clicável) === 
+AnimatedVerb {
+    text-style: bold italic;
+    cursor: pointer;
+}
+*/
+
+/* === AnimatedTitle === */
+AnimatedTitle {
+    text-style: bold;
+}
+
+/* Linha 1: Título */
+PocHeader > AnimatedTitle {
+    margin-top: 1;
+    content-align: left middle;
+    height: 1;
+}
+
+/* Linha 2: Componentes (métricas, status, etc) */
+PocHeader > Static#components {
+    margin-top: 0;
+    content-align: right middle;
+    height: 1;
+    text-style: dim;
+}
+
+/* === Container Vertical (Splash) === */
+Vertical {
+    align: center middle;
+}
+
+/* === Label (Letreiro SkyBridge) === */
+Label {
+    border: round $accent;
+    padding: 1 2;
+    margin: 1;
+}
+
+/* === PocLog (Widget de log/observabilidade) === */
+PocLog {
+    height: 0;           /* Oculto por padrão */
+    width: 100%;
+    border: none;
+    overflow-y: hidden;
+}
+
+PocLog.visible {
+    height: 20;          /* Visível com toggle */
+    border: round red;
+    margin: 0 2;
+}
+
+/* === PocVerticalScroll (Container de mensagens) === */
+PocVerticalScroll {
+    height: 1fr;  /* Expandir para preencher espaço disponível */
+    width: 100%;
+    border: solid $panel;
+    padding: 0 1;
+}
+
+/* === ChatInput TextArea (Input do usuário) === */
+#chat_input_textarea {
+    margin: 0;
+    border: solid $accent;
+    padding: 0 1;
+    min-height: 3;
+    height: auto;
+}
+
+/* === Footer === */
+Footer {
+    background: $panel;
+}
+
+/*
+========================================
+TODO: Styles futuros (do OpenSpec)
+========================================
+
+=== Bubbles (Mensagens) ===
+SkyBubble {
+    background: $panel;
+    color: $text;
+    margin: 1 2;
+    padding: 1;
+    border: thick $primary;
+}
+
+UserBubble {
+    background: $primary;
+    color: $text;
+    margin: 1 2;
+    padding: 1;
+    border: thick $accent;
+    text-align: right;
+}
+
+=== Título Animado ===
+.verbo-animado {
+    animation: color-sweep 2s linear infinite;
+}
+
+@keyframes color-sweep {
+    0% { color: $primary; }
+    50% { color: $accent; text-style: bold; }
+    100% { color: $primary; }
+}
+
+=== Barra de Contexto ===
+ProgressBar.--green { progress-bar-background: $success; }
+ProgressBar.--yellow { progress-bar-background: $warning; }
+ProgressBar.--orange { progress-bar-background: $error; }
+ProgressBar.--red { progress-bar-background: red; }
+*/

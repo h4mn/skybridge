@@ -6,6 +6,7 @@ Sky conversa com você, aprende com o que você diz,
 e demonstra que está construindo memória.
 """
 
+import os
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List
@@ -25,11 +26,25 @@ from core.sky.chat.claude_chat import (
     MAX_HISTORY_LENGTH,
 )
 
-# UI exports
-from core.sky.chat.ui import (
-    ChatUI,
-    ChatMetrics,
-)
+# UI exports - escolhe entre Textual e Legacy baseado em feature flag
+USE_TEXTUAL_UI = os.getenv("USE_TEXTUAL_UI", "false").lower() == "true"
+
+if USE_TEXTUAL_UI:
+    # Textual TUI (nova UI)
+    try:
+        from core.sky.chat.textual_ui import SkyApp
+        ChatApp = SkyApp
+    except ImportError:
+        # Fallback para UI legada se Textual não estiver disponível
+        from core.sky.chat.legacy_ui import ChatUI, ChatMetrics
+        ChatApp = None
+else:
+    # Rich Console (UI legada)
+    from core.sky.chat.legacy_ui import ChatUI, ChatMetrics
+    ChatApp = None
+
+# Exporta ChatUI e ChatMetrics para compatibilidade
+from core.sky.chat.legacy_ui import ChatUI, ChatMetrics
 
 
 @dataclass
