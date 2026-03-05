@@ -1,0 +1,94 @@
+/*
+========================================
+Sky Chat App - Textual CSS
+========================================
+*/
+
+Screen {
+    layout: vertical;
+}
+
+ChatScreen {
+    margin: 0;
+}
+
+/* === ChatHeader — 4 linhas, sem dock ===
+   Fica no fluxo normal do layout vertical.
+   height: 6 = margin-top 1 + título 2 + contextbar 1 + métricas 1 + border 1
+*/
+ChatHeader {
+    height: 6;
+    width: 100%;
+    layout: vertical;
+    padding: 0 1;
+    background: $surface;
+    /* border-bottom: solid $panel; */
+}
+
+ChatHeader > AnimatedTitle {
+    height: 2;
+    width: 1fr;
+    margin-top: 1;
+    text-style: bold;
+}
+
+ChatHeader > ContextBar {
+    height: 1;
+    width: 1fr;
+    margin: 0;
+    padding: 0;
+}
+
+ChatHeader > #components {
+    height: 1;
+    width: 1fr;
+    content-align: right middle;
+    text-style: dim;
+}
+
+/* === AnimatedTitle === */
+AnimatedTitle {
+    text-style: bold;
+}
+
+/* === WelcomeScreen === */
+Vertical {
+    align: center middle;
+}
+
+Label {
+    border: round $accent;
+    padding: 1 2;
+    margin: 1;
+}
+
+/* === ChatLog (debug — oculto por padrão) === */
+ChatLog {
+    display: none;
+    width: 100%;
+    height: 20;
+}
+
+ChatLog.visible {
+    display: block;
+}
+
+/* === ChatScroll === */
+ChatScroll {
+    height: 1fr;
+    width: 100%;
+}
+
+/* === Input === */
+#chat_input_textarea {
+    margin: 0;
+    border: solid $accent;
+    padding: 0 1;
+    min-height: 3;
+    height: auto;
+}
+
+/* === Footer === */
+Footer {
+    background: $panel;
+}

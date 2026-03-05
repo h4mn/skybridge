@@ -14,6 +14,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+from runtime.observability.logger import get_logger
+
+logger = get_logger("sky.memory.collections", level="INFO")
+
 
 class SourceType(Enum):
     """Tipos de fonte de memória."""
@@ -117,6 +121,8 @@ class CollectionManager:
     def _init_collections(self) -> None:
         """Inicializa configurações das coleções no banco."""
         conn = sqlite3.connect(self._db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         cursor = conn.cursor()
 
         # Criar tabela de configuração
@@ -160,6 +166,8 @@ class CollectionManager:
             CollectionConfig ou None se não existir.
         """
         conn = sqlite3.connect(self._db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         cursor = conn.cursor()
 
         cursor.execute(
@@ -187,6 +195,8 @@ class CollectionManager:
             Lista de CollectionConfig.
         """
         conn = sqlite3.connect(self._db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         cursor = conn.cursor()
 
         cursor.execute("SELECT name, purpose, retention_days, embedding_enabled FROM collection_config")
@@ -214,6 +224,8 @@ class CollectionManager:
             Número de memórias removidas.
         """
         conn = sqlite3.connect(self._db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         cursor = conn.cursor()
 
         # Construir query baseada em retenção
@@ -245,7 +257,10 @@ class CollectionManager:
             total_deleted += deleted
 
             if deleted > 0:
-                print(f"   🗑️  {config.name}: {deleted} memórias expiradas removidas")
+                logger.structured("Memórias expiradas removidas", {
+                    "collection": config.name,
+                    "deleted": deleted,
+                }, level="info")
 
         conn.commit()
         conn.close()
@@ -263,6 +278,8 @@ class CollectionManager:
             Dict com count, oldest, newest.
         """
         conn = sqlite3.connect(self._db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         cursor = conn.cursor()
 
         cursor.execute(

@@ -284,7 +284,8 @@ class SkybridgeLogger:
         )
 
         # Handler de console COM cores
-        console_handler = logging.StreamHandler(sys.stdout)
+        # IMPORTANTE: Usa stderr em vez de stdout para não poluir a UI do Textual
+        console_handler = logging.StreamHandler(sys.stderr)
         console_handler.setFormatter(ColorFormatter())
         self.logger.addHandler(console_handler)
 
