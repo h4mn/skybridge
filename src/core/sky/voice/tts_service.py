@@ -539,58 +539,143 @@ class Pyttsx3Adapter(TTSService):
 
 
 class KokoroAdapter(TTSService):
-    """Adapter para Kokoro TTS (AI Factory).
+    """Adapter para Kokoro TTS (Hexgrad).
 
     Kokoro é um modelo TTS com vozes femininas muito naturais e expressivas.
-    Desenvolvido pela AI Factory (Coreia).
+    Desenvolvido pela Hexgrad.
 
     Características:
     - Voz feminina suave e natural
     - Expressividade emocional
     - Alta qualidade de fala (quase humana)
+    - Modelo compacto de 82M
+    - Apache-licensed (uso livre)
 
-    Modelo: ai-forever/Kokoro-TTS
+    Biblioteca: pip install kokoro
+    Modelo: hexgrad/Kokoro-82M (via Hugging Face)
     """
 
-    def __init__(self, emotion: str = "default"):
+    def __init__(self, voice: str = "af_heart"):
         """Inicializa adapter Kokoro.
 
         Args:
-            emotion: Emoção da voz ("default", "happy", "sad", etc.)
+            voice: Voz Kokoro ("af_heart" = feminina suave padrão)
         """
         super().__init__(model=TTSModel.KOKORO)
-        self.emotion = emotion
-        self._model = None
-        self._tokenizer = None
-        self._device = "cpu"
+        self.voice = voice
+        self._pipeline = None
 
     async def _load_model(self):
-        """Carrega modelo Kokoro do Hugging Face."""
-        if self._model is None:
+        """Carrega pipeline Kokoro."""
+        if self._pipeline is None:
             try:
-                from transformers import AutoModelForTextToSpectrogram, AutoProcessor
-                import torch
+                from kokoro import KPipeline
 
-                # Modelo Kokoro
-                model_name = "ai-forever/Kokoro-TTS"
-
-                # Carrega modelo e processor
-                self._model = AutoModelForTextToSpectrogram.from_pretrained(model_name)
-                self._tokenizer = AutoProcessor.from_pretrained(model_name)
-
-                # Move para CPU ou CUDA
-                self._device = "cuda" if torch.cuda.is_available() else "cpu"
-                self._model.to(self._device)
+                # Carrega pipeline Kokoro
+                self._pipeline = KPipeline(lang_code='a')  # 'a' = American English
 
             except ImportError as e:
                 raise ImportError(
-                    "transformers ou torch não instalados. "
-                    "Execute: pip install transformers torch"
+                    "kokoro não está instalado. "
+                    "Execute: pip install kokoro"
                 ) from e
             except Exception as e:
                 raise RuntimeError(
-                    f"Erro ao carregar modelo Kokoro: {e}"
+                    f"Erro ao carregar Kokoro: {e}"
                 ) from e
+
+    async def synthesize(
+        self,
+        text: str,
+        config: Optional[VoiceConfig] = None,
+    ) -> AudioData:
+        """Sintetiza áudio a partir do texto usando Kokoro."""
+        config = config or VoiceConfig()
+        config.validate()
+
+        if not text or not text.strip():
+            raise ValueError("Texto não pode ser vazio")
+
+        # Carrega pipeline
+        await self._load_model()
+
+        try:
+            import numpy as np
+
+            # Gera áudio com Kokoro
+            # O generator retorna (graphemes, phonemes, audio)
+            generator = self._pipeline(
+                text,
+                voice=self.voice,
+                speed=float(config.speed),
+                split_pattern=r'\n+'
+            )
+
+            # Pega última iteração (áudio final)
+            audio_array = None
+            for gs, ps, audio in generator:
+                audio_array = audio
+
+            if audio_array is None:
+                raise RuntimeError("Falha ao gerar áudio com Kokoro")
+
+            # Normaliza se necessário
+            if audio_array.dtype != np.float32:
+                audio_array = audio_array.astype(np.float32)
+
+            # Normaliza amplitude
+            if np.max(np.abs(audio_array)) > 0:
+                audio_array = audio_array / np.max(np.abs(audio_array))
+
+            # Converte para bytes
+            audio_bytes = (audio_array * 0.8).astype(np.float32).tobytes()
+
+            # Kokoro usa 24000 Hz
+            sample_rate = 24000
+            duration = len(audio_array) / sample_rate
+
+            return AudioData(
+                samples=audio_bytes,
+                sample_rate=sample_rate,
+                channels=1,
+                duration=duration,
+            )
+
+        except Exception as e:
+            raise RuntimeError(f"Erro na síntese Kokoro: {e}") from e
+
+    async def speak(
+        self,
+        text: str,
+        config: Optional[VoiceConfig] = None,
+    ) -> None:
+        """Sintetiza e reproduz áudio."""
+        audio = await self.synthesize(text, config)
+        await self._play_audio(audio)
+
+    async def _play_audio(self, audio: AudioData) -> None:
+        """Reproduz áudio usando sounddevice."""
+        try:
+            import sounddevice as sd
+            import numpy as np
+
+            # Converte bytes para numpy array
+            samples = np.frombuffer(audio.samples, dtype=np.float32)
+
+            sd.play(samples, samplerate=audio.sample_rate)
+            sd.wait()
+        except ImportError:
+            raise ImportError("sounddevice não está instalado")
+
+    def get_available_voices(self) -> list[str]:
+        """Retorna vozes disponíveis."""
+        # Kokoro tem várias vozes femininas
+        return [
+            "af_heart",      # Feminina suave (padrão)
+            "af_sky",        # Feminina narrativa
+            "af_bella",      # Feminina elegante
+            "sky-female",    # Mapeamento para nosso sistema
+        ]
 
     async def synthesize(
         self,

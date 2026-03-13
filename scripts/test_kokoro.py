@@ -43,16 +43,16 @@ async def main():
     print("=" * 60)
     print()
     print(f"  Texto: \"{text}\"")
-    print(f"  Engine: Kokoro TTS (AI Factory)")
-    print(f"  Modelo: ai-forever/Kokoro-TTS")
-    print(f"  Característica: Voz feminina, suave e natural")
+    print(f"  Engine: Kokoro TTS (Hexgrad)")
+    print(f"  Modelo: hexgrad/Kokoro-82M")
+    print(f"  Voz: af_heart (feminina, suave e natural)")
     print()
-    print("  Carregando modelo... (primeira vez: download de ~500MB)")
+    print("  Carregando modelo... (primeira vez: download via pip)")
     print()
 
     try:
         # Inicializa TTS com Kokoro
-        tts = KokoroAdapter(emotion="default")
+        tts = KokoroAdapter(voice="af_heart")
 
         # Configuração
         config = VoiceConfig(
@@ -85,7 +85,7 @@ async def main():
         print()
         print("=" * 60)
         print("  ✓ Reprodução concluída!")
-        print("  🎤 Voz: Kokoro feminina natural")
+        print("  🎤 Voz: Kokoro af_heart (feminina suave)")
         print("=" * 60)
 
         return 0
@@ -96,7 +96,7 @@ async def main():
         print(f"     {e}")
         print()
         print("  Instale as dependências:")
-        print("     pip install transformers torch sounddevice")
+        print("     pip install kokoro sounddevice")
         print()
         return 1
 
