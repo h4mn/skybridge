@@ -18,6 +18,7 @@ Example:
 from core.sky.voice.tts_service import (
     TTSService,
     MOSSTTSAdapter,
+    KokoroAdapter,
     Pyttsx3Adapter,
     ElevenLabsAdapter,
     TTSModel,
@@ -56,6 +57,7 @@ __all__ = [
     # TTS
     "TTSService",
     "MOSSTTSAdapter",
+    "KokoroAdapter",
     "Pyttsx3Adapter",
     "ElevenLabsAdapter",
     "TTSModel",
