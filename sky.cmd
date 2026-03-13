@@ -13,7 +13,7 @@ if "%2"=="verbose" set VERBOSE=true
 REM Garante que src/ esta no PYTHONPATH
 set PYTHONPATH=%~dp0src;%PYTHONPATH%
 
-REM Ponto de entrada
-python scripts\sky_textual.py
+REM Ponto de entrada com bootstrap de progresso
+python scripts\sky_bootstrap.py %*
 
 endlocal
