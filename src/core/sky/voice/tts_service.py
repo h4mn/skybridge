@@ -137,8 +137,8 @@ class MOSSTTSAdapter(TTSService):
         """Carrega modelo MOSS-TTS."""
         if self._model is None:
             # TODO: Carregar modelo específico do MOSS-TTS
-            # Por enquanto, placeholder
-            pass
+            # Por enquanto, marcamos como carregado
+            self._model = True  # Placeholder
 
     async def synthesize(
         self,
@@ -149,11 +149,58 @@ class MOSSTTSAdapter(TTSService):
         config = config or VoiceConfig()
         config.validate()
 
+        if not text or not text.strip():
+            raise ValueError("Texto não pode ser vazio")
+
         await self._load_model()
 
         # TODO: Implementar síntese real com MOSS-TTS
-        # Por enquanto, retorna placeholder
-        raise NotImplementedError("MOSS-TTS síntese não implementada ainda")
+        # Por enquanto, gera áudio sintético simples para protótipo
+        import numpy as np
+
+        # Calcula duração baseada no texto (aprox. 100ms por caractere)
+        # Ajustado pela velocidade configurada
+        duration = len(text) * 0.1 / config.speed
+        sample_rate = 16000
+        num_samples = int(duration * sample_rate)
+
+        # Gera ondas sonoras moduladas para simular fala
+        t = np.linspace(0, duration, num_samples)
+
+        # Frequência base varia por "voz" (pitch ajustável)
+        base_freq = 200 + (config.pitch * 10)
+        if config.voice_id == "sky-male":
+            base_freq -= 30
+
+        # Modulação para simular prosódia
+        modulation = np.sin(2 * np.pi * 5 * t)  # Modulação lenta
+        frequency = base_freq + modulation * 30
+
+        # Gera onda senoidal modulada
+        audio = np.sin(2 * np.pi * frequency * t)
+
+        # Adiciona harmônicos para mais naturalidade
+        audio += 0.3 * np.sin(4 * np.pi * frequency * t)
+        audio += 0.1 * np.sin(6 * np.pi * frequency * t)
+
+        # Envelope de amplitude (attack/decay)
+        envelope = np.ones_like(audio)
+        attack_samples = int(0.01 * sample_rate)  # 10ms attack
+        decay_samples = int(0.05 * sample_rate)  # 50ms decay
+        envelope[:attack_samples] = np.linspace(0, 1, attack_samples)
+        envelope[-decay_samples:] = np.linspace(1, 0, decay_samples)
+        audio *= envelope
+
+        # Normaliza e converte para bytes
+        audio = audio / np.max(np.abs(audio))
+        audio_bytes = (audio * 0.3).astype(np.float32).tobytes()  # 30% volume
+
+        return AudioData(
+            samples=audio_bytes,
+            sample_rate=sample_rate,
+            channels=1,
+            duration=duration,
+        )
 
     async def speak(
         self,
