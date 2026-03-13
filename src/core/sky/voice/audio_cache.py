@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from src.core.sky.voice.audio_capture import AudioData
+from core.sky.voice.audio_capture import AudioData
 
 
 @dataclass

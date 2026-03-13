@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Callable
 
-from src.core.sky.voice.tts_service import TTSService, VoiceConfig
-from src.core.sky.voice.stt_service import STTService, TranscriptionResult
+from core.sky.voice.tts_service import TTSService, VoiceConfig
+from core.sky.voice.stt_service import STTService, TranscriptionResult
 
 
 class VoiceMode(Enum):

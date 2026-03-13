@@ -7,7 +7,7 @@ Este módulo fornece capacidades de voz para a Sky:
 - Voice Chat: Interface conversacional completa
 
 Example:
-    >>> from src.core.sky.voice import TTSService, STTService, VoiceChat
+    >>> from core.sky.voice import TTSService, STTService, VoiceChat
     >>> tts = TTSService(adapter="moss-tts")
     >>> stt = STTService(model="whisper-base")
     >>> voice_chat = VoiceChat(tts=tts, stt=stt)
@@ -15,14 +15,14 @@ Example:
 """
 
 # Serviços principais (interfaces e adapters)
-from src.core.sky.voice.tts_service import (
+from core.sky.voice.tts_service import (
     TTSService,
     MOSSTTSAdapter,
     ElevenLabsAdapter,
     TTSModel,
     VoiceConfig,
 )
-from src.core.sky.voice.stt_service import (
+from core.sky.voice.stt_service import (
     STTService,
     WhisperAdapter,
     WhisperAPIAdapter,
@@ -30,7 +30,7 @@ from src.core.sky.voice.stt_service import (
     TranscriptionConfig,
     TranscriptionResult,
 )
-from src.core.sky.voice.voice_chat import (
+from core.sky.voice.voice_chat import (
     VoiceChat,
     VoiceMode,
     VoiceState,
@@ -38,7 +38,7 @@ from src.core.sky.voice.voice_chat import (
 )
 
 # Captura de áudio
-from src.core.sky.voice.audio_capture import (
+from core.sky.voice.audio_capture import (
     AudioCapture,
     SoundDeviceCapture,
     AudioData,
@@ -46,7 +46,7 @@ from src.core.sky.voice.audio_capture import (
 )
 
 # Cache de áudio
-from src.core.sky.voice.audio_cache import (
+from core.sky.voice.audio_cache import (
     AudioCache,
     CacheEntry,
 )

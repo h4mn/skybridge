@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Callable
 
-from src.core.sky.voice.audio_capture import AudioData
+from core.sky.voice.audio_capture import AudioData
 
 
 class STTModel(Enum):
@@ -187,7 +187,7 @@ class WhisperAdapter(STTService):
         config: Optional[TranscriptionConfig] = None,
     ) -> TranscriptionResult:
         """Escuta microfone e transcreve."""
-        from src.core.sky.voice.audio_capture import SoundDeviceCapture
+        from core.sky.voice.audio_capture import SoundDeviceCapture
 
         capture = SoundDeviceCapture()
 

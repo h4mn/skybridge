@@ -26,10 +26,13 @@ import time
 # Adiciona src ao path
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
-sys.path.insert(0, os.path.join(project_root, "src"))
+src_path = os.path.join(project_root, "src")
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
 
-from src.core.sky.voice.audio_capture import SoundDeviceCapture, AudioState
-from src.core.sky.voice.stt_service import WhisperAdapter, TranscriptionConfig
+# Importa sem prefixo 'src'
+from core.sky.voice.audio_capture import SoundDeviceCapture, AudioState
+from core.sky.voice.stt_service import WhisperAdapter, TranscriptionConfig
 
 
 async def main():

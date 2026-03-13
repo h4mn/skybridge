@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from src.core.sky.voice.audio_capture import AudioData
+from core.sky.voice.audio_capture import AudioData
 
 
 class TTSModel(Enum):
