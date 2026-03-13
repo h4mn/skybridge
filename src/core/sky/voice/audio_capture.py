@@ -132,6 +132,7 @@ class SoundDeviceCapture(AudioCapture):
         self._silence_threshold = 0.01
         self._silence_timeout = 2.0
         self._silence_frames = 0
+        self._recording_active = False  # Flag para controlar callback
         self._import_sd()
 
     def _import_sd(self):
@@ -159,10 +160,16 @@ class SoundDeviceCapture(AudioCapture):
         self._silence_timeout = silence_timeout
         self._recorded_frames = []
         self._silence_frames = 0
+        self._recording_active = True  # Flag para bloquear callback após stop
         self.state = AudioState.RECORDING
 
         def callback(indata, frames, time, status):
             """Callback interno do sounddevice."""
+            # IMPORTANTE: Verifica se ainda estamos gravando
+            # Isso previne acumulação de frames do buffer após stop()
+            if not self._recording_active:
+                return
+
             if status:
                 print(f"Audio callback status: {status}", file=__import__("sys").stderr)
 
@@ -183,13 +190,16 @@ class SoundDeviceCapture(AudioCapture):
             if self._audio_callback:
                 self._audio_callback(audio_bytes)
 
-        # Inicia stream
+        # Inicia stream com blocksize menor para reduzir latência
+        # blocksize=0 usa o padrão (geralmente 1024 frames)
+        # blocksize=512 reduz latência pela metade
         self._stream = self._sd.InputStream(
             samplerate=self.sample_rate,
             channels=self.channels,
             dtype="float32",
             callback=callback,
             device=self.device,
+            blocksize=512,  # Menor latência
         )
         self._stream.start()
 
@@ -198,10 +208,15 @@ class SoundDeviceCapture(AudioCapture):
         if self._stream is None:
             raise RuntimeError("Nenhuma gravação ativa")
 
+        # IMPORTANTE: Marca como inativo ANTES de parar o stream
+        # Isso previne que o callback acumule mais frames do buffer
+        self._recording_active = False
+        self.state = AudioState.STOPPED
+
+        # Para e fecha o stream
         self._stream.stop()
         self._stream.close()
         self._stream = None
-        self.state = AudioState.STOPPED
 
         # Combina todos os frames
         import numpy as np
