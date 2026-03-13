@@ -5,6 +5,51 @@ Todas as alterações notáveis do Skybridge serão documentadas neste arquivo.
 O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.html/).
 
+
+## [0.14.0] - 2026-03-11
+
+
+### ✨ Novidades
+
+* [`fc9fb61`](https://github.com/h4mn/skybridge/commit/fc9fb61df162c84817d8695235aba3edff1654cb) **memory:** implementar memória semântica RAG com sqlite-vec [`@h4mn`](https://github.com/h4mn)
+* [`fc8ee55`](https://github.com/h4mn/skybridge/commit/fc8ee554de0af38c83e70d00c231a79d93e56147) **runtime:** atualizar bootstrap, config, delivery e observabilidade para PRD026 [`@h4mn`](https://github.com/h4mn)
+* [`f3e43e2`](https://github.com/h4mn/skybridge/commit/f3e43e2c045771dfbbab9eeb957bf7f0d1ff3a1c) **core:** adicionar núcleo Sky com sistema de agentes [`@h4mn`](https://github.com/h4mn)
+* [`e47a93b`](https://github.com/h4mn/skybridge/commit/e47a93bb96ee93de52804a51a36c7eeb992f3a2c) adicionar comandos OpsX para workflow de mudanças [`@h4mn`](https://github.com/h4mn)
+* [`d8edc9e`](https://github.com/h4mn/skybridge/commit/d8edc9e7f178147f2812ce52bc61e56392d3eb3b) **kanban:** adicionar CLI kanban e documentação investigação PRD026 [`@h4mn`](https://github.com/h4mn)
+* [`cd692d9`](https://github.com/h4mn/skybridge/commit/cd692d92bb3fd60aa5da0e774de532e1fc8d0f6f) **backend:** implementar PRD024 - Kanban Cards Vivos [`@h4mn`](https://github.com/h4mn)
+* [`9017873`](https://github.com/h4mn/skybridge/commit/90178731512becad37c3df523d4ef5ffee46fe34) **chat:** implementar integração com Claude SDK [`@h4mn`](https://github.com/h4mn)
+* [`763686e`](https://github.com/h4mn/skybridge/commit/763686e9e52f7e6604599f3d16d2ac040e255a1b) **chat:** merge Textual TUI e toda a worktree sky-first-breath [`@h4mn`](https://github.com/h4mn)
+* [`5735df7`](https://github.com/h4mn/skybridge/commit/5735df71bb0a0eba46c962e9963c3a361233481a) adicionar sistema OpenSpec e padrões Agent-OS [`@h4mn`](https://github.com/h4mn)
+* [`514aac1`](https://github.com/h4mn/skybridge/commit/514aac127cb3acfdb0fd1b1311f50714357a32f8) **logging:** recuperar RequestLoggingMiddleware e melhorar visualização [`@h4mn`](https://github.com/h4mn)
+* [`4b0fa9c`](https://github.com/h4mn/skybridge/commit/4b0fa9cacecd7d83d2420d35c47880911efa863c) **chat:** adicionar pyperclip para ReAct UI [`@h4mn`](https://github.com/h4mn)
+* [`48c1500`](https://github.com/h4mn/skybridge/commit/48c15005b1f90bf22cf7dfa47dd8619569f7ec3d) **runtime:** implementar módulo workspace (PL002/ADR024) [`@h4mn`](https://github.com/h4mn)
+* [`344ee58`](https://github.com/h4mn/skybridge/commit/344ee58ffad06b6569cd6ee5e811a712af90f2bc) **chat:** adicionar Textual TUI e melhorias UX [`@h4mn`](https://github.com/h4mn)
+* [`3165137`](https://github.com/h4mn/skybridge/commit/316513797696c8bb00b2874c29a1712c42ac6d88) **kanban:** implementar Tasks 9 e 10 do PRD024 + corrigir bug de race condition [`@h4mn`](https://github.com/h4mn)
+* [`2f7e3c6`](https://github.com/h4mn/skybridge/commit/2f7e3c6ebb68422c1b0e3ad5f198f8d8dcbe0ca7) **kanban:** completar implementação PRD024 - API, testes e documentação [`@h4mn`](https://github.com/h4mn)
+
+
+### 🐛 Correções
+
+* [`f8f5ad4`](https://github.com/h4mn/skybridge/commit/f8f5ad48a5ae5f8b4fb1effc4c83e14607b5231d) **release:** corrigir ordem do changelog e adicionar guia documentação [`@h4mn`](https://github.com/h4mn)
+* [`946bba2`](https://github.com/h4mn/skybridge/commit/946bba21548432f7b135edd9239893f082de0509) **frontend:** correções das tasks anteriores - remoção da Wiki e atualizações [`@h4mn`](https://github.com/h4mn)
+
+
+### ♻️ Refatoração
+
+* [`797fb7c`](https://github.com/h4mn/skybridge/commit/797fb7c15ad68f58d5c99f9345be2003b1472298) **kanban:** melhorar sincronização e fluxo bidirecional Trello [`@h4mn`](https://github.com/h4mn)
+* [`0a19f42`](https://github.com/h4mn/skybridge/commit/0a19f428e043f74f936c07ff3ea3d72c76fc1c72) **tests:** marcar test_kanban_routes.py como obsoleto para referência PRD026 [`@h4mn`](https://github.com/h4mn)
+
+
+### 📚 Documentação
+
+* [`4f43f4a`](https://github.com/h4mn/skybridge/commit/4f43f4a5f2ca21554761e494a5add96be0bfda2a) **config:** atualizar configuracao e ADRs para PRD026 [`@h4mn`](https://github.com/h4mn)
+* [`2ae47ae`](https://github.com/h4mn/skybridge/commit/2ae47ae3e0e02eae8dd5d52ad398622f4d771ccb) **prd:** adicionar PRD026 - Integração Kanban com Fluxo Real [`@h4mn`](https://github.com/h4mn)
+
+
+### ✅ Testes
+
+* [`2876608`](https://github.com/h4mn/skybridge/commit/2876608db30582954608280973ed49587c8247d0) **kanban:** adicionar e atualizar testes para PRD026 [`@h4mn`](https://github.com/h4mn)
+
 ## [Unreleased] - 2026-02-04
 
 ### 📝 Documentação
