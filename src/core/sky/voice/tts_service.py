@@ -17,6 +17,7 @@ class TTSModel(Enum):
     """Modelos de TTS disponíveis."""
 
     MOSS_TTS = "moss-tts"
+    PYTTSX3 = "pyttsx3"
     ELEVENLABS = "elevenlabs"
     COQUI_TTS = "coqui-tts"
 
@@ -134,73 +135,95 @@ class MOSSTTSAdapter(TTSService):
             ) from e
 
     async def _load_model(self):
-        """Carrega modelo MOSS-TTS."""
+        """Carrega modelo MOSS-TTS real do Hugging Face."""
         if self._model is None:
-            # TODO: Carregar modelo específico do MOSS-TTS
-            # Por enquanto, marcamos como carregado
-            self._model = True  # Placeholder
+            try:
+                from transformers import VitsModel, AutoTokenizer
+                import torch
+
+                # Modelo MMS-TTS para português
+                # Outras opções:
+                # - "facebook/mms-tts-por" (Português)
+                # - "speechbrain/TTS-hifigan-ljs-v2" (Inglês, muito popular)
+                model_name = "facebook/mms-tts-por"
+
+                # Carrega modelo e tokenizer
+                self._model = VitsModel.from_pretrained(model_name)
+                self._tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+                # Move para CPU se disponível
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+                self._model.to(device)
+                self._device = device
+
+            except ImportError as e:
+                raise ImportError(
+                    "transformers ou torch não instalados. "
+                    "Execute: pip install transformers torch"
+                ) from e
+            except Exception as e:
+                raise RuntimeError(
+                    f"Erro ao carregar modelo MOSS-TTS: {e}"
+                ) from e
 
     async def synthesize(
         self,
         text: str,
         config: Optional[VoiceConfig] = None,
     ) -> AudioData:
-        """Sintetiza áudio a partir do texto."""
+        """Sintetiza áudio a partir do texto usando MOSS-TTS real."""
         config = config or VoiceConfig()
         config.validate()
 
         if not text or not text.strip():
             raise ValueError("Texto não pode ser vazio")
 
+        # Carrega modelo
         await self._load_model()
 
-        # TODO: Implementar síntese real com MOSS-TTS
-        # Por enquanto, gera áudio sintético simples para protótipo
-        import numpy as np
+        try:
+            import torch
+            import numpy as np
 
-        # Calcula duração baseada no texto (aprox. 100ms por caractere)
-        # Ajustado pela velocidade configurada
-        duration = len(text) * 0.1 / config.speed
-        sample_rate = 16000
-        num_samples = int(duration * sample_rate)
+            # Prepara texto para o modelo
+            inputs = self._tokenizer(text, return_tensors="pt")
 
-        # Gera ondas sonoras moduladas para simular fala
-        t = np.linspace(0, duration, num_samples)
+            # Move inputs para o mesmo dispositivo do modelo
+            inputs = {k: v.to(self._device) for k, v in inputs.items()}
 
-        # Frequência base varia por "voz" (pitch ajustável)
-        base_freq = 200 + (config.pitch * 10)
-        if config.voice_id == "sky-male":
-            base_freq -= 30
+            # Gera áudio
+            with torch.no_grad():
+                output = self._model(**inputs)
+                audio_array = output.waveform[0].cpu().numpy()
 
-        # Modulação para simular prosódia
-        modulation = np.sin(2 * np.pi * 5 * t)  # Modulação lenta
-        frequency = base_freq + modulation * 30
+            # Normaliza áudio
+            audio_array = audio_array / np.max(np.abs(audio_array))
 
-        # Gera onda senoidal modulada
-        audio = np.sin(2 * np.pi * frequency * t)
+            # Aplica configuração de velocidade (resampling)
+            # Speed > 1.0 = mais rápido (menos amostras)
+            # Speed < 1.0 = mais lento (mais amostras)
+            if config.speed != 1.0:
+                import scipy.signal as signal
+                original_length = len(audio_array)
+                new_length = int(original_length / config.speed)
+                audio_array = signal.resample(audio_array, new_length)
 
-        # Adiciona harmônicos para mais naturalidade
-        audio += 0.3 * np.sin(4 * np.pi * frequency * t)
-        audio += 0.1 * np.sin(6 * np.pi * frequency * t)
+            # Converte para float32 bytes
+            audio_bytes = (audio_array * 0.8).astype(np.float32).tobytes()
 
-        # Envelope de amplitude (attack/decay)
-        envelope = np.ones_like(audio)
-        attack_samples = int(0.01 * sample_rate)  # 10ms attack
-        decay_samples = int(0.05 * sample_rate)  # 50ms decay
-        envelope[:attack_samples] = np.linspace(0, 1, attack_samples)
-        envelope[-decay_samples:] = np.linspace(1, 0, decay_samples)
-        audio *= envelope
+            # Calcula duração
+            sample_rate = self._model.config.sampling_rate
+            duration = len(audio_array) / sample_rate
 
-        # Normaliza e converte para bytes
-        audio = audio / np.max(np.abs(audio))
-        audio_bytes = (audio * 0.3).astype(np.float32).tobytes()  # 30% volume
+            return AudioData(
+                samples=audio_bytes,
+                sample_rate=sample_rate,
+                channels=1,
+                duration=duration,
+            )
 
-        return AudioData(
-            samples=audio_bytes,
-            sample_rate=sample_rate,
-            channels=1,
-            duration=duration,
-        )
+        except Exception as e:
+            raise RuntimeError(f"Erro na síntese MOSS-TTS: {e}") from e
 
     async def speak(
         self,
@@ -282,3 +305,233 @@ class ElevenLabsAdapter(TTSService):
         """Retorna vozes disponíveis na ElevenLabs."""
         # TODO: Buscar vozes disponíveis via API
         return []
+
+
+class Pyttsx3Adapter(TTSService):
+    """Adapter para pyttsx3 (TTS offline com vozes do sistema).
+
+    pyttsx3 é uma biblioteca TTS offline que usa as vozes do sistema
+    operacional. Funciona sem internet e suporta português.
+
+    Vantagens:
+    - Offline (funciona sem internet)
+    - Vozes do sistema (incluindo PT-BR)
+    - Leve e rápido
+
+    Limitações:
+    - Qualidade depende das vozes instaladas no Windows
+    - Menos natural que modelos de ML
+    """
+
+    def __init__(self, voice: str = "sky-female"):
+        """Inicializa adapter pyttsx3.
+
+        Args:
+            voice: Voz padrão ("sky-female" ou "sky-male")
+        """
+        super().__init__(model=TTSModel.PYTTSX3)
+        self.voice = voice
+        self._engine = None
+        self._voice_mapping = {}  # Mapeamento voice_id -> pyttsx3 voice
+
+    def _import_pyttsx3(self):
+        """Importa pyttsx3 lazy (só quando necessário)."""
+        try:
+            import pyttsx3
+            self._pyttsx3 = pyttsx3
+        except ImportError as e:
+            raise ImportError(
+                "pyttsx3 não está instalado. "
+                "Execute: pip install pyttsx3"
+            ) from e
+
+    def _init_engine(self):
+        """Inicializa engine pyttsx3."""
+        if self._engine is None:
+            self._import_pyttsx3()
+            self._engine = self._pyttsx3.init()
+
+            # Descobre vozes disponíveis e cria mapeamento
+            voices = self._engine.getProperty("voices")
+            self._voice_mapping = self._discover_voices(voices)
+
+    def _discover_voices(self, voices) -> dict:
+        """Descobre e mapeia vozes do sistema.
+
+        Args:
+            voices: Lista de vozes do pyttsx3
+
+        Returns:
+            Dict mapeando voice_id -> voice index/id
+        """
+        mapping = {}
+
+        for i, voice in enumerate(voices):
+            voice_name = voice.name.lower()
+            voice_id = voice.id
+
+            # Tenta encontrar voz feminina em português
+            if "female" in voice_name or "maria" in voice_name or "helena" in voice_name:
+                mapping["sky-female"] = i
+            # Tenta encontrar voz masculina em português
+            elif "male" in voice_name or "daniel" in voice_name or "david" in voice_name:
+                mapping["sky-male"] = i
+            # Voz em português (fallback)
+            elif "brazil" in voice_id or "pt_br" in voice_id or "pt-br" in voice_id:
+                if "sky-female" not in mapping:
+                    mapping["sky-female"] = i
+                if "sky-male" not in mapping:
+                    mapping["sky-male"] = i
+
+        # Fallback: primeira voz disponível
+        if "sky-female" not in mapping and voices:
+            mapping["sky-female"] = 0
+        if "sky-male" not in mapping and voices:
+            mapping["sky-male"] = 0
+
+        return mapping
+
+    async def synthesize(
+        self,
+        text: str,
+        config: Optional[VoiceConfig] = None,
+    ) -> AudioData:
+        """Sintetiza áudio a partir do texto usando pyttsx3."""
+        config = config or VoiceConfig()
+        config.validate()
+
+        if not text or not text.strip():
+            raise ValueError("Texto não pode ser vazio")
+
+        self._init_engine()
+
+        # Configura engine
+        self._configure_engine(config)
+
+        # Salva áudio em arquivo temporário
+        import tempfile
+        import os
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            temp_file = f.name
+
+        try:
+            # Salva áudio no arquivo
+            self._engine.save_to_file(text, temp_file)
+            self._engine.runAndWait()
+
+            # Lê o arquivo de volta
+            import wave
+
+            with wave.open(temp_file, "rb") as wf:
+                sample_rate = wf.getframerate()
+                frames = wf.getnframes()
+                duration = frames / sample_rate
+                audio_bytes = wf.readframes(frames)
+
+            return AudioData(
+                samples=audio_bytes,
+                sample_rate=sample_rate,
+                channels=1,  # pyttsx3 sempre mono
+                duration=duration,
+            )
+
+        finally:
+            # Remove arquivo temporário
+            try:
+                os.unlink(temp_file)
+            except:
+                pass
+
+    def _configure_engine(self, config: VoiceConfig) -> None:
+        """Configura engine pyttsx3 baseado na VoiceConfig.
+
+        Args:
+            config: Configuração de voz
+        """
+        # Configura velocidade (rate)
+        # pyttsx3 usa palavras por minuto (padrão: ~200)
+        # Speed 1.0 = 200 WPM
+        rate = int(200 * config.speed)
+        self._engine.setProperty("rate", rate)
+
+        # Configura volume (0.0 a 1.0)
+        self._engine.setProperty("volume", 1.0)
+
+        # Configura voz
+        voice_index = self._voice_mapping.get(config.voice_id, 0)
+        if voice_index < len(self._engine.getProperty("voices")):
+            self._engine.setProperty("voice", self._engine.getProperty("voices")[voice_index].id)
+
+    async def speak(
+        self,
+        text: str,
+        config: Optional[VoiceConfig] = None,
+    ) -> None:
+        """Sintetiza e reproduz áudio."""
+        import tempfile
+        import os
+
+        self._init_engine()
+        config = config or VoiceConfig()
+        config.validate()
+
+        # Configura engine
+        self._configure_engine(config)
+
+        # Cria arquivo temporário
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            temp_file = f.name
+
+        try:
+            # Salva áudio no arquivo
+            self._engine.save_to_file(text, temp_file)
+            self._engine.runAndWait()
+
+            # Reproduz diretamente do arquivo
+            await self._play_wav_file(temp_file)
+
+        finally:
+            # Remove arquivo temporário
+            try:
+                os.unlink(temp_file)
+            except:
+                pass
+
+    async def _play_wav_file(self, wav_path: str) -> None:
+        """Reproduz arquivo WAV usando pygame ou winsound."""
+        try:
+            # Tenta pygame primeiro (cross-platform)
+            import pygame
+            pygame.mixer.init()
+            pygame.mixer.music.load(wav_path)
+            pygame.mixer.music.play()
+
+            # Aguarda fim da reprodução
+            while pygame.mixer.music.get_busy():
+                import asyncio
+                await asyncio.sleep(0.1)
+
+        except ImportError:
+            # Fallback para Windows (winsound)
+            try:
+                import winsound
+                winsound.PlaySound(wav_path, winsound.SND_FILENAME)
+            except ImportError:
+                # Fallback para subprocess com player do sistema
+                import subprocess
+                import platform
+
+                system = platform.system()
+                if system == "Windows":
+                    subprocess.call(["powershell", "-c", f"(New-Object Media.SoundPlayer '{wav_path}').PlaySync()"])
+                elif system == "Darwin":  # macOS
+                    subprocess.call(["afplay", wav_path])
+                else:  # Linux
+                    subprocess.call(["aplay", wav_path])
+
+    def get_available_voices(self) -> list[str]:
+        """Retorna vozes disponíveis."""
+        self._init_engine()
+        voices = list(self._voice_mapping.keys())
+        return voices if voices else ["sky-female"]

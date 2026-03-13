@@ -46,12 +46,14 @@ async def main():
     print("=" * 60)
     print()
     print(f"  Texto: \"{text}\"")
+    print(f"  Engine: MOSS-TTS (voz real via Hugging Face)")
+    print(f"  Modelo: facebook/mms-tts-por (português)")
     print()
-    print("  Sintetizando áudio...")
+    print("  Carregando modelo... (pode demorar na primeira vez)")
     print()
 
     try:
-        # Inicializa TTS
+        # Inicializa TTS com MOSS-TTS
         tts = MOSSTTSAdapter(voice="sky-female")
 
         # Configuração
@@ -73,6 +75,7 @@ async def main():
         print(f"  ✓ Áudio sintetizado")
         print(f"    Duração: {audio.duration:.2f}s")
         print(f"    Tamanho: {len(audio.samples):,} bytes ({len(audio.samples)/1024:.1f} KB)")
+        print(f"    Sample rate: {audio.sample_rate} Hz")
         print(f"    Tempo de síntese: {synth_time*1000:.1f}ms")
         print()
         print("  Reproduzindo...")
@@ -94,7 +97,7 @@ async def main():
         print(f"     {e}")
         print()
         print("  Instale as dependências:")
-        print("     pip install sounddevice numpy")
+        print("     pip install transformers torch scipy sounddevice")
         print()
         return 1
 
