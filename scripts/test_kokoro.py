@@ -19,6 +19,12 @@ import asyncio
 import os
 import sys
 
+# Configura UTF-8 para saída no Windows
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 # Adiciona src ao path
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
@@ -46,13 +52,14 @@ async def main():
     print(f"  Engine: Kokoro TTS (Hexgrad)")
     print(f"  Modelo: hexgrad/Kokoro-82M")
     print(f"  Voz: af_heart (feminina, suave e natural)")
+    print(f"  Idioma: Português Brasileiro 🇧🇷 (lang_code='p')")
     print()
     print("  Carregando modelo... (primeira vez: download via pip)")
     print()
 
     try:
-        # Inicializa TTS com Kokoro
-        tts = KokoroAdapter(voice="af_heart")
+        # Inicializa TTS com Kokoro (Português Brasileiro)
+        tts = KokoroAdapter(voice="af_heart", lang_code="p")
 
         # Configuração
         config = VoiceConfig(
