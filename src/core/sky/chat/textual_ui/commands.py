@@ -24,6 +24,11 @@ class CommandType(Enum):
     CANCEL = "cancel"
     CONFIG = "config"
 
+    # PRD027: Comandos de voz
+    STT = "stt"
+    TTS = "tts"
+    VOICE = "voice"
+
     @classmethod
     def from_string(cls, value: str) -> "CommandType | None":
         """
