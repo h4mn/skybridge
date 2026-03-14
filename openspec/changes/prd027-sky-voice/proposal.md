@@ -6,7 +6,7 @@ A Sky atualmente comunica apenas por texto. Adicionar voz permitirá:
 - **Acessibilidade**: Interação por voz para usuários com dificuldades visuais ou motoras
 - **Hands-free**: Comandos e conversação enquanto o usuário faz outras tarefas
 - **Humanização**: Interface mais natural e conversacional
-- **Projetos de referência**: MOSS-TTS é open source e roda localmente (sem custos de API)
+- **Projetos de referência**: Kokoro-82M e Whisper são open source e rodam localmente (sem custos de API)
 
 ## What Changes
 
@@ -24,7 +24,8 @@ Adicionar capacidades de voz à Sky:
 ### New Capabilities
 
 - `sky-tts`: Geração de fala a partir de texto
-  - Modelos: MOSS-TTS (open source), ElevenLabs (premium), Coqui TTS
+  - **Padrão**: Kokoro-82M (Hexgrad) - voz feminina natural em pt-BR
+  - Alternativas: MOSS-TTS, Pyttsx3 (offline), ElevenLabs (premium)
   - Configuração: voz, velocidade, pitch
   - Cache de áudio gerado
 
@@ -57,13 +58,13 @@ Nenhuma - as capacidades existentes (chat, RAG, etc.) permanecem iguais
 
 ### Dependências
 
-- **TTS**: MOSS-TTS (Hugging Face) ou ElevenLabs SDK
-- **STT**: Whisper OpenAI (openai/whisper-local)
-- **Áudio**: pyaudio, soundfile, numpy
+- **TTS**: Kokoro-82M (biblioteca standalone), MOSS-TTS (alternativa), ElevenLabs SDK (premium)
+- **STT**: Whisper OpenAI (faster-whisper local)
+- **Áudio**: sounddevice, soundfile, numpy
 
 ### APIs Externas
 
-- Hugging Face (MOSS-TTS)
+- Hexgrad/Kokoro-82M (Hugging Face - download automático)
 - OpenAI Whisper (opcional, para STT em nuvem)
 
 ---

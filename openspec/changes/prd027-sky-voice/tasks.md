@@ -25,10 +25,11 @@
 - [x] 3.6 Teste de transcrição standalone (`python scripts/test_stt.py`)
 - [ ] 3.7 Comando `/stt` para transcrição única
 
-## 4. TTS - Text-to-Speech (MOSS-TTS)
+## 4. TTS - Text-to-Speech (Kokoro)
 
 - [x] 4.1 Criar `tts_service.py` com interface `TTSService(ABC)`
-- [x] 4.2 Implementar `MossTTSAdapter` via Hugging Face (MOSS-TTS real)
+- [x] 4.2 Implementar KokoroAdapter com Kokoro-82M (voz feminina pt-BR)
+    **NOTA**: Decisão D10 - Kokoro escolhido sobre MOSS-TTS por superioridade
 - [x] 4.3 Adicionar cache LRU de áudio (disco, 24h TTL)
 - [x] 4.4 Implementar configuração de voz (speed, pitch)
 - [x] 4.5 Adicionar vozes "sky-female" e "sky-male"

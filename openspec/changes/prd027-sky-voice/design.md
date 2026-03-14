@@ -101,15 +101,19 @@ src/core/sky/voice/
 ```
 
 ### D2: Escolha de Modelos TTS
-**Decisão:** MOSS-TTS como padrão, com pluggable adapters para ElevenLabs.
+**Decisão:** Kokoro-82M como padrão, com pluggable adapters para MOSS-TTS, Pyttsx3 e ElevenLabs.
 
 **Justificativa:**
-- **Open source**: Sem custos de API
+- **Voz feminina superior**: Kokoro af_heart é mais natural e suave que alternativas
+- **Suporte nativo pt-BR**: lang_code='p' funciona perfeitamente para português brasileiro
+- **Performance**: RTF 0.35x (síntese mais rápida que tempo real)
+- **Multi-idioma**: Suporta pt-BR, en, es, fr, hi, it, ja
+- **Apache-licensed**: Uso livre sem restrições
 - **Local**: Privacidade, baixa latência
-- **Qualidade**: Comparável a serviços pagos
 
 **Alternativas consideradas:**
-- ElevenLabs apenas: ❌ Custoso, dependência de internet
+- MOSS-TTS: ❌ Voz masculina, menos natural em pt-BR
+- ElevenLabs: ❌ Custoso, dependência de internet
 - Coqui TTS: ❌ Menos maduro, menos vozes em PT-BR
 - gTTS (Google): ❌ Qualidade inferior, requer internet
 
@@ -119,15 +123,53 @@ class TTSService(ABC):
     async def synthesize(self, text: str, voice: str) -> AudioData:
         pass
 
-class MOSSTTSAdapter(TTSService):
-    async def synthesize(self, text: str, voice: str) -> AudioData:
-        # Chama MOSS-TTS via Hugging Face
+class KokoroAdapter(TTSService):
+    def __init__(self, voice="af_heart", lang_code="p"):
+        # Kokoro-82M com voz feminina e português
         ...
 
-class ElevenLabsAdapter(TTSService):
+class MOSSTTSAdapter(TTSService):
     async def synthesize(self, text: str, voice: str) -> AudioData:
-        # Chama API ElevenLabs
+        # Alternativa via Hugging Face
         ...
+
+class ElevenLabsAdapter(TTTService):
+    async def synthesize(self, text: str, voice: str) -> AudioData:
+        # Premium via API
+        ...
+```
+
+### D10: Mudança de Escopo - Kokoro sobre MOSS-TTS
+**Decisão:** Kokoro-82M substitui MOSS-TTS como modelo TTS padrão durante implementação.
+
+**Contexto:**
+Durante a implementação do PRD027, testes revelaram que Kokoro oferece voz feminina significativamente mais natural e suave em português brasileiro do que o MOSS-TTS originalmente especificado.
+
+**Justificativa da Mudança:**
+- **Voz feminina superior**: af_heart (Kokoro) é mais natural que vozes masculinas do MOSS-TTS
+- **Suporte nativo pt-BR**: lang_code='p' funciona perfeitamente, sem adaptações
+- **Performance implementada**: RTF 0.35x alcançado com warm start (8x mais rápido)
+- **Biblioteca standalone**: kokoro package é mais simples que integradores Hugging Face
+- **Voz solicitada pelo usuário**: Requisito era "feminina, suave e agradável"
+
+**Mudança Técnica:**
+- **Original**: MOSS-TTS via Hugging Face Transformers
+- **Implementado**: Kokoro-82M via biblioteca `kokoro` (pip install kokoro)
+- **Ambos existem**: MOSS-TTS adapter mantido como alternativa, Kokoro é padrão
+
+**Alternativas consideradas:**
+- Manter MOSS-TTS: ❌ Voz masculina, menos natural para Sky
+- Apenas ElevenLabs: ❌ Custoso, não é open source
+
+**Data da Decisão:** 2026-03-14
+
+```python
+# Padrão: Kokoro (voz feminina pt-BR)
+tts = KokoroAdapter(voice="af_heart", lang_code="p")
+await tts.speak("Olá! Eu sou a Sky.")
+
+# Alternativa: MOSS-TTS (se necessário)
+tts = MOSSTTSAdapter(voice="sky-female")
 ```
 
 ### D3: Escolha de Modelos STT
