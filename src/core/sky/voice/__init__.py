@@ -2,17 +2,38 @@
 Sky Voice - Sistema de TTS/STT para a Sky.
 
 Este módulo fornece capacidades de voz para a Sky:
-- TTS (Text-to-Speech): Geração de fala a partir de texto
-- STT (Speech-to-Text): Transcrição de áudio para texto
+- TTS (Text-to-Speech): Geração de fala a partir de texto com Kokoro
+- STT (Speech-to-Text): Transcrição de áudio para texto com Whisper
+- VoiceService: Serviço singleton com lazy load e cache
 - Voice Chat: Interface conversacional completa
 
-Example:
-    >>> from core.sky.voice import TTSService, STTService, VoiceChat
-    >>> tts = TTSService(adapter="moss-tts")
-    >>> stt = STTService(model="whisper-base")
-    >>> voice_chat = VoiceChat(tts=tts, stt=stt)
-    >>> await voice_chat.activate()
+Tecnologias:
+- TTS: Kokoro-82M (Hexgrad) - voz feminina suave em pt-BR
+- STT: Whisper base (faster-whisper) - transcrição rápida
+
+Performance:
+- RTF TTS: ~0.35x (síntese mais rápida que tempo real)
+- RTF STT: ~0.06x (transcrição 16x mais rápido que tempo real)
+- Lazy load: Modelos carregados sob demanda e mantidos em cache
+
+Uso recomendado (singleton):
+    >>> from core.sky.voice import get_voice_service
+    >>> voice = get_voice_service()
+    >>> await voice.speak("Olá mundo!")  # TTS
+    >>> text = await voice.record_and_transcribe(5.0)  # STT
+
+Uso avançado (adapters diretos):
+    >>> from core.sky.voice import KokoroAdapter, VoiceConfig
+    >>> tts = KokoroAdapter(voice="af_heart", lang_code="p")
+    >>> audio = await tts.synthesize("Texto", VoiceConfig())
 """
+
+# VoiceService (serviço singleton principal)
+from core.sky.voice.voice_service import (
+    VoiceService,
+    VoiceStats,
+    get_voice_service,
+)
 
 # Serviços principais (interfaces e adapters)
 from core.sky.voice.tts_service import (
@@ -54,6 +75,10 @@ from core.sky.voice.audio_cache import (
 )
 
 __all__ = [
+    # VoiceService (singleton principal)
+    "VoiceService",
+    "VoiceStats",
+    "get_voice_service",
     # TTS
     "TTSService",
     "MOSSTTSAdapter",
