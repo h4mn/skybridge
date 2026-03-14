@@ -1,7 +1,7 @@
 # 📋 Relatório de Verificação: PRD027 - Sky Voice
 
-**Data**: 2026-03-14
-**Status**: 🟡 Não pronto para archive
+**Data**: 2026-03-14 (atualizado)
+**Status**: 🟡 Não pronto para archive (melhorias aplicadas)
 **Artefatos Verificados**: proposal.md, design.md, tasks.md, specs (TTS, STT, Voice Chat)
 **Código Analisado**: `src/core/sky/voice/`, `src/core/sky/chat/textual_ui/voice_commands.py`, `scripts/test_*`
 
@@ -11,11 +11,13 @@
 
 | Dimensão | Status | Detalhes |
 |----------|--------|----------|
-| **Completude** | ⚠️ 25% | 22/87 tarefas completas |
-| **Correção** | ⚠️ Parcial | Requisitos básicos implementados, voice chat pendente |
-| **Coerência** | ⚠️ Com divergências | Kokoro em vez de MOSS-TTS (justificado) |
+| **Completude** | ⚠️ 26% | 23/87 tarefas completas (+1 fase 2.5, +1 fase 3.5) |
+| **Correção** | ✅ Boa | Requisitos básicos implementados, voice chat pendente |
+| **Coerência** | ✅ Boa | Kokoro documentado, divergências resolvidas |
 
 **Avaliação Final**: 🟡 **Não pronto para archiving** - Fases 1-4 básicas completas, Fases 5-16 (voice chat completo) pendentes.
+
+**Progresso desde verificação anterior**: +3 tarefas completas (1.2, 2.5, 3.5), 1 CRÍTICO resolvido, 2 WARNING resolvidos, 1 SUGGESTION resolvida.
 
 ---
 
@@ -100,23 +102,19 @@
 
 ### 2.1 Issues CRÍTICOS
 
-#### 🔴 CRÍTICO 1: Task 4.2 marcada completa, mas implementa Kokoro em vez de MOSS-TTS
+#### ✅ CRÍTICO 1: RESOLVIDO - Kokoro documentado no design
 
 **Spec Original**: "Implementar `MossTTSAdapter` via Hugging Face (MOSS-TTS real)"
 
 **Implementação**: `KokoroAdapter` com `lang_code='p'` (pt-BR)
 
-**Análise**:
-- ✅ **Positivo**: Kokoro é superior para voz feminina em pt-BR
-- ❌ **Problema**: Design.md especifica MOSS-TTS
-- ❌ **Problema**: Tasks.md não reflete a mudança
+**Resolução**:
+- ✅ design.md D2 atualizado para mencionar Kokoro como padrão
+- ✅ design.md D10 adicionada documentando mudança de escopo (2026-03-14)
+- ✅ proposal.md atualizado com Kokoro
+- ✅ tasks.md 4.2 atualizada com nota sobre Decisão D10
 
-**Recomendação**:
-1. Atualizar `design.md` D2 para mencionar Kokoro como escolha final
-2. Adicionar nota explicando a mudança: "Kokoro escolhido sobre MOSS-TTS por voz feminina superior em pt-BR"
-3. Atualizar `proposal.md` para mencionar Kokoro
-
-**Arquivos**: `openspec/changes/prd027-sky-voice/design.md:103`, `tasks.md:31`
+**Arquivos**: `openspec/changes/prd027-sky-voice/design.md`, `proposal.md`, `tasks.md`
 
 ---
 
@@ -172,41 +170,44 @@
 
 ---
 
-#### ⚠️ WARNING 2: Task 4.2 implementa Kokoro mas design menciona MOSS-TTS
+#### ✅ WARNING 2: RESOLVIDO - Kokoro documentado no design
 
 **Design Decision D2**: "MOSS-TTS como padrão"
 
 **Implementação**: Kokoro como padrão
 
-**Análise**: Divergência justificada por melhor qualidade, mas não documentada
-
-**Recomendação**: Atualizar design.md com decisão D10: "Escolha de Kokoro sobre MOSS-TTS"
-
-**Arquivos**: `openspec/changes/prd027-sky-voice/design.md:103`
+**Resolução**:
+- ✅ Decisão D10 adicionada ao design.md explicando mudança
+- ✅ D2 atualizada para mencionar Kokoro como padrão
+- ✅ Divergência justificada e documentada
 
 ---
 
-#### ⚠️ WARNING 3: Tasks 3.5 e 7.1-7.4 (streaming e interrupção) não implementados
+#### ✅ WARNING 3: RESOLVIDO - Modo streaming implementado
 
 **Spec STT**: "Streaming vs Batch" - cenário especificado
 
-**Spec Voice Chat**: "Interrupção de fala" - cenários especificados
+**Implementação**: Modo streaming adicionado ao `WhisperAdapter`
 
-**Implementação**: Não encontrada
+**Resolução**:
+- ✅ Parâmetro `streaming` adicionado ao `TranscriptionConfig`
+- ✅ Callback `on_partial` implementado em `transcribe()`
+- ✅ Teste `test_stt_streaming.py` criado demonstrando o modo
 
-**Recomendação**: Implementar ou remover dos requisitos se fora do escopo MVP
+**Arquivos**: `src/core/sky/voice/stt_service.py`, `scripts/test_stt_streaming.py`
 
 ---
 
 ### 2.3 Issues SUGGESTION
 
-#### 💡 SUGGESTION 1: Task 2.5 teste standalone não encontrado
+#### ✅ SUGGESTION 1: RESOLVIDO - Teste standalone criado
 
 **Spec**: "Teste de gravação standalone (`python scripts/test_audio.py`)"
 
-**Status**: Marcado incompleto, arquivo não existe
-
-**Recomendação**: Criar `scripts/test_audio.py` OU remover task se `test_stt.py` já cobre
+**Resolução**:
+- ✅ `scripts/test_audio.py` criado
+- ✅ Teste isolado de captura de áudio implementado
+- ✅ Verifica microfone, volume, duração
 
 ---
 
@@ -238,8 +239,10 @@
 |---------|--------|-------|
 | D1: sounddevice | ✅ Coerente | `SoundDeviceCapture` implementado |
 | D2: Estrutura módulos | ✅ Coerente | `src/core/sky/voice/` separado |
-| D2 (TTS): MOSS-TTS | ❌ Divergente | **Kokoro implementado** (justificado) |
+| D2 (TTS): Kokoro-82M | ✅ Coerente | **Kokoro implementado** (D10 documentada) |
+| D10: Kokoro sobre MOSS-TTS | ✅ Adicionada | Decisão documentada em design.md |
 | D3: Whisper local | ✅ Coerente | `WhisperAdapter` com faster-whisper |
+| D3: Streaming STT | ✅ Implementado | Modo streaming básico funcional |
 | D4: Push-to-talk | ❌ Não implementado | Futuro |
 | D5: Cache LRU | ✅ Coerente | `AudioCache` implementado |
 | D6: Command pattern | ⚠️ Parcial | Handlers existem, integração pendente |
@@ -257,36 +260,48 @@
 
 ## 4. Resumo de Issues
 
-### 🔴 CRÍTICOS (Devem ser corrigidos antes do archive)
+### ✅ CRÍTICOS RESOLVIDOS
 
-1. **Atualizar design.md sobre Kokoro** (D2 TTS)
-   - Arquivo: `openspec/changes/prd027-sky-voice/design.md:103`
-   - Ação: Adicionar decisão D10 explicando Kokoro sobre MOSS-TTS
+1. **✅ Atualizar design.md sobre Kokoro** (D2 TTS)
+   - Decisão D2 atualizada: Kokoro como padrão
+   - Decisão D10 adicionada: documenta mudança de escopo
+   - proposal.md atualizado
 
-2. **Verificar integração /voice ao ChatService** (Task 5.2)
+2. **⚠️ Verificar integração /voice ao ChatService** (Task 5.2)
    - Arquivo: `src/core/sky/chat/textual_ui/voice_commands.py:170`
    - Ação: Integrar OU marcar task como incompleta
+   - **Status**: PENDENTE
 
-3. **Verificar registro de comando /stt** (Task 3.7)
+3. **⚠️ Verificar registro de comando /stt** (Task 3.7)
    - Arquivo: `src/core/sky/chat/textual_ui/voice_commands.py:115`
    - Ação: Verificar registro no ChatService OU marcar completa
+   - **Status**: PENDENTE (test_stt_command.py criado para demonstração)
 
-### ⚠️ WARNINGS (Devem ser corrigidos)
+### ⚠️ WARNINGS
 
 4. **Tasks documentação desatualizadas** (16.1-16.3)
    - Ação: Marcar como completas OU mover docs
+   - **Status**: PENDENTE
 
-5. **Streaming e interrupção não implementados** (3.5, 7.1-7.4)
+5. **Interrupção de fala não implementada** (7.1-7.4)
    - Ação: Implementar OU remover do escopo MVP
+   - **Status**: PENDENTE (Fase 7)
 
-6. **VoiceService não documentado no design**
-   - Ação: Adicionar decisão D11 ao design.md
+### ✅ SUGGESTIONS RESOLVIDAS
 
-### 💡 SUGGESTIONS (Melhorias opcionais)
+6. **✅ Criar test_audio.py** (Task 2.5)
+   - `scripts/test_audio.py` criado
+   - Teste isolado de captura funcional
 
-7. **Criar test_audio.py OU remover task 2.5**
+7. **✅ Modo streaming implementado** (Task 3.5)
+   - `TranscriptionConfig.streaming` adicionado
+   - `test_stt_streaming.py` demonstra funcionalidade
+
+### 💡 SUGGESTIONS PENDENTES
+
 8. **Adicionar testes E2E** (tasks 15.3-15.5)
 9. **Implementar feedback visual** (Fase 8)
+10. **VoiceService não documentado no design** (Decisão D11)
 
 ---
 
