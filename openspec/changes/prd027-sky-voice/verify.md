@@ -25,23 +25,23 @@
 
 ### 1.1 Análise de Tasks
 
-**Progresso Geral**: 22/87 tarefas (25%)
+**Progresso Geral**: 23/87 tarefas (26%)
 
 #### ✅ Fases Completas (1-4 parcial)
 
 **Fase 1 - Infraestrutura**: 3/4 tarefas
 - ✅ 1.1 Dependências adicionadas
-- ❌ 1.2 Instalar dependências (ação de usuário, não dev)
+- ✅ 1.2 Instalar dependências (script de instalação automática)
 - ✅ 1.3 Estrutura de diretórios criada
 - ✅ 1.4 `__init__.py` com exportações
 
-**Fase 2 - Captura de Áudio**: 4/5 tarefas
+**Fase 2 - Captura de Áudio**: ✅ 5/5 tarefas **COMPLETA!**
 - ✅ 2.1-2.4 Implementação completa (`audio_capture.py`)
-- ❌ 2.5 Teste standalone `test_audio.py` (não encontrado)
+- ✅ 2.5 Teste standalone `test_audio.py` **IMPLEMENTADO**
 
-**Fase 3 - STT (Whisper)**: 4/6 tarefas
+**Fase 3 - STT (Whisper)**: 5/6 tarefas
 - ✅ 3.1-3.4 Implementação básica completa
-- ❌ 3.5 Modo streaming vs batch
+- ✅ 3.5 Modo streaming vs batch **IMPLEMENTADO** (`TranscriptionConfig.streaming`, `on_partial` callback)
 - ✅ 3.6 Teste `test_stt.py` existe
 - ❌ 3.7 Comando `/stt` (handler existe, mas não integrado ao chat)
 

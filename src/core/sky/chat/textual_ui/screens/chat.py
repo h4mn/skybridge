@@ -5,6 +5,7 @@ Screen principal do chat Sky.
 P1: Turn como entidade (TurnSeparator + ThinkingIndicator conectados).
 P3: Header com métricas dinâmicas após cada resposta.
 P4: Título gerado por LLM a cada 3 turnos completos.
+PRD027: Integração com comandos de voz (/voice, /tts, /stt).
 """
 
 import asyncio
@@ -29,6 +30,15 @@ from core.sky.chat.textual_ui.widgets.turn import Turn, ThinkingEntry
 # Integração com engine
 from core.sky.chat.claude_chat import ClaudeChatAdapter, ChatMessage, get_claude_model, StreamEvent, StreamEventType
 from core.sky.memory import get_memory
+
+# PRD027: Comandos de voz
+from core.sky.chat.textual_ui.commands import Command, CommandType
+from core.sky.chat.textual_ui.voice_commands import (
+    execute_stt_command,
+    execute_tts_command,
+    execute_voice_command,
+    get_voice_handler,
+)
 
 
 # =============================================================================
@@ -133,6 +143,7 @@ class ChatScreen(Screen):
         ("ctrl+l", "toggle_log", "Toggle Log"),
         ("ctrl+v", "ciclar_verbo", "Próximo Verbo"),
         ("ctrl+d", "open_devtools", "DevTools"),
+        ("escape", "deactivate_voice", "Sair modo voz"),
     ]
 
     def __init__(self, input: str):
@@ -153,6 +164,9 @@ class ChatScreen(Screen):
         self._total_tokens_out: int = 0
         self._last_latency_ms: float = 0.0
         self._total_memories_used: int = 0
+
+        # PRD027: Handler de comandos de voz
+        self._voice_handler = get_voice_handler()
 
     def compose(self) -> ComposeResult:
         yield ChatHeader()
@@ -221,6 +235,13 @@ class ChatScreen(Screen):
 
     def _abrir_turno_e_processar(self, mensagem: str) -> None:
         """Abre Turn no ChatScroll e dispara worker."""
+        # PRD027: Verifica se é comando de voz antes de processar
+        command = Command.parse(mensagem)
+        if command is not None:
+            self._handle_command(command)
+            return
+
+        # Processamento normal de mensagem
         scroll = self.query_one("#container", ChatScroll)
         self._turno_atual = scroll.iniciar_turno(mensagem)
         self._processar_mensagem(mensagem)
@@ -468,6 +489,171 @@ class ChatScreen(Screen):
             # Notifica o usuário
             log = self.query_one(ChatLog)
             log.evento("Turno cancelado", "Usuário cancelou o processamento")
+
+    # ------------------------------------------------------------------
+    # PRD027: Comandos de Voz
+    # ------------------------------------------------------------------
+
+    def action_deactivate_voice(self) -> None:
+        """Desativa modo voz (pressionar ESC)."""
+        if self._voice_handler.is_voice_active:
+            self._voice_handler.voice_mode_active = False
+            log = self.query_one(ChatLog)
+            log.evento("Modo voz", "Desativado via ESC")
+
+            # Mostra toast ao usuário
+            self._show_voice_message("🎙️ Modo voz desativado (ESC)")
+
+    async def _handle_command(self, command: Command) -> None:
+        """
+        Processa comandos especiais (/voice, /tts, /stt, etc).
+
+        Args:
+            command: Comando parseado
+        """
+        log = self.query_one(ChatLog)
+        log.evento("Comando detectado", f"{command.type.value}: {command.raw}")
+
+        if command.type == CommandType.STT:
+            await self._handle_stt_command(command.raw)
+        elif command.type == CommandType.TTS:
+            await self._handle_tts_command(command.raw)
+        elif command.type == CommandType.VOICE:
+            await self._handle_voice_mode_command(command.raw)
+        else:
+            # Outros comandos (help, new, etc) - processa normalmente
+            scroll = self.query_one("#container", ChatScroll)
+            self._turno_atual = scroll.iniciar_turno(command.raw)
+            await self._processar_mensagem(command.raw)
+
+    async def _handle_stt_command(self, raw_command: str) -> None:
+        """
+        Processa comando /stt [duração].
+
+        Grava áudio e transcreve, adicionando resultado ao chat.
+        """
+        # Extrai duração se especificada
+        parts = raw_command.split()
+        duration = 5.0  # padrão
+        if len(parts) > 1:
+            try:
+                duration = float(parts[1])
+            except ValueError:
+                duration = 5.0
+
+        # Mostra indicador de gravando
+        scroll = self.query_one("#container", ChatScroll)
+        turno = scroll.iniciar_turno(f"/stt {duration}s")
+        await turno.add_thinking_entry(ThinkingEntry(
+            type="info",
+            timestamp=datetime.now(),
+            content=f"🎤 Gravando por {duration}s... fale agora",
+        ))
+
+        try:
+            # Executa transcrição
+            result = await execute_stt_command(duration=duration)
+
+            # Atualiza turno com resultado
+            await turno.add_thinking_entry(ThinkingEntry(
+                type="success",
+                timestamp=datetime.now(),
+                content=result,
+            ))
+            log = self.query_one(ChatLog)
+            log.evento("STT concluído", result)
+
+        except Exception as e:
+            await turno.add_thinking_entry(ThinkingEntry(
+                type="error",
+                timestamp=datetime.now(),
+                content=f"❌ Erro na transcrição: {e}",
+            ))
+
+    async def _handle_tts_command(self, raw_command: str) -> None:
+        """
+        Processa comando /tts <texto>.
+
+        Fala o texto especificado e adiciona confirmação ao chat.
+        """
+        # Extrai texto para falar
+        text = raw_command[4:].strip()  # Remove "/tts"
+        if not text:
+            self._show_voice_message("💡 Uso: /tts <texto para falar>")
+            return
+
+        # Mostra indicador de processando
+        scroll = self.query_one("#container", ChatScroll)
+        turno = scroll.iniciar_turno(raw_command)
+        await turno.add_thinking_entry(ThinkingEntry(
+            type="info",
+            timestamp=datetime.now(),
+            content=f"🔊 Falando: \"{text}\"",
+        ))
+
+        try:
+            # Executa TTS
+            result = await execute_tts_command(text)
+
+            # Atualiza turno com resultado
+            await turno.add_thinking_entry(ThinkingEntry(
+                type="success",
+                timestamp=datetime.now(),
+                content=result,
+            ))
+            log = self.query_one(ChatLog)
+            log.evento("TTS concluído", text)
+
+        except Exception as e:
+            await turno.add_thinking_entry(ThinkingEntry(
+                type="error",
+                timestamp=datetime.now(),
+                content=f"❌ Erro na síntese: {e}",
+            ))
+
+    async def _handle_voice_mode_command(self, raw_command: str) -> None:
+        """
+        Processa comando /voice para ativar/desativar modo conversacional.
+
+        Modo voz permite conversar falando em vez de digitar.
+        """
+        is_active = await self._voice_handler.handle_voice_toggle()
+
+        if is_active:
+            self._show_voice_message(
+                "🎙️ **Modo Voz Ativado**\n\n"
+                "Pressione ESPAÇO para falar (push-to-talk)\n"
+                "Pressione ESC ou /voice para desativar"
+            )
+            log = self.query_one(ChatLog)
+            log.evento("Modo voz", "Ativado")
+        else:
+            self._show_voice_message("🎙️ Modo voz desativado.")
+            log = self.query_one(ChatLog)
+            log.evento("Modo voz", "Desativado")
+
+    def _show_voice_message(self, message: str) -> None:
+        """
+        Mostra mensagem de voz no chat como mensagem do sistema.
+
+        Args:
+            message: Mensagem para exibir
+        """
+        # Cria turno especial para mensagem de sistema
+        scroll = self.query_one("#container", ChatScroll)
+        turno = scroll.iniciar_turno("[SISTEMA]")
+
+        # Adiciona como thinking entry (não precisa de processamento)
+        from textual import work
+        @work(exclusive=True)
+        async def _show_message():
+            await turno.add_thinking_entry(ThinkingEntry(
+                type="info",
+                timestamp=datetime.now(),
+                content=message,
+            ))
+
+        _show_message()
 
 
 __all__ = ["ChatScreen"]

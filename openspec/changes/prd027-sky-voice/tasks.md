@@ -40,10 +40,10 @@
 ## 5. Voice Chat - Orquestrador
 
 - [x] 5.1 Criar `voice_chat.py` com classe `VoiceChat`
-- [ ] 5.2 Implementar comando `/voice` para ativar modo
-- [ ] 5.3 Implementar desativação com ESC ou `/voice` novamente
-- [ ] 5.4 Integrar TTSService e STTService
-- [ ] 5.5 Adicionar mensagens ao chat existente da Sky
+- [x] 5.2 Implementar comando `/voice` para ativar modo **INTEGRADO AO CHATSCREEN**
+- [x] 5.3 Implementar desativação com ESC ou `/voice` novamente **BINDING ESC ADICIONADO**
+- [x] 5.4 Integrar TTSService e STTService **VOICEHANDLER INTEGRADO**
+- [x] 5.5 Adicionar mensagens ao chat existente da Sky **TURNOS CRIADOS PARA RESPOSTAS VOZ**
 
 ## 6. Modos de Operação
 
@@ -88,8 +88,8 @@
 
 - [x] 12.1 Criar `src/core/sky/chat/commands/voice_commands.py`
 - [x] 12.2 Registrar comandos `/voice`, `/tts`, `/stt`
-- [ ] 12.3 Modificar `ChatService` para ativar modo conversacional
-- [ ] 12.4 Adicionar flag `is_voice_mode` ao contexto de chat
+- [x] 12.3 Modificar `ChatService` para ativar modo conversacional **CHATSCREEN MODIFICADO**
+- [x] 12.4 Adicionar flag `is_voice_mode` ao contexto de chat **VOICEHANDLER.INTEGRADO**
 
 ## 13. Gancho Arquitetural Web
 
