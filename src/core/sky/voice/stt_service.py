@@ -29,11 +29,13 @@ class TranscriptionConfig:
         language: Código do idioma (ex: "pt", "en", "auto" para detecção)
         model: Tamanho do modelo (tiny, base, small, medium, large)
         detect_language: Detectar idioma automaticamente
+        streaming: Modo streaming (retorna transcrições parciais)
     """
 
     language: str = "pt"
     model: str = "base"
     detect_language: bool = False
+    streaming: bool = False
 
 
 @dataclass
@@ -147,8 +149,18 @@ class WhisperAdapter(STTService):
         self,
         audio: AudioData,
         config: Optional[TranscriptionConfig] = None,
+        on_partial: Optional[Callable[[str], None]] = None,
     ) -> TranscriptionResult:
-        """Transcreve áudio para texto."""
+        """Transcreve áudio para texto.
+
+        Args:
+            audio: Áudio para transcrever
+            config: Configuração de transcrição
+            on_partial: Callback para transcrições parciais (modo streaming)
+
+        Returns:
+            TranscriptionResult com texto completo
+        """
         config = config or TranscriptionConfig()
         self._load_model()
 
@@ -165,6 +177,15 @@ class WhisperAdapter(STTService):
             language=language,
             beam_size=5,
         )
+
+        # Modo streaming: chama callback para cada segmento
+        if config.streaming and on_partial:
+            import asyncio
+            for segment in segments:
+                # Chama callback em thread separado para não bloquear
+                await asyncio.get_event_loop().run_in_executor(
+                    None, on_partial, segment.text
+                )
 
         # Combina todos os segmentos
         text_parts = []
