@@ -566,26 +566,42 @@ class KokoroAdapter(TTSService):
     - 'p' => Brazilian Portuguese 🇧🇷
     """
 
-    def __init__(self, voice: str = "af_heart", lang_code: str = "p"):
+    def __init__(self, voice: str = "af_heart", lang_code: str = "p", device: str = "auto", use_half_precision: bool = True):
         """Inicializa adapter Kokoro.
 
         Args:
             voice: Voz Kokoro ("af_heart" = feminina suave padrão)
             lang_code: Código do idioma ('p' = pt-BR padrão)
+            device: Dispositivo ('auto', 'cuda', 'cpu')
+            use_half_precision: Usar FP16 para acelerar (padrão True)
         """
         super().__init__(model=TTSModel.KOKORO)
         self.voice = voice
         self.lang_code = lang_code
+        self.device = device
+        self.use_half_precision = use_half_precision
         self._pipeline = None
 
     async def _load_model(self):
-        """Carrega pipeline Kokoro."""
+        """Carrega pipeline Kokoro com otimizações."""
         if self._pipeline is None:
             try:
                 from kokoro import KPipeline
+                import torch
 
-                # Carrega pipeline Kokoro com idioma configurado
-                self._pipeline = KPipeline(lang_code=self.lang_code)
+                # Detecta dispositivo automaticamente
+                device = self.device
+                if device == "auto":
+                    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+                print(f"  [Kokoro] Device: {device}, Half-precision: {self.use_half_precision}")
+
+                # Carrega pipeline Kokoro com otimizações
+                self._pipeline = KPipeline(
+                    lang_code=self.lang_code,
+                    device=device,
+                    model=self.use_half_precision  # half precision se disponível
+                )
 
             except ImportError as e:
                 raise ImportError(
