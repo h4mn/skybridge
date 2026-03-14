@@ -5,6 +5,8 @@ Este módulo implementa os comandos de voz:
 - /stt: Transcreve áudio do microfone
 - /tts <texto>: Fala o texto especificado
 - /voice: Ativa modo conversacional
+
+O handler usa lazy load para manter modelos em memória após primeira inicialização.
 """
 
 import asyncio
@@ -14,18 +16,22 @@ from typing import Optional
 # Adiciona src ao path para imports
 sys.path.insert(0, "src")
 
-from src.core.sky.voice.audio_capture import SoundDeviceCapture
-from src.core.sky.voice.stt_service import WhisperAdapter, TranscriptionConfig, TranscriptionResult
-from src.core.sky.voice.tts_service import MOSSTTSAdapter, VoiceConfig
+from core.sky.voice.audio_capture import SoundDeviceCapture
+from core.sky.voice.stt_service import WhisperAdapter, TranscriptionConfig
+from core.sky.voice.tts_service import KokoroAdapter, VoiceConfig
 
 
 class VoiceCommandHandler:
-    """Handler para comandos de voz no chat."""
+    """Handler para comandos de voz no chat.
+
+    Usa lazy load para inicializar modelos apenas na primeira use.
+    Após inicialização, modelos permanecem em memória para respostas rápidas.
+    """
 
     def __init__(self):
         """Inicializa handler de comandos de voz."""
         self.stt: Optional[WhisperAdapter] = None
-        self.tts: Optional[MOSSTTSAdapter] = None
+        self.tts: Optional[KokoroAdapter] = None
         self.voice_mode_active: bool = False
 
     def _ensure_stt(self) -> WhisperAdapter:
@@ -34,10 +40,11 @@ class VoiceCommandHandler:
             self.stt = WhisperAdapter(model_size="base", device="cpu")
         return self.stt
 
-    def _ensure_tts(self) -> MOSSTTSAdapter:
-        """Garante que TTS está inicializado (lazy load)."""
+    def _ensure_tts(self) -> KokoroAdapter:
+        """Garante que TTS está inicializado (lazy load - Kokoro pt-BR)."""
         if self.tts is None:
-            self.tts = MOSSTTSAdapter(voice="sky-female")
+            # Kokoro com voz feminina suave e português brasileiro
+            self.tts = KokoroAdapter(voice="af_heart", lang_code="p")
         return self.tts
 
     async def handle_stt(self, duration: float = 5.0) -> str:
@@ -140,6 +147,9 @@ async def execute_tts_command(text: str) -> str:
     """
     Executa comando /tts <texto>.
 
+    Usa Kokoro TTS com voz feminina suave em português brasileiro.
+    Após primeira chamada, modelo permanece em memória para respostas rápidas.
+
     Args:
         text: Texto para falar
 
@@ -152,10 +162,15 @@ async def execute_tts_command(text: str) -> str:
     handler = get_voice_handler()
 
     try:
+        import time
+        start = time.perf_counter()
+
         await handler.handle_tts(text)
-        return f"🔊 Falando: \"{text}\""
+
+        elapsed = time.perf_counter() - start
+        return f"🔊 Kokoro: \"{text}\"\n⏱️ {elapsed*1000:.0f}ms"
     except ImportError as e:
-        return f"❌ Erro: {e}\n💡 Instale: pip install sounddevice"
+        return f"❌ Erro: {e}\n💡 Instale: pip install kokoro sounddevice"
     except Exception as e:
         return f"❌ Erro na síntese: {e}"
 
