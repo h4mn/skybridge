@@ -116,12 +116,12 @@ class WhisperAdapter(STTService):
     com suporte a múltiplos idiomas, incluindo PT-BR.
     """
 
-    def __init__(self, model_size: str = "medium", device: str = "cpu"):
+    def __init__(self, model_size: str = "base", device: str = "cpu"):
         """Inicializa adapter Whisper.
 
         Args:
             model_size: Tamanho do modelo (tiny, base, small, medium, large)
-                       CORREÇÃO: "medium" é o mínimo aceitável para PT-BR ("base" alucina muito)
+                       TESTE: "base" para qualidade vs desempenho (PT-BR pode alucinar)
             device: Dispositivo de execução (cpu, cuda)
         """
         super().__init__(model=STTModel.WHISPER_LOCAL)
