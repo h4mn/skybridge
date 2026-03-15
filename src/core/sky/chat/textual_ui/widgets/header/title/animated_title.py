@@ -11,10 +11,10 @@ from textual.events import Message
 from textual.widget import Widget
 from textual.widgets import Static
 
-from core.sky.chat.textual_ui.widgets.animated_verb import AnimatedVerb, EstadoLLM
+from core.sky.chat.textual_ui.widgets.header.animated_verb import AnimatedVerb, EstadoLLM
 
 if TYPE_CHECKING:
-    from core.sky.chat.textual_ui.widgets.title_history import TitleHistory
+    from core.sky.chat.textual_ui.widgets.header.title.history import TitleHistory
 
 
 def _largura_visivel(markup: str) -> int:

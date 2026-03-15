@@ -12,10 +12,10 @@ from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Static
 
-from core.sky.chat.textual_ui.widgets.title import AnimatedTitle, TitleStatic
-from core.sky.chat.textual_ui.widgets.context_bar import ContextBar
-from core.sky.chat.textual_ui.widgets.animated_verb import EstadoLLM
-from core.sky.chat.textual_ui.widgets.title_history import TitleHistory
+from core.sky.chat.textual_ui.widgets.header.title.animated_title import AnimatedTitle, TitleStatic
+from core.sky.chat.textual_ui.widgets.header.context_bar import ContextBar
+from core.sky.chat.textual_ui.widgets.header.animated_verb import EstadoLLM
+from core.sky.chat.textual_ui.widgets.header.title.history import TitleHistory
 
 
 class ChatHeader(Widget):
@@ -142,7 +142,7 @@ class ChatHeader(Widget):
 
         Abre o diálogo de histórico com todos os estados acumulados.
         """
-        from core.sky.chat.textual_ui.widgets.title_history_dialog import TitleHistoryDialog
+        from core.sky.chat.textual_ui.widgets.header.title.history_dialog import TitleHistoryDialog
         self.app.push_screen(TitleHistoryDialog(self._title_history))
 
 

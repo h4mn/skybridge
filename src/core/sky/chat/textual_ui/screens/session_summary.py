@@ -13,7 +13,7 @@ from textual.screen import Screen
 from textual.widgets import DataTable, Header, Footer, Static
 
 if TYPE_CHECKING:
-    from core.sky.chat.textual_ui.widgets.title_history import TitleHistory
+    from core.sky.chat.textual_ui.widgets.header.title.history import TitleHistory
 
 
 class SessionSummaryScreen(Screen):

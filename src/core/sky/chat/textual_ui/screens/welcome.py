@@ -11,7 +11,7 @@ from textual.screen import Screen
 from textual.widgets import Static, Footer
 
 from core.sky.chat.textual_ui.widgets import ChatTextArea
-from core.sky.chat.textual_ui.widgets.animated_verb import (
+from core.sky.chat.textual_ui.widgets.header.animated_verb import (
     _PALETAS, _PALETA_FALLBACK, _lerp_cor,
 )
 from core.sky.chat.textual_ui.widgets.recording_mixin import RecordingToggleMixin

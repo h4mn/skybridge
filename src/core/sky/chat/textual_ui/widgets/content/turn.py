@@ -34,8 +34,10 @@ from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Static
 
-from core.sky.chat.textual_ui.widgets.bubbles import SkyBubble, UserBubble
-from core.sky.chat.textual_ui.widgets.thinking import ThinkingIndicator, ThinkingPanel, ToolCallWidget
+from core.sky.chat.textual_ui.widgets.bubbles.sky_bubble import SkyBubble, ActionBar
+from core.sky.chat.textual_ui.widgets.bubbles.user_bubble import UserBubble
+from core.sky.chat.textual_ui.widgets.content.thinking import ThinkingIndicator, ThinkingPanel
+from core.sky.chat.textual_ui.widgets.content.agentic_loop.tool_call import ToolCallWidget
 
 # Type hints
 if TYPE_CHECKING:
@@ -304,7 +306,7 @@ class Turn(Widget):
         if hasattr(self, "_agentic_loop_panel") and self._agentic_loop_panel is not None:
             return
 
-        from core.sky.chat.textual_ui.widgets.thinking import AgenticLoopPanel
+        from core.sky.chat.textual_ui.widgets.content.agentic_loop.panel import AgenticLoopPanel
 
         # Remove ThinkingIndicator do Turn - o AgenticLoopPanel tem o seu próprio
         try:
@@ -431,7 +433,7 @@ class Turn(Widget):
                 self.post_message(ChatRetry(self._user_message))
 
             # Monta aActionBar FORA do SkyBubble, logo após ele
-            from core.sky.chat.textual_ui.widgets.bubbles import ActionBar
+            from core.sky.chat.textual_ui.widgets.bubbles.sky_bubble import ActionBar
             self.mount(ActionBar(on_copy=None, on_retry=retry_callback, retry_enabled=True))
 
     # ------------------------------------------------------------------

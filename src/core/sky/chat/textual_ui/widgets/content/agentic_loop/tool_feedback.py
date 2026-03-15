@@ -88,7 +88,7 @@ class ToolFeedback(Horizontal):
             error: Mensagem de erro.
         """
         # Obtém a screen atual para montar o Toast
-        from core.sky.chat.textual_ui.widgets.toast import ToastNotification
+        from core.sky.chat.textual_ui.widgets.common.toast import ToastNotification
 
         app = self.app
         if app and app.screen:

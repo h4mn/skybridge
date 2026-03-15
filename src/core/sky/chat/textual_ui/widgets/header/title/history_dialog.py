@@ -10,7 +10,7 @@ from textual.screen import ModalScreen
 from textual.widgets import ListView, ListItem, Static
 from textual.containers import Vertical
 
-from core.sky.chat.textual_ui.widgets.title_history import TitleHistory, TitleEntry
+from core.sky.chat.textual_ui.widgets.header.title.history import TitleHistory, TitleEntry
 
 
 class HistoryEntryItem(ListItem):

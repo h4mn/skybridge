@@ -21,7 +21,7 @@ from textual.reactive import reactive
 from textual.widgets import Collapsible, Static, Label, Markdown
 
 if TYPE_CHECKING:
-    from core.sky.chat.textual_ui.widgets.turn import ThinkingEntry
+    from core.sky.chat.textual_ui.widgets.content.turn import ThinkingEntry
 
 
 # ---------------------------------------------------------------------------

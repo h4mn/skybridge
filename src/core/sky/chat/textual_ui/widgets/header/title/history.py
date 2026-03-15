@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from collections import Counter
 
-from .animated_verb import EstadoLLM
+from ..animated_verb import EstadoLLM
 
 
 @dataclass

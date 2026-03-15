@@ -15,11 +15,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Runtime - infraestrutura
+from runtime.observability import get_logger, RuntimeLoggerAdapter
+
+# Domínio - com logger injetado
 from src.core.sky.memory.collections import (
     CollectionConfig,
     CollectionManager,
     SourceType,
-    get_collection_manager,
     DEFAULT_COLLECTIONS,
 )
 from src.core.sky.memory.vector_store import VectorStore
@@ -167,8 +170,12 @@ def main():
 ╚════════════════════════════════════════════════════════════╝
     """)
 
-    # Obter gerenciador
-    manager = get_collection_manager()
+    # Criar logger e adapter
+    runtime_logger = get_logger("demo.collections")
+    sky_logger = RuntimeLoggerAdapter(runtime_logger)
+
+    # Obter gerenciador com logger injetado
+    manager = CollectionManager(logger=sky_logger)
 
     # Executar demos
     demo_list_collections(manager)

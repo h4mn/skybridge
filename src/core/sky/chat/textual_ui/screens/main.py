@@ -24,8 +24,8 @@ from core.sky.chat.textual_ui.widgets import (
 )
 from core.sky.chat.textual_ui.widgets.header import ChatHeader
 from core.sky.chat.logging import ChatLogger
-from core.sky.chat.textual_ui.widgets.animated_verb import AnimatedVerb, EstadoLLM, conjugar_passado
-from core.sky.chat.textual_ui.widgets.turn import Turn, ThinkingEntry
+from core.sky.chat.textual_ui.widgets.header.animated_verb import AnimatedVerb, EstadoLLM, conjugar_passado
+from core.sky.chat.textual_ui.widgets.content.turn import Turn, ThinkingEntry
 from core.sky.chat.textual_ui.widgets.recording_mixin import RecordingToggleMixin
 
 # Integração com engine
@@ -132,7 +132,7 @@ Histórico:
 """
 
 
-class ChatScreen(RecordingToggleMixin, Screen):
+class MainScreen(RecordingToggleMixin, Screen):
     """
     Screen principal do chat Sky.
 
@@ -677,7 +677,7 @@ class ChatScreen(RecordingToggleMixin, Screen):
 
         Substitui EstadoModal pelo diálogo de histórico completo.
         """
-        from core.sky.chat.textual_ui.widgets.title_history_dialog import TitleHistoryDialog
+        from core.sky.chat.textual_ui.widgets.header.title.history_dialog import TitleHistoryDialog
         header = self.query_one(ChatHeader)
         self.app.push_screen(TitleHistoryDialog(header._title_history))
 
@@ -845,4 +845,4 @@ class ChatScreen(RecordingToggleMixin, Screen):
         self._update_placeholder("Digite algo... (Ctrl+S para gravar)")
 
 
-__all__ = ["ChatScreen"]
+__all__ = ["MainScreen"]

@@ -15,7 +15,7 @@ compatibilidade com código de teste, mas não cria Turn.
 from textual.containers import VerticalScroll
 from textual.widgets import Static
 
-from core.sky.chat.textual_ui.widgets.turn import Turn
+from core.sky.chat.textual_ui.widgets.content.turn import Turn
 
 
 class ChatScroll(VerticalScroll):
@@ -54,7 +54,7 @@ class ChatScroll(VerticalScroll):
 
         Prefer: iniciar_turno() para o fluxo novo.
         """
-        from core.sky.chat.textual_ui.widgets.bubbles import UserBubble
+        from core.sky.chat.textual_ui.widgets.bubbles.user_bubble import UserBubble
         bubble = UserBubble(texto)
         self.mount(bubble)
         self.call_later(self.scroll_end)
@@ -65,7 +65,7 @@ class ChatScroll(VerticalScroll):
 
         Prefer: turn.set_response() para o fluxo novo.
         """
-        from core.sky.chat.textual_ui.widgets.bubbles import SkyBubble
+        from core.sky.chat.textual_ui.widgets.bubbles.sky_bubble import SkyBubble
         bubble = SkyBubble(texto)
         self.mount(bubble)
         self.call_later(self.scroll_end)
