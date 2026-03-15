@@ -641,15 +641,14 @@ class ChatScreen(RecordingToggleMixin, Screen):
                 log.warning(f"Erro ao falar: {e}")
 
     def _clean_text_for_speech(self, text: str) -> str:
-        """Remove APENAS markdown inline. Mantém blocos de código e tudo mais."""
-        import re
+        """Remove formatação markdown para fala natural.
 
-        # Remove APENAS markdown inline, mantém blocos de código
-        text = re.sub(r'`([^`]+)`', r'\1', text)
-        text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
-        text = re.sub(r'\*([^*]+)\*', r'\1', text)
+        Usa core.sky.text.strip_for_tts (lib interna estável).
+        Remove blocos de código, bold, italic, headers, links, etc.
+        """
+        from core.sky.text import strip_for_tts
 
-        return text.strip()
+        return strip_for_tts(text, remove_code_blocks=True)
 
     # ------------------------------------------------------------------
     # Actions
