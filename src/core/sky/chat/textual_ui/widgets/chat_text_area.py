@@ -79,7 +79,7 @@ class ChatTextArea(TextArea):
 
         try:
             # Importa VoiceService (tem record_and_transcribe)
-            from core.sky.chat.textual_ui.voice_commands import get_voice_handler
+            from core.sky.chat.commands.voice_commands import get_voice_handler
 
             # Usa VoiceHandler para gravar e transcrever
             handler = get_voice_handler()

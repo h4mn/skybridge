@@ -35,7 +35,7 @@ from core.sky.memory import get_memory
 # PRD027: Comandos de voz (/tts, /voice)
 # NOTA: /stt é processado pelo ChatTextArea (transcrição → texto normal)
 from core.sky.chat.textual_ui.commands import Command, CommandType
-from core.sky.chat.textual_ui.voice_commands import (
+from core.sky.chat.commands.voice_commands import (
     execute_tts_command,
     execute_tts_toggle_command,
     execute_voice_command,
