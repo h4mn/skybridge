@@ -2,13 +2,19 @@
 """
 Script de inicialização do Sky Chat Textual UI.
 
-Idêntico à POC: usa SkyApp com CSS_PATH relativo ao módulo.
+Usa bootstrap com barra de progresso para carregar componentes.
 """
 
 import os
 import sys
+import time
 from pathlib import Path
-from core.sky.chat.textual_ui import SkyApp
+
+# MARK: Cold Start Timer - INÍCIO ABSOLUTO
+_COLD_START_START = time.perf_counter()
+
+# MARK: Feedback IMEDIATO (print simples antes de Rich)
+print("Carregando Sky Chat...", flush=True, end='')
 
 # Adiciona src ao path
 project_root = Path(__file__).parent.parent
@@ -29,7 +35,9 @@ try:
 except ImportError:
     pass
 
-# Executa o app Textual - usa SkyApp do __init__.py
+# Executa o app Textual via bootstrap
 if __name__ == "__main__":
-    app = SkyApp()
+    from core.sky.bootstrap import bootstrap
+
+    app = bootstrap.run(cold_start_start=_COLD_START_START, initial_print_done=True)
     app.run(mouse=True)  # Mouse habilitado para melhor UX
