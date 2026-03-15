@@ -102,7 +102,7 @@ class VoiceService:
                         start = time.perf_counter()
 
                         self._stt = WhisperAdapter(
-                            model_size="base",
+                            model_size="medium",  # CORREÇÃO: "medium" é mínimo aceitável para PT-BR
                             device="cpu"
                         )
 

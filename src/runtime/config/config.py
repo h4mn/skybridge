@@ -133,6 +133,39 @@ class TrelloConfig:
         return bool(self.api_key and self.api_token and self.board_id)
 
 
+@dataclass(frozen=True)
+class VoiceConfig:
+    """
+    Configuração de voz (PRD027).
+
+    Environment Variables:
+        VOICE_MODE: Modo de operação de voz ("push-to-talk" ou "always-on")
+        VOICE_SOUNDS: Ativar sons de feedback (bips) - true/false
+        VOICE_TIMEOUT: Timeout de silêncio para modo always-on (segundos)
+        VOICE_LANGUAGE: Idioma padrão para STT ("pt", "en", "es", etc.)
+
+    Example:
+        export VOICE_MODE="push-to-talk"
+        export VOICE_SOUNDS="true"
+        export VOICE_TIMEOUT="60"
+        export VOICE_LANGUAGE="pt"
+    """
+    mode: str = "push-to-talk"  # "push-to-talk" ou "always-on"
+    sounds_enabled: bool = True  # Sons de feedback (bips)
+    timeout_seconds: int = 60  # Timeout de silêncio (always-on)
+    language: str = "pt"  # Idioma padrão para STT
+
+    @property
+    def is_push_to_talk(self) -> bool:
+        """Verifica se o modo é push-to-talk."""
+        return self.mode == "push-to-talk"
+
+    @property
+    def is_always_on(self) -> bool:
+        """Verifica se o modo é always-on."""
+        return self.mode == "always-on"
+
+
 @dataclass
 class TrelloKanbanListsConfig:
     """
@@ -485,6 +518,16 @@ def load_trello_config() -> TrelloConfig:
     )
 
 
+def load_voice_config() -> VoiceConfig:
+    """Carrega configuração de voz (PRD027)."""
+    return VoiceConfig(
+        mode=os.getenv("VOICE_MODE", "push-to-talk"),
+        sounds_enabled=_env_bool("VOICE_SOUNDS", True),
+        timeout_seconds=int(os.getenv("VOICE_TIMEOUT", "60")),
+        language=os.getenv("VOICE_LANGUAGE", "pt"),
+    )
+
+
 # Config global
 _config: AppConfig | None = None
 _ssl_config: SslConfig | None = None
@@ -495,6 +538,7 @@ _security_config: SecurityConfig | None = None
 _webhook_config: WebhookConfig | None = None
 _agent_config: AgentConfig | None = None
 _trello_config: TrelloConfig | None = None
+_voice_config: VoiceConfig | None = None
 
 
 def get_config() -> AppConfig:
@@ -567,6 +611,14 @@ def get_trello_config() -> TrelloConfig:
     if _trello_config is None:
         _trello_config = load_trello_config()
     return _trello_config
+
+
+def get_voice_config() -> VoiceConfig:
+    """Retorna configuração de voz (singleton) - PRD027."""
+    global _voice_config
+    if _voice_config is None:
+        _voice_config = load_voice_config()
+    return _voice_config
 
 
 # ============================================================================

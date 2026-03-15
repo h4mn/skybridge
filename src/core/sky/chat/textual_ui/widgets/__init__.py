@@ -46,6 +46,7 @@ from core.sky.chat.textual_ui.widgets.turn import (
     TurnSeparator,
     ThinkingEntry,
 )
+from core.sky.chat.textual_ui.widgets.recording_mixin import RecordingToggleMixin
 
 __all__ = [
     # Original
@@ -92,4 +93,6 @@ __all__ = [
     "TurnSeparator",
     # Turn internals
     "ThinkingEntry",
+    # PRD027: Gravação toggle
+    "RecordingToggleMixin",
 ]

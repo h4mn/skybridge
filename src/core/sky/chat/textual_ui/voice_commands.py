@@ -35,6 +35,7 @@ class VoiceCommandHandler:
     def __init__(self):
         """Inicializa handler de comandos de voz."""
         self.voice_mode_active: bool = False
+        self.tts_responses: bool = True  # Flag para TTS progressivo nas respostas (padrão: ativo)
         self._voice_service = get_voice_service()
 
     async def handle_stt(self, duration: float = 5.0) -> str:
@@ -76,6 +77,22 @@ class VoiceCommandHandler:
         """
         self.voice_mode_active = not self.voice_mode_active
         return self.voice_mode_active
+
+    async def handle_tts_toggle(self, state: bool | None = None) -> bool:
+        """
+        Alterna TTS progressivo nas respostas.
+
+        Args:
+            state: True para ativar, False para desativar, None para toggle
+
+        Returns:
+            Novo estado do TTS progressivo (True=ativo)
+        """
+        if state is None:
+            self.tts_responses = not self.tts_responses
+        else:
+            self.tts_responses = state
+        return self.tts_responses
 
     @property
     def is_voice_active(self) -> bool:
@@ -171,10 +188,41 @@ async def execute_voice_command() -> str:
         return "🎙️ Modo voz desativado."
 
 
+async def execute_tts_toggle_command(arg: str = "") -> str:
+    """
+    Executa comando /tts on|off.
+
+    Ativa ou desativa TTS progressivo nas respostas do chat.
+
+    Args:
+        arg: Argumento do comando ("on", "off" ou vazio para toggle)
+
+    Returns:
+        Mensagem de resultado para exibir no chat
+    """
+    handler = get_voice_handler()
+
+    # Determina estado desejado
+    state: bool | None = None
+    if arg.lower() == "on":
+        state = True
+    elif arg.lower() == "off":
+        state = False
+    # Se vazio ou outro valor, é toggle (state=None)
+
+    is_active = await handler.handle_tts_toggle(state)
+
+    if is_active:
+        return "🔊 **TTS Progressivo Ativado**\n\nA Sky falará as respostas em tempo real conforme forem geradas."
+    else:
+        return "🔇 TTS progressivo desativado."
+
+
 __all__ = [
     "VoiceCommandHandler",
     "get_voice_handler",
     "execute_stt_command",
     "execute_tts_command",
+    "execute_tts_toggle_command",
     "execute_voice_command",
 ]

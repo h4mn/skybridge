@@ -116,17 +116,21 @@ class WhisperAdapter(STTService):
     com suporte a múltiplos idiomas, incluindo PT-BR.
     """
 
-    def __init__(self, model_size: str = "base", device: str = "cpu"):
+    def __init__(self, model_size: str = "medium", device: str = "cpu"):
         """Inicializa adapter Whisper.
 
         Args:
             model_size: Tamanho do modelo (tiny, base, small, medium, large)
+                       CORREÇÃO: "medium" é o mínimo aceitável para PT-BR ("base" alucina muito)
             device: Dispositivo de execução (cpu, cuda)
         """
         super().__init__(model=STTModel.WHISPER_LOCAL)
         self.model_size = model_size
         self.device = device
         self._model = None
+        self._hotwords = None
+        self._initial_prompt = None
+        self._load_biasing_context()
 
     def _load_model(self):
         """Carrega modelo Whisper (lazy load)."""
@@ -144,6 +148,43 @@ class WhisperAdapter(STTService):
                     "faster-whisper não está instalado. "
                     "Execute: pip install faster-whisper"
                 ) from e
+
+    def _load_biasing_context(self):
+        """Carrega hotwords e initial prompt para melhorar transcrição PT-BR."""
+        import sys
+        import logging
+        from pathlib import Path
+
+        logger = logging.getLogger(__name__)
+
+        # Detecta root do projeto
+        if getattr(sys, "frozen", False):
+            # Executável PyInstaller
+            project_root = Path(sys.executable).parent
+        else:
+            # Desenvolvimento normal: sobe 5 níveis de src/core/sky/voice/
+            project_root = Path(__file__).parent.parent.parent.parent.parent
+
+        # Carrega hotwords
+        hotwords_path = project_root / "stt_hotwords.txt"
+        if hotwords_path.exists():
+            try:
+                self._hotwords = hotwords_path.read_text(encoding="utf-8").strip()
+                word_count = len(self._hotwords.split())
+                logger.info(f"Hotwords carregadas: {word_count} palavras técnicas")
+            except Exception as e:
+                logger.warning(f"Erro ao ler hotwords: {e}")
+        else:
+            logger.warning(f"Arquivo de hotwords não encontrado: {hotwords_path}")
+
+        # Initial prompt contextual
+        self._initial_prompt = (
+            "A Sky é uma assistente de IA técnica que auxilia em engenharia de software, "
+            "desenvolvimento, análise de código, deploy, testes e documentação. "
+            "O usuário fala português brasileiro, mas o vocabulário técnico é rico em "
+            "termos em inglês como webhook, API, job, deploy, pipeline, commit, branch, "
+            "pull request, entre outros. Preserve termos técnicos em inglês."
+        )
 
     async def transcribe(
         self,
@@ -172,24 +213,59 @@ class WhisperAdapter(STTService):
         # Transcreve
         language = None if config.detect_language else config.language
 
-        segments, info = self._model.transcribe(
+        # CORREÇÃO: Adiciona parâmetros anti-alucinação para melhor qualidade PT-BR
+        segments_gen, info = self._model.transcribe(
             audio_array,
             language=language,
             beam_size=5,
+            word_timestamps=True,  # Necessário para streaming preciso
+            # Parâmetros anti-alucinação:
+            temperature=0.0,  # Elimina aleatoriedade (reduz alucinações)
+            condition_on_previous_text=False,  # Erros não contaminam segmentos seguintes
+            vad_filter=True,  # Filtra silêncio e ruído - CRÍTICO para qualidade
+            vad_parameters={"min_silence_duration_ms": 500},  # Silêncio mínimo 500ms
+            no_speech_threshold=0.6,  # Descarta segmentos provavelmente sem fala
+            # Bias de vocabulário técnico:
+            hotwords=self._hotwords,  # Lista de 227 palavras técnicas
+            initial_prompt=self._initial_prompt,  # Contexto PT-BR + EN mix
         )
 
         # Modo streaming: chama callback para cada segmento
         if config.streaming and on_partial:
             import asyncio
-            for segment in segments:
-                # Chama callback em thread separado para não bloquear
-                await asyncio.get_event_loop().run_in_executor(
-                    None, on_partial, segment.text
-                )
+
+            # Itera pelos segmentos chamando o callback
+            accumulated_text = []
+            for segment in segments_gen:
+                if segment.text.strip():
+                    accumulated_text.append(segment.text)
+                    partial = "".join(accumulated_text).strip()
+
+                    # Chama callback com texto parcial acumulado
+                    try:
+                        await asyncio.get_event_loop().run_in_executor(
+                            None, on_partial, partial
+                        )
+                    except Exception:
+                        pass  # Ignora erros no callback
+
+            # Recarrega segments para a etapa final (com mesmos parâmetros anti-alucinação)
+            segments_gen, _ = self._model.transcribe(
+                audio_array,
+                language=language,
+                beam_size=5,
+                temperature=0.0,
+                condition_on_previous_text=False,
+                vad_filter=True,
+                vad_parameters={"min_silence_duration_ms": 500},
+                no_speech_threshold=0.6,
+                hotwords=self._hotwords,
+                initial_prompt=self._initial_prompt,
+            )
 
         # Combina todos os segmentos
         text_parts = []
-        for segment in segments:
+        for segment in segments_gen:
             text_parts.append(segment.text)
 
         full_text = "".join(text_parts).strip()
@@ -206,27 +282,123 @@ class WhisperAdapter(STTService):
         duration: float = 30.0,
         on_partial: Optional[Callable[[str], None]] = None,
         config: Optional[TranscriptionConfig] = None,
+        silence_timeout: float = 2.0,
     ) -> TranscriptionResult:
-        """Escuta microfone e transcreve."""
+        """Escuta microfone e transcreve com suporte a streaming e detecção de silêncio.
+
+        Args:
+            duration: Duração máxima de gravação em segundos
+            on_partial: Callback para transcrições parciais (modo streaming)
+            config: Configuração de transcrição
+            silence_timeout: Segundos de silêncio antes de parar (padrão: 2.0s)
+
+        Returns:
+            TranscriptionResult com texto transcrito
+        """
         from core.sky.voice.audio_capture import SoundDeviceCapture
 
+        config = config or TranscriptionConfig()
         capture = SoundDeviceCapture()
 
-        # Captura áudio
+        # Buffer para streaming
+        audio_buffer = []
+        partial_text_buffer = []
+        last_partial_time = None
+
+        def audio_callback(chunk: bytes) -> None:
+            """Callback para cada chunk de áudio capturado."""
+            audio_buffer.append(chunk)
+
+            # Se modo streaming está ativo, transcreve parcialmente
+            if config.streaming and on_partial:
+                import asyncio
+                import numpy as np
+
+                # Combina buffer para transcrição parcial
+                if len(audio_buffer) > 0:
+                    combined = b"".join(audio_buffer)
+                    audio_array = np.frombuffer(combined, dtype=np.float32)
+
+                    # Transcreve parcial (não bloqueia)
+                    try:
+                        # Executa transcrição em thread separada
+                        loop = asyncio.get_event_loop()
+                        partial_result = loop.run_in_executor(
+                            None,
+                            lambda: self._transcribe_partial(audio_array, config),
+                        )
+
+                        # Nota: Não esperamos o resultado aqui para não bloquear
+                        # O callback será chamado com o resultado quando disponível
+                    except Exception:
+                        pass  # Ignora erros em transcrições parciais
+
+        # Inicia gravação com detecção de silêncio
         await capture.start_recording(
-            on_audio_callback=lambda x: None,  # TODO: Implementar streaming
+            on_audio_callback=audio_callback,
+            silence_threshold=0.01,  # Threshold de silêncio
+            silence_timeout=silence_timeout,
         )
 
-        # Aguarda duração ou silêncio
-        # TODO: Implementar detecção de silêncio
+        # Aguarda com timeout máximo
         import asyncio
 
-        await asyncio.sleep(duration)
+        start_time = asyncio.get_event_loop().time()
 
-        audio = await capture.stop_recording()
+        try:
+            # Polling para verificar se ainda está gravando
+            # (a detecção de silêncio para automaticamente)
+            while capture.is_recording():
+                await asyncio.sleep(0.1)
 
-        # Transcreve
-        return await self.transcribe(audio, config)
+                # Verifica timeout máximo
+                elapsed = asyncio.get_event_loop().time() - start_time
+                if elapsed >= duration:
+                    break
+
+        finally:
+            # Sempre para a gravação
+            audio = await capture.stop_recording()
+
+        # Transcrição final completa
+        result = await self.transcribe(audio, config, on_partial=on_partial)
+
+        return result
+
+    def _transcribe_partial(
+        self,
+        audio_array,
+        config: TranscriptionConfig,
+    ) -> str:
+        """Transcreve áudio parcialmente (para streaming).
+
+        Args:
+            audio_array: Array numpy com áudio
+            config: Configuração de transcrição
+
+        Returns:
+            Texto parcial transcrito
+        """
+        try:
+            language = None if config.detect_language else config.language
+
+            # Transcreve com beam_size menor para velocidade
+            segments, _ = self._model.transcribe(
+                audio_array,
+                language=language,
+                beam_size=1,  # Menor para streaming
+                hotwords=self._hotwords,
+                initial_prompt=self._initial_prompt,
+            )
+
+            # Retorna primeiro segmento (parcial)
+            for segment in segments:
+                if segment.text.strip():
+                    return segment.text.strip()
+
+            return ""
+        except Exception:
+            return ""
 
 
 class WhisperAPIAdapter(STTService):

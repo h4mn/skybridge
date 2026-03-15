@@ -40,8 +40,8 @@ class AudioData:
         """Calcula duração se não fornecida."""
         if self.duration == 0.0 and self.sample_rate > 0:
             # Duração = bytes / (sample_rate * channels * bytes_per_sample)
-            # Assumindo 16-bit (2 bytes por sample)
-            bytes_per_second = self.sample_rate * self.channels * 2
+            # CORREÇÃO: Áudio é float32 (4 bytes por sample), não int16
+            bytes_per_second = self.sample_rate * self.channels * 4
             self.duration = len(self.samples) / bytes_per_second
 
 
@@ -133,6 +133,7 @@ class SoundDeviceCapture(AudioCapture):
         self._silence_timeout = 2.0
         self._silence_frames = 0
         self._recording_active = False  # Flag para controlar callback
+        self._max_silence_frames = 0  # Calculado em start_recording
         self._import_sd()
 
     def _import_sd(self):
@@ -163,6 +164,9 @@ class SoundDeviceCapture(AudioCapture):
         self._recording_active = True  # Flag para bloquear callback após stop
         self.state = AudioState.RECORDING
 
+        # CORREÇÃO: Calcula máximo de frames de silêncio antes de parar
+        self._max_silence_frames = int(self._silence_timeout * self.sample_rate)
+
         def callback(indata, frames, time, status):
             """Callback interno do sounddevice."""
             # IMPORTANTE: Verifica se ainda estamos gravando
@@ -181,6 +185,11 @@ class SoundDeviceCapture(AudioCapture):
                 self._silence_frames += frames
             else:
                 self._silence_frames = 0
+
+            # CORREÇÃO: Para gravação se silêncio exceder timeout
+            if self._silence_frames >= self._max_silence_frames:
+                self._recording_active = False
+                return
 
             # Armazena frame
             audio_bytes = indata.tobytes()

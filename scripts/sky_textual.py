@@ -32,4 +32,4 @@ except ImportError:
 # Executa o app Textual - usa SkyApp do __init__.py
 if __name__ == "__main__":
     app = SkyApp()
-    app.run()
+    app.run(mouse=True)  # Mouse habilitado para melhor UX

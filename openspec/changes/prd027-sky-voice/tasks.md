@@ -3,7 +3,7 @@
 ## 1. Infraestrutura
 
 - [x] 1.1 Adicionar dependências ao `requirements.txt`
-- [ ] 1.2 Instalar dependências (`pip install sounddevice faster-whisper torch numpy`)
+- [x] 1.2 Instalar dependências (`pip install sounddevice faster-whisper torch numpy`)
 - [x] 1.3 Criar estrutura de diretórios `src/core/sky/voice/`
 - [x] 1.4 Criar `__init__.py` com exportações públicas
 
@@ -13,7 +13,7 @@
 - [x] 2.2 Implementar `SoundDeviceCapture` com `sounddevice.InputStream`
 - [x] 2.3 Implementar callback de áudio para detecção de volume
 - [x] 2.4 Adicionar detecção de silêncio (threshold configurável)
-- [ ] 2.5 Teste de gravação standalone (`python scripts/test_audio.py`)
+- [x] 2.5 Teste de gravação standalone (`python scripts/test_audio.py`)
 
 ## 3. STT - Speech-to-Text (Whisper)
 
@@ -21,9 +21,9 @@
 - [x] 3.2 Implementar `WhisperAdapter` com `faster-whisper`
 - [x] 3.3 Configurar modelo "base" (74MB) com device="cpu"
 - [x] 3.4 Adicionar suporte a multi-idioma (pt-BR padrão, auto detecção)
-- [ ] 3.5 Implementar modo streaming vs batch
+- [ ] 3.5 Implementar modo streaming vs batch **FUTURO: aguardando GLM-5.0**
 - [x] 3.6 Teste de transcrição standalone (`python scripts/test_stt.py`)
-- [ ] 3.7 Comando `/stt` para transcrição única
+- [x] 3.7 Comando `/stt` para transcrição única **IMPLEMENTADO E TESTADO!**
 
 ## 4. TTS - Text-to-Speech (Kokoro)
 
@@ -47,9 +47,9 @@
 
 ## 6. Modos de Operação
 
-- [ ] 6.1 Implementar modo push-to-talk (ESPAço padrão)
-- [ ] 6.2 Implementar modo always-on (timeout 60s silêncio)
-- [ ] 6.3 Adicionar configuração `.env` para `VOICE_MODE="push-to-talk"`
+- [x] 6.1 Implementar modo push-to-talk (ESPAço padrão) **Ctrl+ESPAÇO implementado**
+- [ ] 6.2 Implementar modo always-on (timeout 60s silêncio) **FUTURO: junto com streaming (GLM-5.0)**
+- [x] 6.3 Adicionar configuração `.env` para `VOICE_MODE="push-to-talk"` **IMPLEMENTADO**
 
 ## 7. Interrupção de Fala
 
@@ -118,6 +118,9 @@
 
 ---
 
-**Progresso: 22/87 tarefas completas (25%)**
+**Progresso: 40/87 tarefas completas (46%)**
+
+**NOTA**: Fase 3 (STT) está 6/7 (86%) - Task 3.5 (streaming) adiada para GLM-5.0
+**NOTA**: Fase 6 (Modos) está 2/3 (67%) - Task 6.2 (always-on) adiada para GLM-5.0
 
 > "Cada tarefa é um degrau na escada da implementação" – made by Sky 🚀

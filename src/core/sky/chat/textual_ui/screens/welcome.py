@@ -4,7 +4,6 @@ Tela de apresentação (Welcome Screen) para o chat Sky.
 """
 
 import math
-
 from textual.app import ComposeResult, RenderResult
 from textual.containers import Vertical, Center
 from textual.reactive import reactive
@@ -15,6 +14,7 @@ from core.sky.chat.textual_ui.widgets import ChatTextArea
 from core.sky.chat.textual_ui.widgets.animated_verb import (
     _PALETAS, _PALETA_FALLBACK, _lerp_cor,
 )
+from core.sky.chat.textual_ui.widgets.recording_mixin import RecordingToggleMixin
 
 
 _LETREIRO = """
@@ -219,7 +219,7 @@ class SkyLogo(Static):
         return resultado
 
 
-class WelcomeScreen(Screen):
+class WelcomeScreen(RecordingToggleMixin, Screen):
     """Tela de apresentação do chat Sky."""
 
     DEFAULT_CSS = """
@@ -252,8 +252,9 @@ class WelcomeScreen(Screen):
     }
     """
 
-    def __init__(self):
-        super().__init__()
+    BINDINGS = [
+        ("ctrl+s", "toggle_recording", "Gravar (Toggle)"),
+    ]
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -262,12 +263,42 @@ class WelcomeScreen(Screen):
                 yield Static("[bold]Sky[/bold]Bridge", classes="subtitle", expand=True)
                 yield Static("Engenharia de software aumentada", classes="subtitle", expand=True)
 
-        yield ChatTextArea(id="chat_input_textarea", placeholder="Digite algo...")
+        yield ChatTextArea(id="chat_input_textarea", placeholder="Digite algo... (Ctrl+S para gravar)")
         yield Footer()
 
     def on_chat_text_area_submitted(self, event: ChatTextArea.Submitted) -> None:
         from core.sky.chat.textual_ui.screens.chat import ChatScreen
         self.app.push_screen(ChatScreen(event.value))
+
+    # ------------------------------------------------------------------
+    # RecordingToggleMixin - Implementação dos métodos abstratos
+    # ------------------------------------------------------------------
+
+    def _update_placeholder(self, text: str) -> None:
+        """Atualiza placeholder do TextArea."""
+        try:
+            textarea = self.query_one("#chat_input_textarea", ChatTextArea)
+            textarea.placeholder = text
+        except Exception:
+            pass
+
+    def _log_event(self, title: str, message: str) -> None:
+        """Loga evento (no-op na WelcomeScreen, não tem ChatLog)."""
+        pass
+
+    def _log_error(self, message: str) -> None:
+        """Loga erro (no-op na WelcomeScreen, não tem ChatLog)."""
+        pass
+
+    async def _on_recording_complete(self, transcribed_text: str) -> None:
+        """Callback quando gravação completa - navega para ChatScreen."""
+        if transcribed_text.strip():
+            # Cria ChatScreen com a transcrição
+            from core.sky.chat.textual_ui.screens.chat import ChatScreen
+            self.app.push_screen(ChatScreen(transcribed_text))
+        else:
+            # Reseta placeholder
+            self._update_placeholder("Digite algo... (Ctrl+S para gravar)")
 
 
 __all__ = ["WelcomeScreen"]

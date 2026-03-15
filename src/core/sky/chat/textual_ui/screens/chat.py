@@ -15,7 +15,7 @@ from datetime import datetime
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Footer
-from textual import work
+from textual import events, work
 
 from core.sky.chat.textual_ui.widgets import (
     ChatTextArea,
@@ -26,16 +26,18 @@ from core.sky.chat.textual_ui.widgets.header import ChatHeader
 from core.sky.chat.logging import ChatLogger
 from core.sky.chat.textual_ui.widgets.animated_verb import AnimatedVerb, EstadoLLM, conjugar_passado
 from core.sky.chat.textual_ui.widgets.turn import Turn, ThinkingEntry
+from core.sky.chat.textual_ui.widgets.recording_mixin import RecordingToggleMixin
 
 # Integração com engine
 from core.sky.chat.claude_chat import ClaudeChatAdapter, ChatMessage, get_claude_model, StreamEvent, StreamEventType
 from core.sky.memory import get_memory
 
-# PRD027: Comandos de voz
+# PRD027: Comandos de voz (/tts, /voice)
+# NOTA: /stt é processado pelo ChatTextArea (transcrição → texto normal)
 from core.sky.chat.textual_ui.commands import Command, CommandType
 from core.sky.chat.textual_ui.voice_commands import (
-    execute_stt_command,
     execute_tts_command,
+    execute_tts_toggle_command,
     execute_voice_command,
     get_voice_handler,
 )
@@ -130,13 +132,32 @@ Histórico:
 """
 
 
-class ChatScreen(Screen):
+class ChatScreen(RecordingToggleMixin, Screen):
     """
     Screen principal do chat Sky.
 
     P1: ChatScroll.iniciar_turno() gerencia Turn como entidade.
     P3: Header atualizado com métricas reais após cada resposta.
     P4: Título gerado por LLM a cada 3 turnos.
+    PRD027: Integração com comandos de voz (/voice, /tts, /stt).
+    """
+
+    DEFAULT_CSS = """
+    Screen {
+        layout: vertical;
+    }
+
+    ChatScroll {
+        height: 1fr;
+    }
+
+    ChatInputWrapper {
+        height: 3;
+    }
+
+    ChatLog {
+        height: 10;
+    }
     """
 
     BINDINGS = [
@@ -144,6 +165,7 @@ class ChatScreen(Screen):
         ("ctrl+v", "ciclar_verbo", "Próximo Verbo"),
         ("ctrl+d", "open_devtools", "DevTools"),
         ("escape", "deactivate_voice", "Sair modo voz"),
+        ("ctrl+s", "toggle_recording", "Gravar (Toggle)"),
     ]
 
     def __init__(self, input: str):
@@ -168,12 +190,20 @@ class ChatScreen(Screen):
         # PRD027: Handler de comandos de voz
         self._voice_handler = get_voice_handler()
 
+        # PRD027: TTS progressivo (buffer e worker)
+        self._tts_buffer: list[str] = []
+        self._tts_task: asyncio.Task | None = None
+        self._tts_queue: asyncio.Queue | None = None
+
+        # Nota: Variáveis de gravação (_is_recording, _recording_capture)
+        # são herdadas do RecordingToggleMixin
+
     def compose(self) -> ComposeResult:
         yield ChatHeader()
         yield ChatScroll(id="container")
         yield ChatTextArea(
             id="chat_input_textarea",
-            placeholder="Digite algo..."
+            placeholder="Digite algo... (Ctrl+S para gravar)"
         )
         yield ChatLog()
         yield Footer()
@@ -199,6 +229,7 @@ class ChatScreen(Screen):
         textarea = self.query_one("#chat_input_textarea", ChatTextArea)
         textarea.focus()
 
+        # Processa mensagem inicial
         self._abrir_turno_e_processar(self.input)
 
     def on_unload(self) -> None:
@@ -234,17 +265,64 @@ class ChatScreen(Screen):
     # ------------------------------------------------------------------
 
     def _abrir_turno_e_processar(self, mensagem: str) -> None:
-        """Abre Turn no ChatScroll e dispara worker."""
-        # PRD027: Verifica se é comando de voz antes de processar
+        """Abre Turn no ChatScroll e dispara worker.
+
+        PRD027: /stt é processado pelo ChatTextArea (transcrição → texto).
+        /tts e /voice são processados aqui.
+        """
+        # PRD027: Verifica se é comando de voz
         command = Command.parse(mensagem)
         if command is not None:
-            self._handle_command(command)
-            return
+            if command.type == CommandType.TTS_TOGGLE:
+                # Comando /tts on|off - processa em worker separado
+                self._process_tts_toggle_command_worker(command)
+                return
+            elif command.type in (CommandType.TTS, CommandType.VOICE):
+                # Comando de voz (TTS/VOICE) - processa em worker separado
+                self._process_voice_command(command)
+                return
 
-        # Processamento normal de mensagem
+        # Processamento normal de mensagem (incluindo texto transcrito pelo /stt)
         scroll = self.query_one("#container", ChatScroll)
         self._turno_atual = scroll.iniciar_turno(mensagem)
         self._processar_mensagem(mensagem)
+
+    @work(exclusive=True)
+    async def _process_voice_command(self, command: Command) -> None:
+        """Worker para processar comandos /tts e /voice (PRD027).
+
+        NOTA: /stt é processado pelo ChatTextArea (transcrição → texto).
+        """
+        log = self.query_one(ChatLog)
+        log.evento("Comando detectado", f"{command.type.value}: {command.raw}")
+
+        if command.type == CommandType.TTS:
+            await self._handle_tts_command(command.raw)
+        elif command.type == CommandType.VOICE:
+            await self._handle_voice_mode_command(command.raw)
+
+    @work(exclusive=True)
+    async def _process_tts_toggle_command_worker(self, command: Command) -> None:
+        """Worker para processar comando /tts on|off (PRD027)."""
+        await self._process_tts_toggle_command(command)
+
+    async def _process_tts_toggle_command(self, command: Command) -> None:
+        """Processa comando /tts on|off (PRD027).
+
+        Mostra mensagem imediata ao usuário confirmando o estado.
+        """
+        # Extrai argumento (on/off)
+        parts = command.raw[4:].strip().split()  # Remove "/tts"
+        arg = parts[0].lower() if parts else ""
+
+        # Executa toggle e mostra resultado
+        result = await execute_tts_toggle_command(arg)
+        self._show_voice_message(result)
+
+        # Log
+        log = self.query_one(ChatLog)
+        state = "ativo" if self._voice_handler.tts_responses else "inativo"
+        log.evento("TTS progressivo", f"Estado alterado para: {state}")
 
     @work(exclusive=True)
     async def _processar_mensagem(self, mensagem: str) -> None:
@@ -272,14 +350,44 @@ class ChatScreen(Screen):
             # Chama engine com STREAMING (PRD019 Fase 1 + Fase 2)
             message = ChatMessage(role="user", content=mensagem)
 
+            # PRD027: Inicia worker TTS progressivo se ativado
+            tts_enabled = self._voice_handler.tts_responses
+            if tts_enabled:
+                self._tts_queue = asyncio.Queue()
+                self._tts_task = asyncio.create_task(self._tts_worker())
+
             # Loop de streaming: consome StreamEvents
+            text_chunk_count = 0
+            thought_count = 0
+            tool_start_count = 0
+            tool_result_count = 0
+            error_count = 0
+
             async for stream_event in self._chat.stream_response(message):
+                event_type = stream_event.type.name
+
                 if stream_event.type == StreamEventType.TEXT:
                     # Chunk de texto normal - adiciona à resposta
                     await turno.append_response(stream_event.content)
+                    text_chunk_count += 1
+
+                    # PRD027: Envia chunk para fila TTS
+                    if tts_enabled and self._tts_queue:
+                        preview = stream_event.content[:50].replace('\n', '\\n')
+                        log.evento(f"STREAM TEXT #{text_chunk_count}", f"+{len(stream_event.content)} chars: '{preview}...'")
+                        await self._tts_queue.put(stream_event.content)
+
                 elif stream_event.type == StreamEventType.THOUGHT:
                     # PRD-REACT-001: Thought (intenção antes da ação)
                     await turno.add_thought(stream_event.content)
+                    thought_count += 1
+
+                    # PRD027: Envia pensamento para fila TTS
+                    if tts_enabled and self._tts_queue:
+                        thought_msg = f"Pensando: {stream_event.content}"
+                        log.evento(f"STREAM THOUGHT #{thought_count}", f"+{len(thought_msg)} chars")
+                        await self._tts_queue.put(thought_msg)
+
                 elif stream_event.type == StreamEventType.TOOL_START:
                     # PRD-REACT-001: Tool start - cria Action no Step
                     meta = stream_event.metadata or {}
@@ -290,6 +398,14 @@ class ChatScreen(Screen):
                     if ": " in param:
                         param = param.split(": ", 1)[1]
                     await turno.add_action(tool_name, param, input_json=input_json)
+                    tool_start_count += 1
+
+                    # PRD027: Envia tool start para fila TTS
+                    if tts_enabled and self._tts_queue:
+                        tool_msg = f"Usando {tool_name}..."
+                        log.evento(f"STREAM TOOL_START #{tool_start_count}", f"{tool_msg}")
+                        await self._tts_queue.put(tool_msg)
+
                 elif stream_event.type == StreamEventType.TOOL_RESULT:
                     # PRD-REACT-001: Tool result - resolve Action
                     meta = stream_event.metadata or {}
@@ -305,6 +421,16 @@ class ChatScreen(Screen):
                         exit_code=meta.get("exit_code"),
                         command=meta.get("command", ""),
                     )
+                    tool_result_count += 1
+
+                    # PRD027: Envia resultado resumido para fila TTS
+                    if tts_enabled and self._tts_queue:
+                        # Resume do resultado (primeiros 100 chars)
+                        summary = stream_event.content[:100] if len(stream_event.content) > 100 else stream_event.content
+                        result_msg = f"Resultado: {summary}"
+                        log.evento(f"STREAM TOOL_RESULT #{tool_result_count}", f"+{len(result_msg)} chars")
+                        await self._tts_queue.put(result_msg)
+
                 elif stream_event.type == StreamEventType.ERROR:
                     # Erro - adiciona entrada
                     await turno.add_thinking_entry(ThinkingEntry(
@@ -313,6 +439,21 @@ class ChatScreen(Screen):
                         content=stream_event.content,
                         metadata=stream_event.metadata,
                     ))
+                    error_count += 1
+
+                    # PRD027: Envia erro para fila TTS
+                    if tts_enabled and self._tts_queue:
+                        error_msg = f"Erro: {stream_event.content[:100]}"
+                        log.evento(f"STREAM ERROR #{error_count}", f"+{len(error_msg)} chars")
+                        await self._tts_queue.put(error_msg)
+
+            # PRD027: Finaliza worker TTS progressivo
+            if tts_enabled:
+                log.evento("STREAM END", f"TEXT={text_chunk_count}, THOUGHT={thought_count}, TOOL_START={tool_start_count}, TOOL_RESULT={tool_result_count}, ERROR={error_count}")
+                if self._tts_queue:
+                    await self._tts_queue.put(None)  # Sinal de fim
+                    if self._tts_task:
+                        await self._tts_task  # Aguarda worker terminar
 
             # PRD-REACT-001: Ao completar, finaliza o AgenticLoopPanel
             turno.finalize_agentic_loop()
@@ -446,6 +587,71 @@ class ChatScreen(Screen):
                 pass
 
     # ------------------------------------------------------------------
+    # PRD027: TTS Progressivo - Worker e utilitários
+    # ------------------------------------------------------------------
+
+    async def _tts_worker(self) -> None:
+        """Worker que captura TUDO e fala no final."""
+        try:
+            log = self.query_one(ChatLog)
+            all_content = []
+            event_count = 0
+
+            log.evento("TTS WORKER", "Iniciado - capturando tudo...")
+
+            while True:
+                # Aguarda próximo evento ou sinal de fim
+                event = await self._tts_queue.get()
+
+                if event is None:  # Sinal de fim
+                    log.evento("TTS WORKER", f"Fim. Total capturado: {event_count} eventos")
+                    break
+
+                # Acumula TUDO com log detalhado
+                event_count += 1
+                all_content.append(event)
+
+                # Log de cada evento recebido
+                preview = event[:50].replace('\n', '\\n') if len(event) > 50 else event.replace('\n', '\\n')
+                log.evento(f"TTS EVENT #{event_count}", f"+{len(event)} chars: '{preview}...'")
+
+            # Concatena tudo e fala
+            full_text = "".join(all_content)
+
+            log.evento("TTS WORKER", f"Total acumulado: {len(full_text)} chars de {event_count} eventos")
+            log.evento("TTS TEXT FULL", f"Texto completo:\n{full_text}")
+
+            try:
+                await self._voice_handler.handle_tts(full_text)
+                log.evento("TTS WORKER", "✓ Falou tudo!")
+            except Exception as e:
+                log.evento("TTS WORKER", f"✗ Erro: {e}")
+
+        except Exception as e:
+            log = self.query_one(ChatLog)
+            log.warning(f"TTS worker error: {e}")
+
+    async def _speak_progressive(self, text: str, log, final: bool = False) -> None:
+        """Fala texto imediatamente, sem dividir."""
+        if text.strip():
+            log.evento("TTS PROGRESSIVE", f"Falando {len(text)} chars")
+            try:
+                await self._voice_handler.handle_tts(text)
+            except Exception as e:
+                log.warning(f"Erro ao falar: {e}")
+
+    def _clean_text_for_speech(self, text: str) -> str:
+        """Remove APENAS markdown inline. Mantém blocos de código e tudo mais."""
+        import re
+
+        # Remove APENAS markdown inline, mantém blocos de código
+        text = re.sub(r'`([^`]+)`', r'\1', text)
+        text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+        text = re.sub(r'\*([^*]+)\*', r'\1', text)
+
+        return text.strip()
+
+    # ------------------------------------------------------------------
     # Actions
     # ------------------------------------------------------------------
 
@@ -504,72 +710,6 @@ class ChatScreen(Screen):
             # Mostra toast ao usuário
             self._show_voice_message("🎙️ Modo voz desativado (ESC)")
 
-    async def _handle_command(self, command: Command) -> None:
-        """
-        Processa comandos especiais (/voice, /tts, /stt, etc).
-
-        Args:
-            command: Comando parseado
-        """
-        log = self.query_one(ChatLog)
-        log.evento("Comando detectado", f"{command.type.value}: {command.raw}")
-
-        if command.type == CommandType.STT:
-            await self._handle_stt_command(command.raw)
-        elif command.type == CommandType.TTS:
-            await self._handle_tts_command(command.raw)
-        elif command.type == CommandType.VOICE:
-            await self._handle_voice_mode_command(command.raw)
-        else:
-            # Outros comandos (help, new, etc) - processa normalmente
-            scroll = self.query_one("#container", ChatScroll)
-            self._turno_atual = scroll.iniciar_turno(command.raw)
-            await self._processar_mensagem(command.raw)
-
-    async def _handle_stt_command(self, raw_command: str) -> None:
-        """
-        Processa comando /stt [duração].
-
-        Grava áudio e transcreve, adicionando resultado ao chat.
-        """
-        # Extrai duração se especificada
-        parts = raw_command.split()
-        duration = 5.0  # padrão
-        if len(parts) > 1:
-            try:
-                duration = float(parts[1])
-            except ValueError:
-                duration = 5.0
-
-        # Mostra indicador de gravando
-        scroll = self.query_one("#container", ChatScroll)
-        turno = scroll.iniciar_turno(f"/stt {duration}s")
-        await turno.add_thinking_entry(ThinkingEntry(
-            type="info",
-            timestamp=datetime.now(),
-            content=f"🎤 Gravando por {duration}s... fale agora",
-        ))
-
-        try:
-            # Executa transcrição
-            result = await execute_stt_command(duration=duration)
-
-            # Atualiza turno com resultado
-            await turno.add_thinking_entry(ThinkingEntry(
-                type="success",
-                timestamp=datetime.now(),
-                content=result,
-            ))
-            log = self.query_one(ChatLog)
-            log.evento("STT concluído", result)
-
-        except Exception as e:
-            await turno.add_thinking_entry(ThinkingEntry(
-                type="error",
-                timestamp=datetime.now(),
-                content=f"❌ Erro na transcrição: {e}",
-            ))
-
     async def _handle_tts_command(self, raw_command: str) -> None:
         """
         Processa comando /tts <texto>.
@@ -582,34 +722,33 @@ class ChatScreen(Screen):
             self._show_voice_message("💡 Uso: /tts <texto para falar>")
             return
 
-        # Mostra indicador de processando
+        log = self.query_one(ChatLog)
+        log.evento("TTS iniciado", f'"{text[:50]}..."')
+
+        # Cria turno com descritivo no lugar do comando
         scroll = self.query_one("#container", ChatScroll)
-        turno = scroll.iniciar_turno(raw_command)
-        await turno.add_thinking_entry(ThinkingEntry(
-            type="info",
-            timestamp=datetime.now(),
-            content=f"🔊 Falando: \"{text}\"",
-        ))
+        self._turno_atual = scroll.iniciar_turno(f"🔊 Falando: \"{text[:40]}...\"")
+        turno = self._turno_atual
 
         try:
             # Executa TTS
             result = await execute_tts_command(text)
 
-            # Atualiza turno com resultado
-            await turno.add_thinking_entry(ThinkingEntry(
-                type="success",
-                timestamp=datetime.now(),
-                content=result,
-            ))
-            log = self.query_one(ChatLog)
-            log.evento("TTS concluído", text)
+            # Mostra apenas confirmação simples
+            await turno.append_response("✅")
+            log.evento("TTS concluído", "Sucesso")
+
+        except ImportError as e:
+            await turno.append_response(
+                f"\n\n❌ Erro: {e}\n\n💡 Execute: pip install kokoro sounddevice"
+            )
+            log.error(f"TTS ImportError: {e}")
 
         except Exception as e:
-            await turno.add_thinking_entry(ThinkingEntry(
-                type="error",
-                timestamp=datetime.now(),
-                content=f"❌ Erro na síntese: {e}",
-            ))
+            import traceback
+            tb = traceback.format_exc()
+            await turno.append_response(f"\n\n❌ Erro: {e}")
+            log.error(f"TTS Exception: {e}\n{tb}")
 
     async def _handle_voice_mode_command(self, raw_command: str) -> None:
         """
@@ -622,7 +761,7 @@ class ChatScreen(Screen):
         if is_active:
             self._show_voice_message(
                 "🎙️ **Modo Voz Ativado**\n\n"
-                "Pressione ESPAÇO para falar (push-to-talk)\n"
+                "Pressione Ctrl+S para gravar (toggle)\n"
                 "Pressione ESC ou /voice para desativar"
             )
             log = self.query_one(ChatLog)
@@ -643,17 +782,68 @@ class ChatScreen(Screen):
         scroll = self.query_one("#container", ChatScroll)
         turno = scroll.iniciar_turno("[SISTEMA]")
 
-        # Adiciona como thinking entry (não precisa de processamento)
-        from textual import work
-        @work(exclusive=True)
-        async def _show_message():
-            await turno.add_thinking_entry(ThinkingEntry(
-                type="info",
-                timestamp=datetime.now(),
-                content=message,
-            ))
+        # Adiciona como thinking entry diretamente
+        # Chama de forma assíncrona usando call_later para não bloquear
+        def _add_message():
+            try:
+                # Cria um wrapper assíncrono
+                import asyncio
+                loop = asyncio.get_event_loop()
 
-        _show_message()
+                async def _async_add():
+                    await turno.add_thinking_entry(ThinkingEntry(
+                        type="info",
+                        timestamp=datetime.now(),
+                        content=message,
+                    ))
+
+                # Cria task no event loop
+                loop.create_task(_async_add())
+            except Exception:
+                pass
+
+        # Agenda para executar no próximo ciclo do event loop
+        scroll.call_later(_add_message)
+
+    # ------------------------------------------------------------------
+    # RecordingToggleMixin - Implementação dos métodos abstratos
+    # ------------------------------------------------------------------
+
+    def _update_placeholder(self, text: str) -> None:
+        """Atualiza placeholder do TextArea."""
+        try:
+            textarea = self.query_one("#chat_input_textarea", ChatTextArea)
+            textarea.placeholder = text
+        except Exception:
+            pass
+
+    def _log_event(self, title: str, message: str) -> None:
+        """Loga evento."""
+        try:
+            log = self.query_one(ChatLog)
+            log.evento(title, message)
+        except Exception:
+            pass
+
+    def _log_error(self, message: str) -> None:
+        """Loga erro."""
+        try:
+            log = self.query_one(ChatLog)
+            log.error(message)
+        except Exception:
+            pass
+
+    async def _on_recording_complete(self, transcribed_text: str) -> None:
+        """Callback quando gravação completa e texto transcrito."""
+        if transcribed_text.strip():
+            self._log_event("Gravação", f'Transcrito: "{transcribed_text[:50]}..."')
+            # Envia como mensagem normal
+            self._abrir_turno_e_processar(transcribed_text)
+        else:
+            self._log_event("Gravação", "Nenhuma fala detectada")
+
+        # Reseta placeholder para o padrão
+        self._update_placeholder("Digite algo... (Ctrl+S para gravar)")
 
 
 __all__ = ["ChatScreen"]

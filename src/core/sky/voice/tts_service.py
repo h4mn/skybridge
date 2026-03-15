@@ -5,6 +5,7 @@ Este módulo define a interface abstrata para síntese de voz,
 com suporte a múltiplos backends (MOSS-TTS, ElevenLabs, etc).
 """
 
+import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
@@ -581,6 +582,8 @@ class KokoroAdapter(TTSService):
         self.device = device
         self.use_half_precision = use_half_precision
         self._pipeline = None
+        self._audio_queue = []  # Fila de áudios para tocar em sequência
+        self._playing = False  # Flag indicando se está tocando
 
     async def _load_model(self):
         """Carrega pipeline Kokoro com otimizações."""
@@ -632,7 +635,8 @@ class KokoroAdapter(TTSService):
             import numpy as np
 
             # Gera áudio com Kokoro
-            # O generator retorna (graphemes, phonemes, audio)
+            # O generator retorna (graphemes, phonemes, audio) para cada segmento
+            # split_pattern=r'\n+' divide o texto em novas linhas, precisamos concatenar tudo
             generator = self._pipeline(
                 text,
                 voice=self.voice,
@@ -640,13 +644,18 @@ class KokoroAdapter(TTSService):
                 split_pattern=r'\n+'
             )
 
-            # Pega última iteração (áudio final)
-            audio_array = None
+            # Concatena todos os segmentos de áudio gerados
+            audio_segments = []
             for gs, ps, audio in generator:
-                audio_array = audio
+                if audio is not None:
+                    audio_segments.append(audio)
 
-            if audio_array is None:
-                raise RuntimeError("Falha ao gerar áudio com Kokoro")
+            if not audio_segments:
+                raise RuntimeError("Falha ao gerar áudio com Kokoro: nenhum segmento gerado")
+
+            # Concatena todos os segmentos em um único array
+            import torch
+            audio_array = torch.cat(audio_segments, dim=-1)
 
             # Converte Tensor PyTorch para numpy se necessário
             if hasattr(audio_array, 'cpu'):
@@ -687,18 +696,44 @@ class KokoroAdapter(TTSService):
         await self._play_audio(audio)
 
     async def _play_audio(self, audio: AudioData) -> None:
-        """Reproduz áudio usando sounddevice."""
+        """Adiciona áudio à fila e aguarda final da fila (não-bloqueante)."""
+        self._audio_queue.append(audio)
+
+        # Inicia processamento da fila se não estiver tocando
+        if not self._playing:
+            self._playing = True
+            # Processa fila em background
+            asyncio.create_task(self._process_audio_queue())
+
+    async def _process_audio_queue(self) -> None:
+        """Processa fila de áudios em background."""
         try:
             import sounddevice as sd
             import numpy as np
 
-            # Converte bytes para numpy array
-            samples = np.frombuffer(audio.samples, dtype=np.float32)
+            while self._audio_queue:
+                audio = self._audio_queue.pop(0)
 
-            sd.play(samples, samplerate=audio.sample_rate)
-            sd.wait()
-        except ImportError:
-            raise ImportError("sounddevice não está instalado")
+                # Converte bytes para numpy array
+                samples = np.frombuffer(audio.samples, dtype=np.float32)
+
+                # Para qualquer áudio anterior
+                sd.stop()
+
+                # Toca o áudio
+                sd.play(samples, samplerate=audio.sample_rate)
+
+                # Aguarda exatamente o tempo do áudio
+                await asyncio.sleep(audio.duration + 0.05)  # 50ms buffer
+
+            # Para o último áudio
+            sd.stop()
+            self._playing = False
+
+        except Exception as e:
+            self._playing = False
+            sd.stop()
+            raise RuntimeError(f"Erro ao reproduzir áudio: {e}")
 
     def get_available_voices(self) -> list[str]:
         """Retorna vozes disponíveis."""
