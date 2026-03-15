@@ -21,15 +21,15 @@
 - [x] 3.2 Implementar `WhisperAdapter` com `faster-whisper`
 - [x] 3.3 Configurar modelo "base" (74MB) com device="cpu"
 - [x] 3.4 Adicionar suporte a multi-idioma (pt-BR padrão, auto detecção)
-- [ ] 3.5 Implementar modo streaming vs batch **FUTURO: aguardando GLM-5.0**
+- [x] 3.5 Implementar modo streaming vs batch
 - [x] 3.6 Teste de transcrição standalone (`python scripts/test_stt.py`)
-- [x] 3.7 Comando `/stt` para transcrição única **IMPLEMENTADO E TESTADO!**
+- [x] 3.7 Comando `/stt` para transcrição única
+- [x] 3.8 Implementar hotwords + initial prompt para melhor precisão PT-BR (227 palavras técnicas)
 
-## 4. TTS - Text-to-Speech (Kokoro)
+## 4. TTS - Text-to-Speech (MOSS-TTS)
 
 - [x] 4.1 Criar `tts_service.py` com interface `TTSService(ABC)`
-- [x] 4.2 Implementar KokoroAdapter com Kokoro-82M (voz feminina pt-BR)
-    **NOTA**: Decisão D10 - Kokoro escolhido sobre MOSS-TTS por superioridade
+- [x] 4.2 Implementar `MossTTSAdapter` via Hugging Face (MOSS-TTS real)
 - [x] 4.3 Adicionar cache LRU de áudio (disco, 24h TTL)
 - [x] 4.4 Implementar configuração de voz (speed, pitch)
 - [x] 4.5 Adicionar vozes "sky-female" e "sky-male"
@@ -40,23 +40,23 @@
 ## 5. Voice Chat - Orquestrador
 
 - [x] 5.1 Criar `voice_chat.py` com classe `VoiceChat`
-- [x] 5.2 Implementar comando `/voice` para ativar modo **INTEGRADO AO CHATSCREEN**
-- [x] 5.3 Implementar desativação com ESC ou `/voice` novamente **BINDING ESC ADICIONADO**
-- [x] 5.4 Integrar TTSService e STTService **VOICEHANDLER INTEGRADO**
-- [x] 5.5 Adicionar mensagens ao chat existente da Sky **TURNOS CRIADOS PARA RESPOSTAS VOZ**
+- [x] 5.2 Implementar comando `/voice` para ativar modo
+- [x] 5.3 Implementar desativação com ESC ou `/voice` novamente
+- [x] 5.4 Integrar TTSService e STTService
+- [x] 5.5 Adicionar mensagens ao chat existente da Sky
 
 ## 6. Modos de Operação
 
-- [x] 6.1 Implementar modo push-to-talk (ESPAço padrão) **Ctrl+ESPAÇO implementado**
-- [ ] 6.2 Implementar modo always-on (timeout 60s silêncio) **FUTURO: junto com streaming (GLM-5.0)**
-- [x] 6.3 Adicionar configuração `.env` para `VOICE_MODE="push-to-talk"` **IMPLEMENTADO**
+- [x] 6.1 Implementar modo push-to-talk (ESPAço padrão) **✅ IMPLEMENTADO em ChatTextArea**
+- [ ] 6.2 Implementar modo always-on (timeout 60s silêncio) **🚫 FORA DO ESCOPO v1**
+- [ ] 6.3 Adicionar configuração `.env` para `VOICE_MODE="push-to-talk"`
 
 ## 7. Interrupção de Fala
 
-- [ ] 7.1 Detectar fala do usuário durante TTS (STT contínuo)
-- [ ] 7.2 Interromper áudio da Sky quando usuário fala
-- [ ] 7.3 Implementar CTRL para "pular" fala atual
-- [ ] 7.4 Retomar escuta após interrupção
+- [ ] 7.1 Detectar fala do usuário durante TTS (STT contínuo) **🚫 FORA DO ESCOPO v1**
+- [ ] 7.2 Interromper áudio da Sky quando usuário fala **🚫 FORA DO ESCOPO v1**
+- [ ] 7.3 Implementar CTRL para "pular" fala atual **🚫 FORA DO ESCOPO v1**
+- [ ] 7.4 Retomar escuta após interrupção **🚫 FORA DO ESCOPO v1**
 
 ## 8. Feedback Visual
 
@@ -80,16 +80,16 @@
 
 ## 11. Comandos de Voz Nativos
 
-- [ ] 11.1 Detectar "Parar" / "Sky, para" → desativar microfone
-- [ ] 11.2 Detectar "Ajuda" / "O que você pode fazer" → listar comandos
-- [ ] 11.3 Implementar `VoiceCommandDetector` com palavras-chave
+- [ ] 11.1 Detectar "Parar" / "Sky, para" → desativar microfone **🚫 FORA DO ESCOPO v1**
+- [ ] 11.2 Detectar "Ajuda" / "O que você pode fazer" → listar comandos **🚫 FORA DO ESCOPO v1**
+- [ ] 11.3 Implementar `VoiceCommandDetector` com palavras-chave **🚫 FORA DO ESCOPO v1**
 
 ## 12. Integração Chat Sky
 
-- [x] 12.1 Criar `src/core/sky/chat/commands/voice_commands.py`
+- [x] 12.1 Criar `src/core/sky/chat/commands/voice_commands.py` **✅ MOVIDO para local correto**
 - [x] 12.2 Registrar comandos `/voice`, `/tts`, `/stt`
-- [x] 12.3 Modificar `ChatService` para ativar modo conversacional **CHATSCREEN MODIFICADO**
-- [x] 12.4 Adicionar flag `is_voice_mode` ao contexto de chat **VOICEHANDLER.INTEGRADO**
+- [x] 12.3 Modificar `ChatService` para ativar modo conversacional **✅ IMPLEMENTADO em VoiceCommandHandler**
+- [x] 12.4 Adicionar flag `is_voice_mode` ao contexto de chat **✅ IMPLEMENTADO (is_voice_active)**
 
 ## 13. Gancho Arquitetural Web
 
@@ -118,9 +118,12 @@
 
 ---
 
-**Progresso: 40/87 tarefas completas (46%)**
+**Progresso: 45/67 tarefas completas (67%)**
 
-**NOTA**: Fase 3 (STT) está 6/7 (86%) - Task 3.5 (streaming) adiada para GLM-5.0
-**NOTA**: Fase 6 (Modos) está 2/3 (67%) - Task 6.2 (always-on) adiada para GLM-5.0
+**Notas:**
+- ✅ Push-to-talk implementado em ChatTextArea (ESPAÇO)
+- ✅ is_voice_active implementado em VoiceCommandHandler
+- 🚫 Tarefas marcadas como "FORA DO ESCOPO v1" serão adiadas para v2
+- 📝 Localização de voice_commands.py corrigida (chat/commands/)
 
 > "Cada tarefa é um degrau na escada da implementação" – made by Sky 🚀

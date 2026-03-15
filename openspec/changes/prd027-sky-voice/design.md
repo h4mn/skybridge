@@ -101,19 +101,15 @@ src/core/sky/voice/
 ```
 
 ### D2: Escolha de Modelos TTS
-**Decisão:** Kokoro-82M como padrão, com pluggable adapters para MOSS-TTS, Pyttsx3 e ElevenLabs.
+**Decisão:** MOSS-TTS como padrão, com pluggable adapters para ElevenLabs.
 
 **Justificativa:**
-- **Voz feminina superior**: Kokoro af_heart é mais natural e suave que alternativas
-- **Suporte nativo pt-BR**: lang_code='p' funciona perfeitamente para português brasileiro
-- **Performance**: RTF 0.35x (síntese mais rápida que tempo real)
-- **Multi-idioma**: Suporta pt-BR, en, es, fr, hi, it, ja
-- **Apache-licensed**: Uso livre sem restrições
+- **Open source**: Sem custos de API
 - **Local**: Privacidade, baixa latência
+- **Qualidade**: Comparável a serviços pagos
 
 **Alternativas consideradas:**
-- MOSS-TTS: ❌ Voz masculina, menos natural em pt-BR
-- ElevenLabs: ❌ Custoso, dependência de internet
+- ElevenLabs apenas: ❌ Custoso, dependência de internet
 - Coqui TTS: ❌ Menos maduro, menos vozes em PT-BR
 - gTTS (Google): ❌ Qualidade inferior, requer internet
 
@@ -123,53 +119,15 @@ class TTSService(ABC):
     async def synthesize(self, text: str, voice: str) -> AudioData:
         pass
 
-class KokoroAdapter(TTSService):
-    def __init__(self, voice="af_heart", lang_code="p"):
-        # Kokoro-82M com voz feminina e português
-        ...
-
 class MOSSTTSAdapter(TTSService):
     async def synthesize(self, text: str, voice: str) -> AudioData:
-        # Alternativa via Hugging Face
+        # Chama MOSS-TTS via Hugging Face
         ...
 
-class ElevenLabsAdapter(TTTService):
+class ElevenLabsAdapter(TTSService):
     async def synthesize(self, text: str, voice: str) -> AudioData:
-        # Premium via API
+        # Chama API ElevenLabs
         ...
-```
-
-### D10: Mudança de Escopo - Kokoro sobre MOSS-TTS
-**Decisão:** Kokoro-82M substitui MOSS-TTS como modelo TTS padrão durante implementação.
-
-**Contexto:**
-Durante a implementação do PRD027, testes revelaram que Kokoro oferece voz feminina significativamente mais natural e suave em português brasileiro do que o MOSS-TTS originalmente especificado.
-
-**Justificativa da Mudança:**
-- **Voz feminina superior**: af_heart (Kokoro) é mais natural que vozes masculinas do MOSS-TTS
-- **Suporte nativo pt-BR**: lang_code='p' funciona perfeitamente, sem adaptações
-- **Performance implementada**: RTF 0.35x alcançado com warm start (8x mais rápido)
-- **Biblioteca standalone**: kokoro package é mais simples que integradores Hugging Face
-- **Voz solicitada pelo usuário**: Requisito era "feminina, suave e agradável"
-
-**Mudança Técnica:**
-- **Original**: MOSS-TTS via Hugging Face Transformers
-- **Implementado**: Kokoro-82M via biblioteca `kokoro` (pip install kokoro)
-- **Ambos existem**: MOSS-TTS adapter mantido como alternativa, Kokoro é padrão
-
-**Alternativas consideradas:**
-- Manter MOSS-TTS: ❌ Voz masculina, menos natural para Sky
-- Apenas ElevenLabs: ❌ Custoso, não é open source
-
-**Data da Decisão:** 2026-03-14
-
-```python
-# Padrão: Kokoro (voz feminina pt-BR)
-tts = KokoroAdapter(voice="af_heart", lang_code="p")
-await tts.speak("Olá! Eu sou a Sky.")
-
-# Alternativa: MOSS-TTS (se necessário)
-tts = MOSSTTSAdapter(voice="sky-female")
 ```
 
 ### D3: Escolha de Modelos STT
@@ -238,18 +196,39 @@ async def synthesize_with_cache(text: str) -> AudioData:
 ```
 
 ### D6: Integração com Chat
-**Decisão:** Command pattern para `/voice` e `/tts`.
+**Decisão:** Command pattern para `/voice`, `/tts` e `/stt`.
 
 **Justificativa:**
 - **Extensibilidade**: Fácil adicionar novos comandos de voz
 - **Separação**: Chat não precisa saber detalhes de voz
 
+**Implementação:**
 ```python
 # src/core/sky/chat/commands/voice_commands.py
-class VoiceCommand(ChatCommand):
-    async def execute(self, args: str) -> None:
-        voice_chat.activate()
-        self.ui.show_message("Modo voz ativado")
+class VoiceCommandHandler:
+    """Handler para comandos de voz no chat.
+
+    Usa VoiceService singleton com lazy load.
+    Implementa push-to-talk com ESPAÇO e toggle com /voice.
+    """
+
+    def __init__(self):
+        self.voice_mode_active = False
+        self.tts_responses = True  # TTS progressivo nas respostas
+        self._voice_service = get_voice_service()
+
+    async def handle_voice_toggle(self) -> bool:
+        """Alterna modo conversacional."""
+        self.voice_mode_active = not self.voice_mode_active
+        return self.voice_mode_active
+
+    async def handle_tts_toggle(self, state: bool | None = None) -> bool:
+        """Alterna TTS progressivo nas respostas."""
+        if state is None:
+            self.tts_responses = not self.tts_responses
+        else:
+            self.tts_responses = state
+        return self.tts_responses
 ```
 
 ---
@@ -322,29 +301,37 @@ class STTService:
         return result.text
 ```
 
-**3. VoiceChat** (`voice_chat.py`)
+**3. VoiceService** (`voice_service.py`)
 ```python
-class VoiceChat:
-    """Orquestrador do chat por voz."""
+class VoiceService:
+    """Orquestrador do chat por voz.
 
-    def __init__(self, tts: TTSService, stt: STTService, chat: ChatService):
+    Implementa singleton com lazy load para modelos.
+    Integra TTS e STT com interface unificada.
+
+    NOTA: Implementado como VoiceService ao invés de VoiceChat
+    para refletir melhor o papel como serviço de infraestrutura.
+    """
+
+    def __init__(self, tts: TTSService, stt: STTService):
         self.tts = tts
         self.stt = stt
-        self.chat = chat
-        self.mode = "push-to-talk"  # ou "always-on"
+        self.voice_mode_active = False
+        self.tts_responses = True  # TTS progressivo nas respostas
 
-    async def activate(self):
-        """Ativa modo conversacional."""
-        self.is_active = True
-        while self.is_active:
-            # Escutar usuário
-            user_text = await self.stt.listen(on_partial=self._on_partial)
+    async def speak(self, text: str) -> None:
+        """Sintetiza e reproduz áudio do texto."""
+        await self.tts.synthesize(text)
 
-            # Obter resposta da Sky
-            sky_response = await self.chat.respond(user_text)
+    async def record_and_transcribe(self, duration: float, language: str) -> str:
+        """Grava áudio e retorna transcrição."""
+        audio = await self._record_audio(duration)
+        return await self.stt.transcribe(audio, language)
 
-            # Falar resposta
-            await self.tts.speak(sky_response)
+    def toggle_voice_mode(self) -> bool:
+        """Alterna modo conversacional."""
+        self.voice_mode_active = not self.voice_mode_active
+        return self.voice_mode_active
 ```
 
 ---
