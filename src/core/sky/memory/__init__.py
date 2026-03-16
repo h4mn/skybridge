@@ -238,11 +238,13 @@ def get_memory() -> PersistentMemory:
     return _persistent_memory
 
 
+# LAZY IMPORTS: Símbolos pesados são importados sob demanda via __getattr__
+# Isso evita carregar sentence-transformers, torch e ChromaDB durante o cold start
 __all__ = [
     "PersistentMemory",
     "get_memory",
     "USE_RAG_MEMORY",
-    # Novos exports RAG
+    # RAG exports (lazy)
     "CognitiveMemory",
     "IntentRouter",
     "MemoryResult",
@@ -256,8 +258,53 @@ __all__ = [
     "get_embedding_client",
 ]
 
-# Re-exports para facilitar importações
-from .cognitive_layer import CognitiveMemory, IntentRouter, MemoryResult, get_cognitive_memory
-from .vector_store import VectorStore, get_vector_store
-from .collections import CollectionConfig, CollectionManager, SourceType, get_collection_manager
-from .embedding import get_embedding_client
+
+def __getattr__(name: str):
+    """
+    Lazy import para símbolos pesados do RAG.
+
+    Isso evita carregar sentence-transformers, torch e ChromaDB
+    durante o cold start do script.
+    """
+    # cognitive_layer
+    if name == "CognitiveMemory":
+        from .cognitive_layer import CognitiveMemory
+        return CognitiveMemory
+    elif name == "IntentRouter":
+        from .cognitive_layer import IntentRouter
+        return IntentRouter
+    elif name == "MemoryResult":
+        from .cognitive_layer import MemoryResult
+        return MemoryResult
+    elif name == "get_cognitive_memory":
+        from .cognitive_layer import get_cognitive_memory
+        return get_cognitive_memory
+
+    # vector_store
+    elif name == "VectorStore":
+        from .vector_store import VectorStore
+        return VectorStore
+    elif name == "get_vector_store":
+        from .vector_store import get_vector_store
+        return get_vector_store
+
+    # collections
+    elif name == "CollectionConfig":
+        from .collections import CollectionConfig
+        return CollectionConfig
+    elif name == "CollectionManager":
+        from .collections import CollectionManager
+        return CollectionManager
+    elif name == "SourceType":
+        from .collections import SourceType
+        return SourceType
+    elif name == "get_collection_manager":
+        from .collections import get_collection_manager
+        return get_collection_manager
+
+    # embedding
+    elif name == "get_embedding_client":
+        from .embedding import get_embedding_client
+        return get_embedding_client
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

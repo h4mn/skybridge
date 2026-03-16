@@ -15,9 +15,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Runtime - infraestrutura
+from runtime.observability import get_logger, RuntimeLoggerAdapter
+
+# Domínio - com logger injetado
 from src.core.sky.memory.embedding import (
     SentenceTransformerEmbedding,
-    get_embedding_client,
     EMBEDDING_DIM,
     DEFAULT_MODEL,
 )
@@ -195,8 +198,12 @@ def main():
     print(f"📦 Modelo: {DEFAULT_MODEL}")
     print(f"📐 Dimensão: {EMBEDDING_DIM}")
 
-    # Obter cliente singleton
-    client = get_embedding_client()
+    # Criar logger e adapter
+    runtime_logger = get_logger("demo.embedding")
+    sky_logger = RuntimeLoggerAdapter(runtime_logger)
+
+    # Criar cliente com logger injetado
+    client = SentenceTransformerEmbedding(logger=sky_logger)
 
     # Executar demos
     demo_basic_encode(client)

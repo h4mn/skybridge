@@ -214,7 +214,7 @@ def _stage_textual(progress: "Progress") -> None:
     pass
 
 
-def run(console: Optional["Console"] = None) -> "SkyApp":
+def run(console: Optional["Console"] = None, cold_start_start: Optional[float] = None, initial_print_done: bool = False) -> "SkyApp":
     """
     Executa bootstrap do Sky Chat com barra de progresso.
 
@@ -223,6 +223,8 @@ def run(console: Optional["Console"] = None) -> "SkyApp":
 
     Args:
         console: Console Rich para output. Padrão: novo console.
+        cold_start_start: Timestamp de início do cold start (time.perf_counter()).
+        initial_print_done: Se True, o print inicial já foi feito pelo caller.
 
     Returns:
         Instância de SkyApp pronta para executar.
@@ -230,13 +232,27 @@ def run(console: Optional["Console"] = None) -> "SkyApp":
     # Configurar silenciamento de bibliotecas externas (antes de importar)
     _setup_external_libs()
 
-    # Print inicial ANTES de importar Rich (usando print simples)
-    print("Iniciando Sky Chat...", flush=True)
+    # MARK: Cold Start Timer - FIM (depois dos imports pesados)
+    cold_start_end = time.perf_counter()
+    cold_start_elapsed = cold_start_end - cold_start_start if cold_start_start else 0
 
     # Import Rich e criar console
     from rich.console import Console
     console = console or Console()
 
+    # Atualiza o print inicial com formato Rich profissional
+    if initial_print_done:
+        # Limpa a linha simples e substitui com Rich formatado
+        console.clear()
+        if cold_start_elapsed > 0:
+            console.print(f"[bold green]✓[/bold green] Carregando Sky Chat... [dim italic](cold start: {cold_start_elapsed*1000:.0f}ms)[/dim italic]")
+        else:
+            console.print("[bold green]✓[/bold green] Carregando Sky Chat...")
+    else:
+        if cold_start_elapsed > 0:
+            console.print(f"[bold green]✓[/bold green] Iniciando Sky Chat... [dim italic](cold start: {cold_start_elapsed*1000:.0f}ms)[/dim italic]")
+        else:
+            console.print("[bold green]✓[/bold green] Iniciando Sky Chat...")
     # Criar stages
     use_rag = USE_RAG_MEMORY
     stages = _get_stages(use_rag)

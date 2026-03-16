@@ -14,9 +14,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Optional
 
-from runtime.observability.logger import get_logger
-
-logger = get_logger("sky.memory.embedding", level="INFO")
+from core.sky.observability import SkyLogger, SilentLogger
 
 try:
     from sentence_transformers import SentenceTransformer  # type: ignore
@@ -80,6 +78,7 @@ class SentenceTransformerEmbedding(EmbeddingClient):
         self,
         model_name: str = DEFAULT_MODEL,
         db_path: Optional[Path] = None,
+        logger: Optional[SkyLogger] = None,
     ):
         """
         Inicializa cliente de embedding.
@@ -87,9 +86,11 @@ class SentenceTransformerEmbedding(EmbeddingClient):
         Args:
             model_name: Nome do modelo HuggingFace.
             db_path: Caminho para banco de cache. Padrão: ~/.skybridge/sky_memory.db
+            logger: Logger para observabilidade. Padrão: SilentLogger.
         """
         self._model_name = model_name
         self._model: Optional[SentenceTransformer] = None
+        self._logger = logger or SilentLogger()
 
         # Configurar cache
         if db_path is None:
@@ -142,19 +143,12 @@ class SentenceTransformerEmbedding(EmbeddingClient):
         """
         if self._model is None:
             os.environ["HF_HUB_OFFLINE"] = "1"
-            logger.structured("Carregando modelo de embedding", {
-                "model": self._model_name,
-            }, level="debug")
+            self._logger.debug(f"Carregando modelo de embedding: {self._model_name}")
             try:
                 self._model = SentenceTransformer(self._model_name)
-                logger.structured("Modelo de embedding carregado", {
-                    "model": self._model_name,
-                }, level="debug")
+                self._logger.debug(f"Modelo de embedding carregado: {self._model_name}")
             except Exception as e:
-                logger.structured("Erro ao carregar modelo de embedding", {
-                    "model": self._model_name,
-                    "error": str(e),
-                }, level="error")
+                self._logger.error(f"Erro ao carregar modelo de embedding: model={self._model_name}, error={e}")
                 raise RuntimeError(
                     f"Não foi possível carregar o modelo '{self._model_name}' em modo offline.\n"
                     f"O modelo precisa estar cacheado em ~/.cache/huggingface/hub/\n\n"

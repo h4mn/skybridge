@@ -12,7 +12,7 @@ Interface moderna baseada em Textual framework com:
 from textual.app import App
 
 from core.sky.chat.textual_ui.screens.welcome import WelcomeScreen
-from core.sky.chat.textual_ui.screens.chat import ChatScreen
+from core.sky.chat.textual_ui.screens.main import MainScreen
 
 # DevTools - importado sob demanda para não afetar performance
 # Use: from core.sky.chat.textual_ui.dom import SkyTextualDOM
@@ -22,7 +22,7 @@ class SkyApp(App):
     """
     Aplicação Textual para chat com a Sky.
 
-    Inicia com WelcomeScreen e transita para ChatScreen
+    Inicia com WelcomeScreen e transita para MainScreen
     ao enviar a primeira mensagem.
 
     Idêntico à PoC PocApp - CSS_PATH relativo ao módulo.

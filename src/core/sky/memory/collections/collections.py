@@ -14,9 +14,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-from runtime.observability.logger import get_logger
-
-logger = get_logger("sky.memory.collections", level="INFO")
+from core.sky.observability import SkyLogger, SilentLogger
 
 
 class SourceType(Enum):
@@ -103,12 +101,17 @@ class CollectionManager:
     - Consultar configurações
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(
+        self,
+        db_path: Optional[Path] = None,
+        logger: Optional[SkyLogger] = None
+    ):
         """
         Inicializa CollectionManager.
 
         Args:
             db_path: Caminho para banco SQLite. Padrão: ~/.skybridge/sky_memory.db
+            logger: Logger para observabilidade. Padrão: SilentLogger.
         """
         if db_path is None:
             data_dir = Path.home() / ".skybridge"
@@ -116,6 +119,7 @@ class CollectionManager:
             db_path = data_dir / "sky_memory.db"
 
         self._db_path = db_path
+        self._logger = logger or SilentLogger()
         self._init_collections()
 
     def _init_collections(self) -> None:
@@ -257,10 +261,9 @@ class CollectionManager:
             total_deleted += deleted
 
             if deleted > 0:
-                logger.structured("Memórias expiradas removidas", {
-                    "collection": config.name,
-                    "deleted": deleted,
-                }, level="info")
+                self._logger.info(
+                    f"Memórias expiradas removidas: collection={config.name}, deleted={deleted}"
+                )
 
         conn.commit()
         conn.close()

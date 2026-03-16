@@ -24,6 +24,12 @@ class CommandType(Enum):
     CANCEL = "cancel"
     CONFIG = "config"
 
+    # PRD027: Comandos de voz
+    STT = "stt"
+    TTS = "tts"
+    TTS_TOGGLE = "tts_toggle"  # /tts on|off para ativar/desativar TTS progressivo
+    VOICE = "voice"
+
     @classmethod
     def from_string(cls, value: str) -> "CommandType | None":
         """
@@ -63,7 +69,16 @@ class Command:
 
         # Comandos começam com / ou são aliases especiais
         if input_str.startswith("/"):
-            cmd_part = input_str[1:].lower().split()[0]  # Remove / e pega primeira palavra
+            full_cmd = input_str[1:].lower()  # Remove / e tudo em minúsculas
+            cmd_part = full_cmd.split()[0]  # Pega primeira palavra
+
+            # PRD027: /tts on|off é tratado como TTS_TOGGLE
+            if cmd_part == "tts":
+                parts = full_cmd.split()
+                if len(parts) > 1 and parts[1] in ("on", "off"):
+                    # /tts on ou /tts off
+                    return Command(type=CommandType.TTS_TOGGLE, raw=input_str)
+
             cmd_type = CommandType.from_string(cmd_part)
             if cmd_type:
                 return Command(type=cmd_type, raw=input_str)
