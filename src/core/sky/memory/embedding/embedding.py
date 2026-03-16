@@ -9,10 +9,15 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import sqlite3
+import sys
+import threading
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
+from io import StringIO
 from pathlib import Path
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from core.sky.observability import SkyLogger, SilentLogger
 
@@ -28,6 +33,101 @@ except ImportError:
 DEFAULT_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 # Dimensão do embedding (modelo MiniLM)
 EMBEDDING_DIM = 384
+
+# Thread-local para armazenar callback de progresso (usado durante carregamento)
+_progress_callback = threading.local()
+
+
+class _ProgressCapture(StringIO):
+    """
+    Captura stdout/stderr e extrai porcentagens de progresso do tqdm.
+
+    O tqdm escreve barras de progresso neste formato:
+    "Loading weights:  45%|█| 90/199 [00:00<00:00, 274.59it/s]"
+
+    Esta classe parseia essas linhas e extrai o valor de %.
+    """
+
+    def __init__(self, on_progress: Optional[Callable[[int], None]] = None):
+        """
+        Args:
+            on_progress: Callback chamado quando uma nova porcentagem é detectada.
+                        Recebe o valor inteiro (0-100).
+        """
+        super().__init__()
+        self._on_progress = on_progress
+        self._last_percent = -1
+        # Regex para capturar porcentagem do tqdm
+        # Formato: "Loading weights:  45%|" ou "  45%|"
+        self._percent_pattern = re.compile(r'(\d+)%')
+
+    def write(self, text: str) -> int:
+        """Sobrescreve write para parsear porcentagens."""
+        # Chama write original para armazenar no buffer
+        result = super().write(text)
+
+        # Tenta extrair porcentagem
+        match = self._percent_pattern.search(text)
+        if match:
+            try:
+                percent = int(match.group(1))
+                # Só notifica se mudou (evita duplicatas)
+                if percent != self._last_percent and self._on_progress:
+                    self._last_percent = percent
+                    self._on_progress(percent)
+            except (ValueError, IndexError):
+                pass
+
+        return result
+
+    def flush(self) -> None:
+        """Sobrescreve flush."""
+        super().flush()
+
+
+@contextmanager
+def _capture_tqdm_progress(on_progress: Callable[[int], None]):
+    """
+    Context manager que captura stderr e extrai progresso do tqdm.
+
+    Args:
+        on_progress: Callback que recebe a porcentagem (0-100) quando detectada.
+
+    Example:
+        def my_callback(percent: int):
+            print(f"Progresso: {percent}%")
+
+        with _capture_tqdm_progress(my_callback):
+            model = SentenceTransformer("model_name")
+    """
+    original_stderr = sys.stderr
+
+    # Cria capturador com callback
+    capture = _ProgressCapture(on_progress)
+    # Escreve também no stderr original para debug (opcional - comentar para silenciar)
+    # capture = _TeeCapture(capture, original_stderr)
+
+    sys.stderr = capture
+
+    try:
+        yield
+    finally:
+        sys.stderr = original_stderr
+
+
+def set_progress_callback(callback: Optional[Callable[[int], None]]) -> None:
+    """
+    Define callback de progresso para carregamento do modelo.
+
+    Args:
+        callback: Função que recebe porcentagem (0-100), ou None para limpar.
+    """
+    _progress_callback.value = callback
+
+
+def get_progress_callback() -> Optional[Callable[[int], None]]:
+    """Retorna o callback de progresso atual, ou None."""
+    return getattr(_progress_callback, "value", None)
 
 
 class EmbeddingClient(ABC):
@@ -145,8 +245,18 @@ class SentenceTransformerEmbedding(EmbeddingClient):
             os.environ["HF_HUB_OFFLINE"] = "1"
             self._logger.debug(f"Carregando modelo de embedding: {self._model_name}")
             try:
+<<<<<<< Updated upstream
                 self._model = SentenceTransformer(self._model_name)
                 self._logger.debug(f"Modelo de embedding carregado: {self._model_name}")
+=======
+                # Captura progresso do tqdm e passa para callback (se definido)
+                callback = get_progress_callback()
+                with _capture_tqdm_progress(callback or (lambda _: None)):
+                    self._model = SentenceTransformer(self._model_name)
+                logger.structured("Modelo de embedding carregado", {
+                    "model": self._model_name,
+                }, level="debug")
+>>>>>>> Stashed changes
             except Exception as e:
                 self._logger.error(f"Erro ao carregar modelo de embedding: model={self._model_name}, error={e}")
                 raise RuntimeError(

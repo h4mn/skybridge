@@ -88,6 +88,11 @@ DEFAULT_COLLECTIONS = [
         purpose="Contexto recente, ações e estado operacional",
         retention_days=30,  # 30 dias
     ),
+    CollectionConfig(
+        name="skypedia",
+        purpose="Enciclopédia de conhecimento: vídeos, artigos e aprendizados externos",
+        retention_days=None,  # Permanente
+    ),
 ]
 
 

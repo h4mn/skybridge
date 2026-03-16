@@ -168,6 +168,21 @@ class _ProgressContext:
         if task_id is not None:
             self._progress.update(task_id, visible=True)
 
+    def update_stage_description(self, stage_name: str, description: str) -> None:
+        """
+        Atualiza a descrição de um stage ativo em tempo real (mesma linha).
+
+        Útil para mostrar mensagens animadas durante estágios longos,
+        como o carregamento dos pesos do modelo.
+
+        Args:
+            stage_name: Nome do estágio a atualizar.
+            description: Nova descrição a exibir.
+        """
+        task_id = self._task_ids.get(stage_name)
+        if task_id is not None:
+            self._progress.update(task_id, description=description, refresh=True)
+
     def complete_stage(self, stage_name: str) -> None:
         """
         Marca estágio como completo e avança progresso geral.
@@ -213,7 +228,7 @@ class _ProgressContext:
         finally:
             elapsed = time.time() - start
             self._progress.console.print(
-                f"[dim]  ✓ {self._get_stage_description(stage_name)} ({elapsed:.2f}s)[/dim]"
+                f"[dim]  [OK] {self._get_stage_description(stage_name)} ({elapsed:.2f}s)[/dim]"
             )
             self.complete_stage(stage_name)
 

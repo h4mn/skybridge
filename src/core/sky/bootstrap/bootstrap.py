@@ -104,14 +104,14 @@ def _get_stages(use_rag: bool) -> list[Stage]:
     return stages
 
 
-def _stage_environment(progress: "Progress") -> None:
+def _stage_environment(progress: "Progress", ctx=None) -> None:
     """Estágio 1: Configuração do ambiente."""
     # PYTHONPATH já está configurado pelo sky.cmd
     # .env já foi carregado pelo sky_bootstrap.py
     pass
 
 
-def _stage_embedding(progress: "Progress") -> None:
+def _stage_embedding(progress: "Progress", ctx=None) -> None:
     """Estágio 2: Inicialização do cliente de embedding."""
     from core.sky.memory.embedding import get_embedding_client
 
@@ -119,54 +119,59 @@ def _stage_embedding(progress: "Progress") -> None:
     _ = get_embedding_client()
 
 
-def _stage_model_weights(progress: "Progress") -> None:
-    """Estágio 3: Carregamento dos pesos do modelo."""
-    from core.sky.memory.embedding import get_embedding_client
-    from contextlib import redirect_stderr
-    import io
+_MODEL_WEIGHT_MSGS = [
+    "Carregando pesos do modelo...",
+    "Inicializando camadas de atenção...",
+    "Preparando embeddings (384 dims)...",
+    "Aquecendo self-attention heads...",
+    "Compilando transformer layers...",
+    "Mapeando vocabulário...",
+    "Quase pronto...",
+]
 
-    # Capturar stderr para ler progresso
-    stderr_capture = io.StringIO()
 
-    # Thread para mostrar progresso enquanto carrega
-    stop_flag = [False]
-    last_pct = [None]
+def _stage_model_weights(progress: "Progress", ctx: Optional["_ProgressContext"] = None) -> None:
+    """Estágio: Carregamento dos pesos do modelo com progresso real do tqdm."""
+    from core.sky.memory.embedding import get_embedding_client, set_progress_callback
 
-    def show_progress():
-        """Mostra progresso do modelo em tempo real."""
-        pattern = re.compile(r'Loading weights:\s*(\d+)%')
-        last_len = 0
+    done_event = threading.Event()
+    error_holder: list = [None]
 
-        while not stop_flag[0]:
-            content = stderr_capture.getvalue()
-            matches = list(pattern.finditer(content))
-            if matches:
-                pct = matches[-1].group(1)
-                if pct != last_pct[0]:
-                    # Limpar linha anterior e mostrar novo percentual
-                    clear = '\r' + ' ' * last_len + '\r'
-                    print(f"{clear}Carregando pesos: {pct}%", end='', flush=True)
-                    last_pct[0] = pct
-                    last_len = len(f"Carregando pesos: {pct}%")
-            time.sleep(0.03)
+    # Callback que será chamado pelo tqdm com a porcentagem real
+    def _on_progress(percent: int) -> None:
+        """Atualiza a descrição com a porcentagem real do tqdm."""
+        if ctx is not None:
+            ctx.update_stage_description("model_weights", f"Carregando pesos... {percent}%")
 
-    # Iniciar thread de progresso
-    progress_thread = threading.Thread(target=show_progress, daemon=True)
-    progress_thread.start()
+    # Define o callback para ser usado pelo _get_model
+    set_progress_callback(_on_progress)
 
-    try:
-        with redirect_stderr(stderr_capture):
-            # Força carregamento do modelo (lazy load)
+    def _load() -> None:
+        try:
             client = get_embedding_client()
-            _ = client._get_model()
-    finally:
-        stop_flag[0] = True
-        progress_thread.join(timeout=0.3)
-        # Limpar linha
-        print('\r' + ' ' * 50 + '\r', end='', flush=True)
+            client._get_model()  # força carregamento real (lazy)
+        except Exception as exc:
+            error_holder[0] = exc
+        finally:
+            done_event.set()
+
+    load_thread = threading.Thread(target=_load, daemon=True)
+    load_thread.start()
+
+    # Aguarda o carregamento completar
+    # O tqdm vai chamar _on_progress a cada atualização
+    done_event.wait()
+
+    # Limpa o callback
+    set_progress_callback(None)
+
+    load_thread.join(timeout=1.0)
+
+    if error_holder[0] is not None:
+        raise error_holder[0]
 
 
-def _stage_vector_db(progress: "Progress") -> None:
+def _stage_vector_db(progress: "Progress", ctx=None) -> None:
     """Estágio 3: Inicialização do banco vetorial."""
     from core.sky.memory.vector_store import get_vector_store
 
@@ -187,7 +192,7 @@ def _stage_vector_db(progress: "Progress") -> None:
             break
 
 
-def _stage_collections(progress: "Progress") -> None:
+def _stage_collections(progress: "Progress", ctx=None) -> None:
     """Estágio 4: Configuração das coleções."""
     from core.sky.memory.collections import get_collection_manager
 
@@ -205,7 +210,7 @@ def _stage_collections(progress: "Progress") -> None:
             break
 
 
-def _stage_textual(progress: "Progress") -> None:
+def _stage_textual(progress: "Progress", ctx=None) -> None:
     """Estágio 5: Inicialização da interface Textual."""
     from core.sky.chat.textual_ui import SkyApp
 
@@ -279,10 +284,10 @@ def run(console: Optional["Console"] = None, cold_start_start: Optional[float] =
         for stage in stages:
             func = stage_functions.get(stage.name)
             if func is not None:
-                ctx.run_stage(stage.name, func, progress)
+                ctx.run_stage(stage.name, func, progress, ctx)
 
     # Importar e retornar SkyApp
     from core.sky.chat.textual_ui import SkyApp
 
-    console.print("[bold green]✓ Sky Chat pronto![/bold green]")
+    console.print("[bold green][OK] Sky Chat pronto![/bold green]")
     return SkyApp()

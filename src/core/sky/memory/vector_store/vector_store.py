@@ -76,6 +76,7 @@ class VectorStore:
         "shared-moments",
         "teachings",
         "operational",
+        "skypedia",
     ]
 
     def __init__(self, db_path: Path | None = None):
