@@ -55,11 +55,11 @@
 
 ## 6. Componente Waveform UI
 
-- [ ] 6.1 Criar `src/core/sky/chat/textual_ui/widgets/header/waveform_controller.py`
-- [ ] 6.2 Implementar `WaveformController` como widget Textual
-- [ ] 6.3 Consumir `TTSStartedEvent`/`TTSCompletedEvent` via EventBus
-- [ ] 6.4 Atualizar header (`start_speaking`, `start_thinking`, `stop_waveform`)
-- [ ] 6.5 Adicionar `WaveformController` ao `MainScreen.compose()`
+- [x] 6.1 Criar `src/core/sky/chat/textual_ui/widgets/header/waveform_controller.py`
+- [x] 6.2 Implementar `WaveformController` como widget Textual
+- [x] 6.3 Consumir `TTSStartedEvent`/`TTSCompletedEvent` via EventBus
+- [x] 6.4 Atualizar header (`start_speaking`, `start_thinking`, `stop_waveform`)
+- [x] 6.5 Adicionar `WaveformController` ao `MainScreen.compose()`
 
 ## 7. Limpeza de Código Legado
 
