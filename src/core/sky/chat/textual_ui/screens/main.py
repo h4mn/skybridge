@@ -358,17 +358,19 @@ class MainScreen(RecordingToggleMixin, Screen):
         state = "ativo" if self._voice_handler.tts_responses else "inativo"
         log.evento("TTS progressivo", f"Estado alterado para: {state}")
 
-    @work(exclusive=True)
-    async def _processar_mensagem(self, mensagem: str) -> None:
+    def _processar_mensagem(self, mensagem: str) -> None:
         """
         Dispatcher para processamento de mensagem.
 
         Redireciona para OLD ou NEW implementation baseado na flag.
+
+        NOTA: Os métodos _processar_mensagem_old/new têm seus próprios
+        @work decorators e são chamados diretamente (sem await).
         """
         if self._use_new_implementation:
-            await self._processar_mensagem_new(mensagem)
+            self._processar_mensagem_new(mensagem)
         else:
-            await self._processar_mensagem_old(mensagem)
+            self._processar_mensagem_old(mensagem)
 
     @work(exclusive=True)
     async def _processar_mensagem_old(self, mensagem: str) -> None:
