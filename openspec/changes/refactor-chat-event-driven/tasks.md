@@ -83,11 +83,11 @@
 
 ## 9. Documentação
 
-- [ ] 9.1 Criar `docs/architecture/chat-architecture.md` com diagrama de componentes
-- [ ] 9.2 Documentar fluxo de dados (User → Orchestrator → Chat/TTS → Events → UI)
-- [ ] 9.3 Documentar eventos em tabela (nome, quando, quem publica)
-- [ ] 9.4 Adicionar exemplos de uso (code snippets)
-- [ ] 9.5 Atualizar `README.md` se necessário
+- [x] 9.1 Criar `docs/architecture/chat-architecture.md` com diagrama de componentes
+- [x] 9.2 Documentar fluxo de dados (User → Orchestrator → Chat/TTS → Events → UI)
+- [x] 9.3 Documentar eventos em tabela (nome, quando, quem publica)
+- [x] 9.4 Adicionar exemplos de uso (code snippets)
+- [x] 9.5 Atualizar `README.md` se necessário
 
 ## 10. Validação Final e Rollback Plan
 
