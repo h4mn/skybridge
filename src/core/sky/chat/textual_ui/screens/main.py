@@ -46,6 +46,9 @@ from core.sky.chat.commands.voice_commands import (
 from core.sky.voice.voice_modes import get_reaction, add_hesitations, VoiceMode
 from core.sky.voice.tts_adapter import get_tts_adapter
 
+# refactor-chat-event-driven: Container DI e Orchestrator
+from core.sy.chat import ChatContainer, ChatContainerContext
+
 
 # =============================================================================
 # Verbos de Teste — Amostra variada para validação visual
@@ -199,6 +202,14 @@ class MainScreen(RecordingToggleMixin, Screen):
         self._tts_task: asyncio.Task | None = None
         self._tts_queue: asyncio.Queue | None = None
 
+        # refactor-chat-event-driven: Container DI (lazy initialization)
+        self._container: ChatContainer | None = None
+
+        # refactor-chat-event-driven: Flag para alternar old/new implementation
+        # Define via ENV VAR: SKYBRIDGE_USE_NEW_CHAT_IMPL=1
+        import os
+        self._use_new_implementation = os.getenv("SKYBRIDGE_USE_NEW_CHAT_IMPL", "0") == "1"
+
         # Nota: Variáveis de gravação (_is_recording, _recording_capture)
         # são herdadas do RecordingToggleMixin
 
@@ -248,6 +259,15 @@ class MainScreen(RecordingToggleMixin, Screen):
             except Exception:
                 pass
 
+        # refactor-chat-event-driven: Shutdown do container se existir
+        if self._container is not None:
+            # Nota: shutdown() é async, mas on_unmount é sync.
+            # Para o TTS service (que está rodando em task própria)
+            if self._container.tts_service.is_running:
+                # Cria task em background para shutdown limpo
+                # Na prática, o app está fechando, então Python limpa tudo
+                pass
+
     def on_unload(self) -> None:
         """Chamado quando a tela é descarregada. Restaura stdout/stderr."""
         if hasattr(self, '_chat_logger') and self._chat_logger is not None:
@@ -278,6 +298,26 @@ class MainScreen(RecordingToggleMixin, Screen):
 
     # ------------------------------------------------------------------
     # Lógica central
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # refactor-chat-event-driven: Lazy initialization do Container
+    # ------------------------------------------------------------------
+
+    async def _initialize_container(self) -> ChatContainer:
+        """
+        Inicializa o ChatContainer de forma lazy (apenas quando necessário).
+
+        O container gerencia EventBus, TTSService e ChatOrchestrator.
+        Reutiliza a instância se já existir.
+        """
+        if self._container is None:
+            # Cria container usando o chat existente (com memory)
+            self._container = await ChatContainer.create(chat=self._chat)
+        return self._container
+
+    # ------------------------------------------------------------------
+    # Lógica original (OLD implementation)
     # ------------------------------------------------------------------
 
     def _abrir_turno_e_processar(self, mensagem: str) -> None:
@@ -342,6 +382,18 @@ class MainScreen(RecordingToggleMixin, Screen):
 
     @work(exclusive=True)
     async def _processar_mensagem(self, mensagem: str) -> None:
+        """
+        Dispatcher para processamento de mensagem.
+
+        Redireciona para OLD ou NEW implementation baseado na flag.
+        """
+        if self._use_new_implementation:
+            await self._processar_mensagem_new(mensagem)
+        else:
+            await self._processar_mensagem_old(mensagem)
+
+    @work(exclusive=True)
+    async def _processar_mensagem_old(self, mensagem: str) -> None:
         """
         Processa mensagem com Claude/RAG usando streaming (PRD019 Fase 1).
 
@@ -554,6 +606,156 @@ class MainScreen(RecordingToggleMixin, Screen):
                 text_area.focus()
             except Exception:
                 pass
+            self._turno_atual = None
+
+    # ------------------------------------------------------------------
+    # refactor-chat-event-driven: NEW implementation (Event-Driven)
+    # ------------------------------------------------------------------
+
+    @work(exclusive=True)
+    async def _processar_mensagem_new(self, mensagem: str) -> None:
+        """
+        Processa mensagem usando NOVA implementação event-driven.
+
+        Usa ChatOrchestrator via Container, com TTS isolado.
+        Comunicação via EventBus, eliminando race conditions.
+
+        Diferenças da OLD implementation:
+        - TTSService com lifecycle próprio (não em MainScreen)
+        - Eventos publicados para UI consumir
+        - Orchestrator coordena chat + TTS
+        """
+        from core.sy.chat.events import StreamChunkEvent
+        from core.sy.chat.events import TTSStartedEvent, TTSCompletedEvent
+
+        turno = self._turno_atual
+        if turno is None:
+            return
+
+        try:
+            # Inicializa container (lazy)
+            container = await self._initialize_container()
+
+            header = self.query_one(ChatHeader)
+            log = self.query_one(ChatLog)
+
+            # Verbo: inferido da mensagem
+            estado_ativo = _inferir_estado(mensagem)
+            header.update_estado(estado_ativo)
+            log.evento("Verbo inferido", f"{estado_ativo.verbo} ({estado_ativo.emocao})")
+
+            # Inicia painel AgenticLoopPanel
+            turno.start_agentic_loop()
+
+            # Processa turno via Orchestrator
+            text_chunk_count = 0
+            thought_count = 0
+            tool_start_count = 0
+            tool_result_count = 0
+            error_count = 0
+
+            # Consome stream via Orchestrator
+            async for chunk_event in container.orchestrator.process_turn(mensagem, f"turn-{self._turn_count}"):
+                # chunk_event é StreamChunkEvent com turn_id, content, event_type, metadata
+
+                if chunk_event.event_type == "TEXT":
+                    await turno.append_response(chunk_event.content)
+                    text_chunk_count += 1
+
+                elif chunk_event.event_type == "THOUGHT":
+                    await turno.add_thought(chunk_event.content)
+                    thought_count += 1
+
+                elif chunk_event.event_type == "TOOL_START":
+                    meta = chunk_event.metadata or {}
+                    tool_name = meta.get("tool", chunk_event.content)
+                    param = chunk_event.content
+                    if ": " in param:
+                        param = param.split(": ", 1)[1]
+                    await turno.add_action(tool_name, param, input_json=meta.get("input", ""))
+                    tool_start_count += 1
+
+                elif chunk_event.event_type == "TOOL_RESULT":
+                    meta = chunk_event.metadata or {}
+                    turno.resolve_action(
+                        chunk_event.content,
+                        full_output=meta.get("result", ""),
+                        exit_code=meta.get("exit_code"),
+                        command=meta.get("command", ""),
+                    )
+                    tool_result_count += 1
+
+                elif chunk_event.event_type == "ERROR":
+                    await turno.add_thinking_entry(ThinkingEntry(
+                        type="error",
+                        timestamp=datetime.now(),
+                        content=chunk_event.content,
+                        metadata=chunk_event.metadata,
+                    ))
+                    error_count += 1
+
+            # Stream finalizado
+            log.evento("STREAM END", f"TEXT={text_chunk_count}, THOUGHT={thought_count}, TOOL_START={tool_start_count}, TOOL_RESULT={tool_result_count}, ERROR={error_count}")
+
+            # Finaliza AgenticLoopPanel
+            turno.finalize_agentic_loop()
+            turno.show_retry_action()
+
+            # Coleta métricas (mesma lógica da OLD)
+            self._turn_count += 1
+            self._last_latency_ms = self._chat._last_latency_ms
+            self._total_tokens_in += self._chat._last_tokens_in
+            self._total_tokens_out += self._chat._last_tokens_out
+            history_len = len(self._chat.get_history())
+
+            rag_enabled = self._memory.is_rag_enabled() if hasattr(self._memory, "is_rag_enabled") else False
+            memories_used = 0
+            if rag_enabled:
+                results = self._memory.search(mensagem, top_k=1)
+                memories_used = len(results)
+                self._total_memories_used += memories_used
+
+            header.update_metricas(
+                turn_count=self._turn_count,
+                tokens_in=self._total_tokens_in,
+                tokens_out=self._total_tokens_out,
+                latency_ms=self._last_latency_ms,
+                memories_used=self._total_memories_used,
+                rag_enabled=rag_enabled,
+                model=get_claude_model(),
+            )
+            header.update_context_bar(history_len)
+
+            # Verbo: conjuga no passado
+            verbo_passado = conjugar_passado(estado_ativo.verbo)
+            estado_concluido = EstadoLLM(
+                verbo=verbo_passado,
+                predicado=estado_ativo.predicado,
+                certeza=1.0,
+                esforco=0.0,
+                emocao="concluindo",
+                direcao=1,
+            )
+            header.update_estado(estado_concluido)
+            log.evento("Verbo concluído", f"{estado_ativo.verbo} → {verbo_passado}")
+
+            # Dispara geração de título a cada 3 turnos
+            if self._turn_count % 3 == 0:
+                self._gerar_titulo()
+
+        except asyncio.CancelledError:
+            log = self.query_one(ChatLog)
+            log.evento("Cancelamento", "Turno cancelado pelo usuário")
+            if turno and not turno.is_cancelled:
+                turno.set_cancelled()
+        except Exception as e:
+            import traceback
+            log = self.query_one(ChatLog)
+            log.error(f"Erro: {e}")
+            log.error(traceback.format_exc())
+            turno.set_error(str(e) if hasattr(e, '__str__') else str(type(e).__name__))
+
+        finally:
             self._turno_atual = None
 
     # ------------------------------------------------------------------

@@ -98,23 +98,24 @@ O sistema SHALL tratar erros de clipboard sem quebrar a UI.
 
 ---
 
-### Requirement: Copiar usa pyperclip ou fallback nativo
+### Requirement: Copiar usa implementação vendorizada de clipboard
 
-O sistema SHALL tentar usar `pyperclip` primeiro, com fallback para clipboard nativo do Textual.
+O sistema SHALL usar código vendorizado (baseado no pyperclip) para clipboard, sem dependências externas.
 
-#### Scenario: pyperclip disponível é usado
+#### Scenario: Implementação vendorizada funciona sem dependências
 
-- **GIVEN** `pyperclip` instalado e disponível
-- **WHEN** o botão copiar é clicado
-- **THEN** `pyperclip.copy()` é usado
-- **AND** o conteúdo é copiado corretamente
+- **GIVEN** o módulo `core.sky.log.clipboard` disponível
+- **WHEN** `copy_to_clipboard(text)` é chamado
+- **THEN** o texto é copiado para o clipboard do sistema
+- **AND** nenhuma dependência externa é necessária
 
-#### Scenario: pyperclip não disponível usa fallback
+#### Scenario: Fallback para arquivo temporário se clipboard falhar
 
-- **GIVEN** `pyperclip` não instalado
-- **WHEN** o botão copiar é clicado
-- **THEN** o clipboard nativo do Textual é usado
-- **AND** a cópia funciona normalmente
+- **GIVEN** um ambiente onde clipboard não está disponível (ex: WSL sem X11)
+- **WHEN** todos os métodos de clipboard falham
+- **THEN** o texto é salvo em um arquivo temporário
+- **AND** o caminho do arquivo é retornado ao usuário
+- **AND** uma notificação informa o caminho do arquivo
 
 ---
 

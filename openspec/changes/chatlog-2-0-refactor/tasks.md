@@ -1,39 +1,36 @@
-# ChatLog 2.0 - Lista de Tarefas
+# ChatLog 2.0 - Lista de Tarefas (Revisão Final)
 
-## 1. Fundações - Estrutura e Event Bus
+## 1. Fundações - Estrutura e Protocol
 
 - [ ] 1.1 Criar estrutura de diretórios `src/core/sky/log/`
 - [ ] 1.2 Criar estrutura de diretórios `tests/unit/core/sky/log/`
-- [ ] 1.3 Implementar `LogLevel` enum com hierarquia (DEBUG < INFO < EVENT < WARNING < ERROR)
-- [ ] 1.4 Implementar `LogEntry` (dataclass imutável com level, message, timestamp, metadata)
-- [ ] 1.5 Implementar `LogEventBus` (pub/sub com subscribe/unsubscribe/publish)
-- [ ] 1.6 Adicionar thread-safety ao `LogEventBus` (usar threading.Lock ou asyncio.Lock)
-- [ ] 1.7 Implementar estatísticas no `LogEventBus` (contador de eventos publicados)
-- [ ] 1.8 Testes unitários para `LogLevel` (comparações, hierarquia)
-- [ ] 1.9 Testes unitários para `LogEntry` (imutabilidade, criação, metadados)
-- [ ] 1.10 Testes unitários para `LogEventBus` (pub/sub, thread-safety, estatísticas)
+- [ ] 1.3 Implementar `LogScope` enum (ALL, SYSTEM, USER, API, DATABASE, NETWORK, VOICE, MEMORY)
+- [ ] 1.4 Implementar `LogEntry` (frozen dataclass com level/logging, message, timestamp, scope, context)
+- [ ] 1.5 Implementar `LogConsumer` Protocol (método write_log simples)
+- [ ] 1.6 Implementar método `matches_filter()` em LogEntry (level + scope)
+- [ ] 1.7 Testes unitários para `LogScope` (enum values)
+- [ ] 1.8 Testes unitários para `LogEntry` (imutabilidade, matches_filter)
+- [ ] 1.9 Testes unitários para `LogConsumer` Protocol (type-checking)
 
-## 2. Consumers
+## 2. Clipboard Vendorizado
 
-- [ ] 2.1 Definir Protocol `LogConsumer` (interface com método write_log)
-- [ ] 2.2 Implementar `FileLogConsumer` (escrita em arquivo com rotação)
-- [ ] 2.3 Implementar rotação de arquivo no `FileLogConsumer` (tamanho máximo, backup .1, .2, etc.)
-- [ ] 2.4 Implementar `MetricsLogConsumer` (contadores por nível)
-- [ ] 2.5 Implementar `BufferConsumer` (buffer circular em memória)
-- [ ] 2.6 Implementar `TeeConsumer` (envia para múltiplos consumidores)
-- [ ] 2.7 Testes unitários para `FileLogConsumer` (escrita, rotação)
-- [ ] 2.8 Testes unitários para `MetricsLogConsumer` (contadores, reset)
-- [ ] 2.9 Testes unitários para `BufferConsumer` (buffer circular, get_entries)
-- [ ] 2.10 Testes unitários para `TeeConsumer` (encadeamento de consumidores)
+- [ ] 2.1 Criar `src/core/sky/log/clipboard.py` (implementação vendored do pyperclip)
+- [ ] 2.2 Implementar detecção de SO (Windows/macOS/Linux)
+- [ ] 2.3 Implementar `copy_to_clipboard()` para Windows (win32clipboard ou subprocess)
+- [ ] 2.4 Implementar `copy_to_clipboard()` para macOS (pbcopy)
+- [ ] 2.5 Implementar `copy_to_clipboard()` para Linux (xclip, wl-copy, fallback arquivo)
+- [ ] 2.6 Testes unitários para clipboard (mock subprocess)
 
-## 3. Widgets - LogFilter
+## 3. Widgets - LogFilter (Nível + Escopo)
 
 - [ ] 3.1 Criar `src/core/sky/log/widgets/` estrutura
-- [ ] 3.2 Implementar `LogFilter` widget (botões rádio ALL/ERROR/WARNING/INFO/EVENT/DEBUG)
-- [ ] 3.3 Implementar mensagem `FilterChanged` emitida ao mudar seleção
-- [ ] 3.4 Adicionar contador de mensagens visíveis (X/total)
-- [ ] 3.5 Implementar métodos `set_level()` e `clear_filter()`
-- [ ] 3.6 Testes unitários para `LogFilter` (seleção, emissão de eventos, contadores)
+- [ ] 3.2 Implementar `LogFilter` widget com dois eixos (nível e escopo)
+- [ ] 3.3 Implementar botões de nível: ALL, DEBUG, INFO, WARNING, ERROR, CRITICAL (logging padrão)
+- [ ] 3.4 Implementar botões de escopo: ALL, SYSTEM, USER, API, DATABASE, NETWORK, VOICE, MEMORY
+- [ ] 3.5 Implementar mensagem `FilterChanged(level, scope)` emitida ao mudar seleção
+- [ ] 3.6 Implementar contador de mensagens visíveis (X/total)
+- [ ] 3.7 Implementar métodos `set_level()`, `set_scope()`, `clear_filters()`
+- [ ] 3.8 Testes unitários para `LogFilter` (seleção, emissão de eventos, contadores)
 
 ## 4. Widgets - LogSearch
 
@@ -51,83 +48,103 @@
 ## 5. Widgets - LogCopier
 
 - [ ] 5.1 Implementar `LogCopier` widget (Button com ícone de clipboard)
-- [ ] 5.2 Implementar cópia respeitando filtro ativo
-- [ ] 5.3 Implementar cópia respeitando busca ativa
-- [ ] 5.4 Adicionar formatação de linhas copiadas (timestamp + nível)
-- [ ] 5.5 Implementar notificação de sucesso ("X linhas copiadas!")
-- [ ] 5.6 Implementar tratamento de erro quando clipboard não disponível
-- [ ] 5.7 Adicionar fallback para clipboard nativo do Textual (se pyperclip não disponível)
-- [ ] 5.8 Testes unitários para `LogCopier` (cópia, filtros, notificações)
+- [ ] 5.2 Implementar cópia respeitando filtros ativos (nível + escopo + busca)
+- [ ] 5.3 Adicionar formatação de linhas copiadas (timestamp + nível + scope)
+- [ ] 5.4 Implementar notificação de sucesso ("X linhas copiadas!")
+- [ ] 5.5 Implementar tratamento de erro quando clipboard falha
+- [ ] 5.6 Usar `copy_to_clipboard()` vendorizado
+- [ ] 5.7 Testes unitários para `LogCopier` (cópia, filtros, notificações)
 
-## 6. ChatLog 2.0 - Core Widget
+## 6. Widgets - LogToolbar
 
-- [ ] 6.1 Implementar `ChatLog` widget que herda de VerticalScroll
-- [ ] 6.2 Integrar com `LogEventBus` (subscribe no on_mount, unsubscribe no on_unmount)
-- [ ] 6.3 Implementar armazenamento de `_entries` (list de LogEntry)
-- [ ] 6.4 Implementar filtro por nível (respeitar LogFilter.FilterChanged)
-- [ ] 6.5 Implementar busca (respeitar LogSearch.SearchChanged)
-- [ ] 6.6 Implementar highlight de matches durante render
-- [ ] 6.7 Implementar buffer de 100 linhas quando widget está fechado
-- [ ] 6.8 Implementar flush em batch para evitar flicker
-- [ ] 6.9 Testes unitários para `ChatLog` (event bus, filtros, render)
+- [ ] 6.1 Implementar `LogToolbar` container (agrupa Filter + Search + Copier)
+- [ ] 6.2 Layout horizontal com tamanhos proporcionais
+- [ ] 6.3 Testes unitários para `LogToolbar` (composição, layout)
 
-## 7. Tema Cyberpunk
+## 7. ChatLog 2.0 - Core Widget
 
-- [ ] 7.1 Criar `src/core/sky/log/theme.py` com definição de cores
-- [ ] 7.2 Implementar paleta cyberpunk (#0a0a0f bg, #00ff41 text, #ff0055 error, etc.)
-- [ ] 7.3 Criar TCSS com efeito scanline (repeating-linear-gradient)
-- [ ] 7.4 Adicionar efeito phosphor glow (text-shadow)
-- [ ] 7.5 Configurar fonte monoespaçada (JetBrains Mono ou similar)
-- [ ] 7.6 Mapear cores por nível (DEBUG cinza, INFO ciano, EVENT verde, etc.)
-- [ ] 7.7 Adicionar animação de fade-in para novas linhas
-- [ ] 7.8 Adicionar efeito flicker opcional (muito sutil)
-- [ ] 7.9 Testes visuais com pytest-textual snapshot
+- [ ] 7.1 Implementar `ChatLogConfig` dataclass (max_entries, buffer_when_closed, virtualization_threshold)
+- [ ] 7.2 Implementar `ChatLog` widget herdando de VerticalScroll
+- [ ] 7.3 Implementar ring buffer `collections.deque(maxlen=config.max_entries)`
+- [ ] 7.4 Implementar virtualização desde dia 1 (renderiza visíveis + margem)
+- [ ] 7.5 Implementar接收 de logs via `write_log()` do consumidor
+- [ ] 7.6 Implementar filtro por nível (respeitar logging.INFO >= min_level)
+- [ ] 7.7 Implementar filtro por escopo (respeitar LogScope)
+- [ ] 7.8 Implementar highlight de matches de busca durante render
+- [ ] 7.9 Implementar buffer when_closed (max_buffer_when_closed configurável)
+- [ ] 7.10 Implementar flush em batch para evitar flicker
+- [ ] 7.11 Testes unitários para `ChatLog` (ring buffer, virtualização, filtros)
 
-## 8. POC - App de Desenvolvimento
+## 8. Tema Cyberpunk (Toggleável)
 
-- [ ] 8.1 Criar `src/core/sky/log/poc.py` (App Textual standalone)
-- [ ] 8.2 Compor POC com LogFilter, LogSearch, LogCopier, ChatLog
-- [ ] 8.3 Adicionar logs de exemplo para teste visual (todos os níveis)
-- [ ] 8.4 Implementar interação entre widgets (filtro → chatlog, busca → chatlog)
-- [ ] 8.5 Adicionar tema cyberpunk ao POC
-- [ ] 8.6 Criar `tests/unit/core/sky/log/poc_test.py` com pytest-textual
-- [ ] 8.7 Executar POC localmente e validar visualmente
+- [ ] 8.1 Criar `src/core/sky/log/theme.py` com `CyberpunkConfig` e `CyberpunkPreset`
+- [ ] 8.2 Implementar presets: MINIMAL, BALANCED, FULL
+- [ ] 8.3 Implementar paleta cyberpunk (#0a0a0f bg, #00ff41 text, #ff0055 error, etc.)
+- [ ] 8.4 Criar TCSS com classes modulares: .cyberpunk, .scanlines, .glow, .flicker
+- [ ] 8.5 Implementar efeito scanline (repeating-linear-gradient)
+- [ ] 8.6 Implementar efeito phosphor glow (text-shadow)
+- [ ] 8.7 Configurar fonte monoespaçada (JetBrains Mono ou similar)
+- [ ] 8.8 Mapear cores por nível (DEBUG cinza, INFO ciano, WARNING âmbar, ERROR vermelho)
+- [ ] 8.9 Remover mapeamento de EVENT (não existe mais)
+- [ ] 8.10 Implementar flicker como opcional e desligado por padrão (acessibilidade)
+- [ ] 8.11 Adicionar animação de fade-in para novas linhas
+- [ ] 8.12 Testes visuais com pytest-textual snapshot
 
-## 9. Integração - ChatLogger Adapter
+## 9. POC - App de Desenvolvimento
 
-- [ ] 9.1 Modificar `src/core/sky/chat/logging.py` para usar `LogEventBus`
-- [ ] 9.2 Implementar adapter: `ChatLogger` publica eventos no bus
-- [ ] 9.3 Manter compatibilidade com métodos existentes (info, debug, error, evento)
-- [ ] 9.4 Conectar `FileLogConsumer` ao bus (logs em arquivo continuam funcionando)
-- [ ] 9.5 Testes de integração para `ChatLogger` + `LogEventBus`
+- [ ] 9.1 Criar `src/core/sky/log/poc.py` (App Textual standalone)
+- [ ] 9.2 Compor POC com LogToolbar e ChatLog
+- [ ] 9.3 Adicionar logs de exemplo para teste visual (todos os níveis e escopos)
+- [ ] 9.4 Implementar geração de logs com timestamp realista
+- [ ] 9.5 Implementar argumento de linha de comando para preset (minimal/balanced/full)
+- [ ] 9.6 Adicionar tema cyberpunk ao POC com preset selecionado
+- [ ] 9.7 Criar `tests/unit/core/sky/log/poc_test.py` com pytest-textual snapshot
+- [ ] 9.8 Executar POC localmente e validar visualmente
 
-## 10. Integração - MainScreen
+## 10. Integração - ChatLogger Adapter
 
-- [ ] 10.1 Atualizar `src/core/sky/chat/textual_ui/screens/main.py` para usar novo `ChatLog`
-- [ ] 10.2 Substituir import antigo por novo módulo `src/core/sky/log/`
-- [ ] 10.3 Compor LogFilter, LogSearch, LogCopier na MainScreen
-- [ ] 10.4 Conectar eventos FilterChanged/SearchChanged ao ChatLog
-- [ ] 10.5 Testes end-to-end da MainScreen com novos widgets
+- [ ] 10.1 Modificar `src/core/sky/chat/logging.py` para usar `LogConsumer` Protocol
+- [ ] 10.2 Implementar adapter simples: `ChatLogger` chama `consumer.write_log()`
+- [ ] 10.3 Remover método `evento()` (usar `info()` com context apropriado)
+- [ ] 10.4 Manter compatibilidade com métodos existentes (debug, info, warning, error)
+- [ ] 10.5 Converter chamadas de `evento()` para `info()` com context={"type": "event", ...}
+- [ ] 10.6 Testes de integração para `ChatLogger` com `ChatLog` como consumidor
 
-## 11. Testes de Regressão
+## 11. Integração - MainScreen
 
-- [ ] 11.1 Atualizar `tests/unit/core/sky/chat/textual_ui/widgets/test_chat_widgets.py`
-- [ ] 11.2 Executar suite de testes completa e garantir 100% passing
-- [ ] 11.3 Validar que nenhuma funcionalidade existente quebrou
-- [ ] 11.4 Testar redirecionamento de stdout/stderr ainda funciona
-- [ ] 11.5 Testar arquivo de log em disco ainda é escrito
+- [ ] 11.1 Atualizar `src/core/sky/chat/textual_ui/screens/main.py` para usar novo `ChatLog`
+- [ ] 11.2 Substituir import antigo por novo módulo `src/core/sky/log/`
+- [ ] 11.3 Instanciar `ChatLogConfig` apropriado
+- [ ] 11.4 Instanciar `CyberpunkConfig` (preset BALANCED por padrão)
+- [ ] 11.5 Compor LogToolbar na MainScreen
+- [ ] 11.6 Conectar eventos FilterChanged/SearchChanged ao ChatLog
+- [ ] 11.7 Testes end-to-end da MainScreen com novos widgets
 
-## 12. Documentação e Finalização
+## 12. Testes de Regressão
 
-- [ ] 12.1 Atualizar `src/core/sky/log/__init__.py` com exports públicos
-- [ ] 12.2 Adicionar docstrings completas em todos os módulos
-- [ ] 12.3 Criar README em `src/core/sky/log/README.md` (uso, exemplos)
-- [ ] 12.4 Atualizar CLAUDE.md com notas sobre novo subsistema de log
-- [ ] 12.5 Marcar `src/core/sky/chat/textual_ui/widgets/common/log.py` como DEPRECATED
-- [ ] 12.6 Limpar código legado após período de transição (task futura)
+- [ ] 12.1 Atualizar `tests/unit/core/sky/chat/textual_ui/widgets/test_chat_widgets.py`
+- [ ] 12.2 Executar suite de testes completa e garantir 100% passing
+- [ ] 12.3 Validar que nenhuma funcionalidade existente quebrou
+- [ ] 12.4 Testar redirecionamento de stdout/stderr ainda funciona
+- [ ] 12.5 Testar arquivo de log em disco ainda é escrito
+
+## 13. Documentação
+
+- [ ] 13.1 Atualizar `src/core/sky/log/__init__.py` com exports públicos
+- [ ] 13.2 Adicionar docstrings completas em todos os módulos
+- [ ] 13.3 Criar README em `src/core/sky/log/README.md` (uso, exemplos, configuração)
+- [ ] 13.4 Documentar `CyberpunkConfig` (presets, acessibilidade)
+- [ ] 13.5 Atualizar CLAUDE.md com notas sobre novo subsistema de log
+- [ ] 13.6 Marcar `src/core/sky/chat/textual_ui/widgets/common/log.py` como DEPRECATED
 
 ---
 
-**Total de tarefas:** ~100 tarefas distribuídas em 12 fases
+**Total de tarefas:** ~85 tarefas distribuídas em 13 fases
 
-**Estimativa de esforço:** 4-5 sprints (considerando TDD estrito e testes completos)
+**Estimativa de esforço:** 3-4 sprints (simplificado vs plano original)
+
+**Principais simplificações:**
+- Protocol simples ao invés de Event Bus complexo
+- logging padrão do Python ao invés de LogLevel custom
+- Clipboard vendorizado (sem dependências externas)
+- Virtualização desde dia 1 (não "futuro")
