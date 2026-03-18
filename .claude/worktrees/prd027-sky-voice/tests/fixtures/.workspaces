@@ -1,0 +1,19 @@
+{
+  "default": "core",
+  "workspaces": {
+    "core": {
+      "name": "Skybridge Core",
+      "path": "workspace/core",
+      "description": "Instância principal do Skybridge",
+      "auto": true,
+      "enabled": true
+    },
+    "trading": {
+      "name": "Trading Bot",
+      "path": "workspace/trading",
+      "description": "Bot de trading automatizado",
+      "auto": false,
+      "enabled": true
+    }
+  }
+}

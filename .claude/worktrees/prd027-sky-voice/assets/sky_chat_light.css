@@ -1,0 +1,260 @@
+/* Sky Chat Textual UI - Tema Claro */
+
+/* === Screen === */
+Screen {
+    background: $primary;
+    color: $text;
+}
+
+/* === Bubbles === */
+SkyBubble {
+    background: $surface;
+    color: $text;
+    margin: 1 2;
+    padding: 1;
+    border: thick $accent;
+    border-subtitle: off;
+}
+
+UserBubble {
+    background: $accent;
+    color: $primary;
+    margin: 1 2;
+    padding: 1;
+    border: thick $accent;
+    border-subtitle: off;
+    text-align: right;
+}
+
+/* === Título Animado === */
+.verbo-animado {
+    animation: color-sweep-light 2s linear infinite;
+}
+
+@keyframes color-sweep-light {
+    0% { color: $accent; text-style: bold; }
+    50% { color: $primary; text-style: bold underline; }
+    100% { color: $accent; text-style: bold; }
+}
+
+/* === Barra de Contexto === */
+ProgressBar.--green {
+    color: green;
+}
+ProgressBar.--green ProgressBar--bar {
+    background: green;
+}
+
+ProgressBar.--yellow {
+    color: darkorange;
+}
+ProgressBar.--yellow ProgressBar--bar {
+    background: darkorange;
+}
+
+ProgressBar.--orange {
+    color: orange;
+}
+ProgressBar.--orange ProgressBar--bar {
+    background: orange;
+}
+
+ProgressBar.--red {
+    color: red;
+}
+ProgressBar.--red ProgressBar--bar {
+    background: red;
+}
+
+/* === Markdown === */
+MarkdownText {
+    background: transparent;
+}
+Markdown {
+    background: transparent;
+}
+
+/* Syntax highlighting para blocos de código */
+Markdown code {
+    background: $surface;
+    text-style: bold;
+    padding: 0 1;
+    border: round $accent;
+}
+Markdown pre {
+    background: $surface;
+    padding: 1;
+    margin: 1 0;
+    border: round $accent;
+}
+Markdown pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+/* Links clicáveis */
+Markdown a {
+    color: $accent;
+    text-style: underline bold;
+}
+Markdown a:hover {
+    color: $primary;
+    text-style: bold reverse;
+}
+
+/* Formatação de texto */
+Markdown strong {
+    text-style: bold;
+    color: $primary;
+}
+Markdown em {
+    text-style: italic;
+}
+Markdown strong em {
+    text-style: bold italic;
+}
+
+/* Listas */
+Markdown ul, Markdown ol {
+    margin: 1 0;
+}
+Markdown li {
+    margin: 0 1;
+}
+
+/* Tabelas */
+Markdown table {
+    border: round $accent;
+    margin: 1 0;
+}
+Markdown th {
+    background: $accent;
+    color: $primary;
+    text-style: bold;
+    padding: 0 1;
+}
+Markdown td {
+    border: round $surface;
+    padding: 0 1;
+}
+
+/* === Header === */
+Header {
+    background: $surface;
+    text-align: center;
+    text-style: bold;
+    color: $text;
+}
+
+/* === Footer === */
+Footer {
+    background: $surface;
+    text-align: left;
+    color: $text;
+}
+
+/* === Thinking Indicator === */
+ThinkingIndicator {
+    text-style: italic;
+    color: $accent;
+}
+
+/* === Tool Feedback === */
+ToolFeedback {
+    background: $surface;
+    border: round $accent;
+    margin: 1 2;
+    padding: 1;
+}
+ToolTool {
+    text-style: bold;
+    color: $text;
+}
+
+/* === Separator === */
+TurnSeparator {
+    content: "─── ⋆ ───";
+    color: $text-muted;
+    text-align: center;
+    margin: 1 0;
+}
+
+/* === Animated Title === */
+AnimatedTitle {
+    text-align: center;
+    text-style: bold;
+    margin: 1 0;
+    color: $text;
+}
+
+/* === Messages Container === */
+#messages-container {
+    height: 1fr;
+    overflow-y: auto;
+}
+
+/* === Modal === */
+ModalScreen {
+    background: $boost;
+}
+
+ModalScreen Overlay {
+    background: $surface 80%;
+}
+
+/* === Toast === */
+ToastNotification {
+    dock: top right;
+    background: $surface;
+    border: round $accent;
+    margin: 1;
+    padding: 1;
+}
+
+/* === Info/Error Bubbles === */
+.info {
+    background: $surface;
+    color: $text;
+    border: round $accent;
+    margin: 1 2;
+    padding: 1;
+    text-align: center;
+}
+
+.error {
+    background: $surface;
+    color: red;
+    border: round red;
+    margin: 1 2;
+    padding: 1;
+    text-align: center;
+}
+
+/* === Input Field === */
+Input {
+    background: $surface;
+    border: round $accent;
+    color: $text;
+}
+
+/* === Buttons === */
+Button {
+    background: $accent;
+    color: $primary;
+}
+
+Button:hover {
+    background: $primary;
+    color: $accent;
+}
+
+/* === Config/Help Screens === */
+ConfigScreen, HelpScreen {
+    background: $primary;
+}
+
+/* === Welcome Screen === */
+WelcomeScreen {
+    background: $primary;
+}

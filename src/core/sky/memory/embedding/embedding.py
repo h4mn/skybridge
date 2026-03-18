@@ -245,18 +245,11 @@ class SentenceTransformerEmbedding(EmbeddingClient):
             os.environ["HF_HUB_OFFLINE"] = "1"
             self._logger.debug(f"Carregando modelo de embedding: {self._model_name}")
             try:
-<<<<<<< Updated upstream
-                self._model = SentenceTransformer(self._model_name)
-                self._logger.debug(f"Modelo de embedding carregado: {self._model_name}")
-=======
                 # Captura progresso do tqdm e passa para callback (se definido)
                 callback = get_progress_callback()
                 with _capture_tqdm_progress(callback or (lambda _: None)):
                     self._model = SentenceTransformer(self._model_name)
-                logger.structured("Modelo de embedding carregado", {
-                    "model": self._model_name,
-                }, level="debug")
->>>>>>> Stashed changes
+                self._logger.debug(f"Modelo de embedding carregado: {self._model_name}")
             except Exception as e:
                 self._logger.error(f"Erro ao carregar modelo de embedding: model={self._model_name}, error={e}")
                 raise RuntimeError(

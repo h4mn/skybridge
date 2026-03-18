@@ -1,0 +1,112 @@
+# Conventional Commits configuration for Skybridge
+# Based on ADR012 - Estratégia de Versionamento
+
+# Configuração de tipos
+types:
+  - feat      # Nova funcionalidade (MINOR bump)
+  - fix       # Bug fix (PATCH bump)
+  - docs      # Mudança na documentação (sem bump)
+  - style     # Mudança de formatação (sem bump)
+  - refactor # Refatoração (sem bump)
+  - perf      # Melhoria de performance (sem bump)
+  - test      # Adicionar ou atualizar testes (sem bump)
+  - build     # Mudanças no sistema de build (sem bump)
+  - ci        # Mudanças na configuração de CI (sem bump)
+  - chore     # Outras mudanças (sem bump)
+  - revert    # Revert commit anterior
+
+# Escopos definidos (baseado na arquitetura Skybridge)
+scopes:
+  - app       # Aplicação Skybridge
+  - kernel    # SDK interno
+  - openapi   # Contrato YAML
+  - auth      # Autenticação/autorização
+  - fileops   # Contexto de operações de arquivo
+  - tasks     # Contexto de tarefas
+  - platform  # Runtime e infraestrutura
+  - config    # Configuração do projeto
+  - release   # Release e versionamento
+
+# Regras
+rules:
+  # Requer escopo para feat e fix
+  scope-enum:
+    - 2
+    - always
+    - app
+    - kernel
+    - openapi
+    - auth
+    - fileops
+    - tasks
+    - platform
+    - config
+    - release
+
+  # Tipo é obrigatório
+  type-case:
+    - 2
+    - always
+    - lower-case
+
+  # Escopo deve ser lowercase
+  scope-case:
+    - 2
+    - always
+    - lower-case
+
+  # Subject não pode estar vazio
+  subject-empty:
+    - 2
+    - always
+
+  # Subject deve começar com lowercase
+  subject-case:
+    - 2
+    - always
+    - lower-case
+
+  # Tamanho máximo do subject
+  subject-max-length:
+    - 2
+    - always
+    - 72
+
+  # Tamanho máximo da linha
+  line-max-length:
+    - 2
+    - always
+    - 100
+
+# Parser配置
+parser-opts:
+  - conventional-commits-parser
+  - -p
+  - -t
+  - feat:
+    - fix:
+    - docs:
+    - style:
+    - refactor:
+    - perf:
+    - test:
+    - build:
+    - ci:
+    - chore:
+    - revert:
+  - -s
+  - app:
+    - kernel:
+    - openapi:
+    - auth:
+    - fileops:
+    - tasks:
+    - platform:
+    - config:
+    - release:
+  - -b
+  - BREAKING-CHANGE
+
+# Plugin配置
+plugins:
+  - "@commitlint/config-conventional"

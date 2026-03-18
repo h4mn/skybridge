@@ -1,0 +1,5 @@
+{
+  "default": "core",
+  "workspaces": {
+    "core": {
+      "name": "Skybridge Core",

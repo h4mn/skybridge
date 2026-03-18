@@ -92,9 +92,10 @@ class SkyLogo(Static):
 
     def on_mount(self) -> None:
         import random
-        self.set_interval(0.06, self._tick_sweep)
-        self.set_interval(0.05, self._tick_pulso)
-        self.set_interval(0.04, self._tick_transicao)
+        # IMPORTANTE: Timer único para evitar MemoryError
+        # Antes: 3 timers independentes = ~50 refreshes/segundo
+        # Agora: 1 timer = 10 refreshes/segundo (suficiente para logo animado)
+        self.set_interval(0.1, self._tick_all)
 
         # Paletas atual e target para interpolar durante transição
         self._emocao_atual  = "pensando"
@@ -140,16 +141,23 @@ class SkyLogo(Static):
         self.set_estado(self._ciclo[self._ciclo_idx])
         self._agendar_proximo()
 
-    def _tick_sweep(self) -> None:
-        self._offset = (self._offset + self._velocidade) % (self.JANELA * 100)
+    def _tick_all(self) -> None:
+        """Timer único que atualiza todas as variáveis e faz batch refresh.
 
-    def _tick_pulso(self) -> None:
-        self._pulso = (self._pulso + 0.04) % (2 * math.pi)
+        IMPORTANTE: Usa batch update para evitar MemoryError.
+        Antes: 3 timers independentes = ~50 refreshes/segundo
+        Agora: 1 timer = ~16 refreshes/segundo
+        """
+        # Atualiza todas as variáveis reativas SEM triggerar watchers
+        # (não usamos reactive.set para evitar múltiplos refresh)
+        object.__setattr__(self, '_offset', (self._offset + self._velocidade) % (self.JANELA * 100))
+        object.__setattr__(self, '_pulso', (self._pulso + 0.04) % (2 * math.pi))
 
-    def _tick_transicao(self) -> None:
-        """Incrementa progressão da transição até 1.0."""
         if self._transicao < 1.0:
-            self._transicao = min(1.0, self._transicao + self.TRANSICAO_PASSO)
+            object.__setattr__(self, '_transicao', min(1.0, self._transicao + self.TRANSICAO_PASSO))
+
+        # ÚNICO refresh por frame
+        self.refresh()
 
     def set_estado(self, nome: str) -> None:
         """API pública — troca estado com transição suave."""
@@ -159,12 +167,10 @@ class SkyLogo(Static):
         self._emocao_target = estado.emocao
         self._angulo        = float(estado.angulo)
         self._velocidade    = estado.velocidade
-        # Reinicia progressão — _tick_transicao vai subindo até 1.0
-        self._transicao     = 0.0
-
-    def watch__offset(self, _)     -> None: self.refresh()
-    def watch__pulso(self, _)      -> None: self.refresh()
-    def watch__transicao(self, _)  -> None: self.refresh()
+        # Reinicia progressão — _tick_all vai incrementando até 1.0
+        object.__setattr__(self, '_transicao', 0.0)
+        # Refresh imediato para refletir mudança de estado
+        self.refresh()
 
     def _paleta_interpolada(self) -> tuple[str, str]:
         """
@@ -185,7 +191,8 @@ class SkyLogo(Static):
         return de, ate
 
     def render(self) -> RenderResult:
-        from rich.markup import escape
+        from rich.text import Text
+        from rich.style import Style
 
         de, ate = self._paleta_interpolada()
 
@@ -197,26 +204,30 @@ class SkyLogo(Static):
         cos_a = math.cos(rad)
         sin_a = math.sin(rad)
 
+        # Usa Text diretamente com Style(color=str) para evitar overhead
+        # de Color.parse() a cada caractere
+        text = Text()
+
         col = 0
         row = 0
-        resultado = ""
         for ch in _LETREIRO:
             if ch == "\n":
-                resultado += "\n"
+                text.append("\n")
                 col = 0
                 row += 1
             elif ch in (" ", "\t"):
-                resultado += ch
+                text.append(ch)
                 col += 1
             else:
                 pos  = col * cos_a + row * sin_a
                 fase = ((pos - self._offset) % self.JANELA) / self.JANELA
                 t    = 0.5 - 0.5 * math.cos(2 * math.pi * fase)
                 cor  = _lerp_cor(cor_a, cor_b, t)
-                resultado += f"[{cor}]{escape(ch)}[/]"
+                # Style com string de cor é mais eficiente que Color.parse()
+                text.append(ch, style=Style(color=cor))
                 col += 1
 
-        return resultado
+        return text
 
 
 class WelcomeScreen(RecordingToggleMixin, Screen):
@@ -267,8 +278,8 @@ class WelcomeScreen(RecordingToggleMixin, Screen):
         yield Footer()
 
     def on_chat_text_area_submitted(self, event: ChatTextArea.Submitted) -> None:
-        from core.sky.chat.textual_ui.screens.chat import ChatScreen
-        self.app.push_screen(ChatScreen(event.value))
+        from core.sky.chat.textual_ui.screens.main import MainScreen
+        self.app.push_screen(MainScreen(event.value))
 
     # ------------------------------------------------------------------
     # RecordingToggleMixin - Implementação dos métodos abstratos
@@ -291,11 +302,11 @@ class WelcomeScreen(RecordingToggleMixin, Screen):
         pass
 
     async def _on_recording_complete(self, transcribed_text: str) -> None:
-        """Callback quando gravação completa - navega para ChatScreen."""
+        """Callback quando gravação completa - navega para MainScreen."""
         if transcribed_text.strip():
-            # Cria ChatScreen com a transcrição
-            from core.sky.chat.textual_ui.screens.chat import ChatScreen
-            self.app.push_screen(ChatScreen(transcribed_text))
+            # Cria MainScreen com a transcrição
+            from core.sky.chat.textual_ui.screens.main import MainScreen
+            self.app.push_screen(MainScreen(transcribed_text))
         else:
             # Reseta placeholder
             self._update_placeholder("Digite algo... (Ctrl+S para gravar)")

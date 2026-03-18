@@ -4,6 +4,8 @@ SkyBubble - Bubble para mensagem da Sky com suporte a Markdown e ActionBar.
 
 SkyBubble usa Markdown widget para renderização rica de markdown.
 ActionBar fornece botões Copy/Retry.
+
+NOTA: WaveformTopBar foi movido para o ChatHeader (global).
 """
 
 from typing import TYPE_CHECKING, Callable
@@ -73,8 +75,8 @@ class SkyBubble(Widget):
         # Atribuição após super().__init__() para acionar o reactive
         self.content = content
 
-    def compose(self) -> None:
-        # AgenticLoopPanel PRIMEIRO (se existir)
+    def compose(self) -> ComposeResult:
+        # AgenticLoopPanel (se existir)
         if self._agentic_panel:
             yield self._agentic_panel
 

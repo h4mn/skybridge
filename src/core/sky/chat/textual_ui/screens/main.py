@@ -42,6 +42,10 @@ from core.sky.chat.commands.voice_commands import (
     get_voice_handler,
 )
 
+# sky-tts-waveform: Voice modes e hesitações
+from core.sky.voice.voice_modes import get_reaction, add_hesitations, VoiceMode
+from core.sky.voice.tts_adapter import get_tts_adapter
+
 
 # =============================================================================
 # Verbos de Teste — Amostra variada para validação visual
@@ -232,6 +236,18 @@ class MainScreen(RecordingToggleMixin, Screen):
         # Processa mensagem inicial
         self._abrir_turno_e_processar(self.input)
 
+    def on_unmount(self) -> None:
+        """Chamado quando a tela é desmontada. Cancela tasks pendentes."""
+        # PRD027: Cancela worker TTS se ainda estiver rodando
+        if self._tts_task and not self._tts_task.done():
+            self._tts_task.cancel()
+        # Limpa queue para evitar que worker fique preso
+        if self._tts_queue:
+            try:
+                self._tts_queue.put_nowait(None)
+            except Exception:
+                pass
+
     def on_unload(self) -> None:
         """Chamado quando a tela é descarregada. Restaura stdout/stderr."""
         if hasattr(self, '_chat_logger') and self._chat_logger is not None:
@@ -351,6 +367,8 @@ class MainScreen(RecordingToggleMixin, Screen):
             message = ChatMessage(role="user", content=mensagem)
 
             # PRD027: Inicia worker TTS progressivo se ativado
+            # NOTA: Usa asyncio.create_task() para rodar em paralelo com streaming
+            # Cancelamento é tratado no bloco finally e no on_unmount
             tts_enabled = self._voice_handler.tts_responses
             if tts_enabled:
                 self._tts_queue = asyncio.Queue()
@@ -371,22 +389,18 @@ class MainScreen(RecordingToggleMixin, Screen):
                     await turno.append_response(stream_event.content)
                     text_chunk_count += 1
 
-                    # PRD027: Envia chunk para fila TTS
+                    # sky-tts-waveform: Envia (tipo, chunk) para fila TTS
                     if tts_enabled and self._tts_queue:
-                        preview = stream_event.content[:50].replace('\n', '\\n')
-                        log.evento(f"STREAM TEXT #{text_chunk_count}", f"+{len(stream_event.content)} chars: '{preview}...'")
-                        await self._tts_queue.put(stream_event.content)
+                        await self._tts_queue.put(("TEXT", stream_event.content))
 
                 elif stream_event.type == StreamEventType.THOUGHT:
                     # PRD-REACT-001: Thought (intenção antes da ação)
                     await turno.add_thought(stream_event.content)
                     thought_count += 1
 
-                    # PRD027: Envia pensamento para fila TTS
+                    # sky-tts-waveform: Envia pensamento para fila TTS
                     if tts_enabled and self._tts_queue:
-                        thought_msg = f"Pensando: {stream_event.content}"
-                        log.evento(f"STREAM THOUGHT #{thought_count}", f"+{len(thought_msg)} chars")
-                        await self._tts_queue.put(thought_msg)
+                        await self._tts_queue.put(("THOUGHT", stream_event.content))
 
                 elif stream_event.type == StreamEventType.TOOL_START:
                     # PRD-REACT-001: Tool start - cria Action no Step
@@ -400,11 +414,9 @@ class MainScreen(RecordingToggleMixin, Screen):
                     await turno.add_action(tool_name, param, input_json=input_json)
                     tool_start_count += 1
 
-                    # PRD027: Envia tool start para fila TTS
+                    # sky-tts-waveform: Envia tool start para fila TTS
                     if tts_enabled and self._tts_queue:
-                        tool_msg = f"Usando {tool_name}..."
-                        log.evento(f"STREAM TOOL_START #{tool_start_count}", f"{tool_msg}")
-                        await self._tts_queue.put(tool_msg)
+                        await self._tts_queue.put(("TOOL_START", tool_name))
 
                 elif stream_event.type == StreamEventType.TOOL_RESULT:
                     # PRD-REACT-001: Tool result - resolve Action
@@ -423,13 +435,11 @@ class MainScreen(RecordingToggleMixin, Screen):
                     )
                     tool_result_count += 1
 
-                    # PRD027: Envia resultado resumido para fila TTS
+                    # sky-tts-waveform: Envia resultado para fila TTS
                     if tts_enabled and self._tts_queue:
-                        # Resume do resultado (primeiros 100 chars)
-                        summary = stream_event.content[:100] if len(stream_event.content) > 100 else stream_event.content
-                        result_msg = f"Resultado: {summary}"
-                        log.evento(f"STREAM TOOL_RESULT #{tool_result_count}", f"+{len(result_msg)} chars")
-                        await self._tts_queue.put(result_msg)
+                        exit_code = meta.get("exit_code")
+                        result_type = "positive" if exit_code == 0 else "doubt"
+                        await self._tts_queue.put(("TOOL_RESULT", result_type))
 
                 elif stream_event.type == StreamEventType.ERROR:
                     # Erro - adiciona entrada
@@ -441,19 +451,20 @@ class MainScreen(RecordingToggleMixin, Screen):
                     ))
                     error_count += 1
 
-                    # PRD027: Envia erro para fila TTS
+                    # sky-tts-waveform: Envia erro para fila TTS
                     if tts_enabled and self._tts_queue:
-                        error_msg = f"Erro: {stream_event.content[:100]}"
-                        log.evento(f"STREAM ERROR #{error_count}", f"+{len(error_msg)} chars")
-                        await self._tts_queue.put(error_msg)
+                        await self._tts_queue.put(("ERROR", stream_event.content[:100]))
 
             # PRD027: Finaliza worker TTS progressivo
             if tts_enabled:
                 log.evento("STREAM END", f"TEXT={text_chunk_count}, THOUGHT={thought_count}, TOOL_START={tool_start_count}, TOOL_RESULT={tool_result_count}, ERROR={error_count}")
                 if self._tts_queue:
                     await self._tts_queue.put(None)  # Sinal de fim
-                    if self._tts_task:
-                        await self._tts_task  # Aguarda worker terminar
+                    # FIX: NÃO aguarda worker terminar aqui
+                    # O await causa race condition com o cleanup do generator SDK
+                    # O worker termina em background e é limpo no on_unmount
+                    # if self._tts_task:
+                    #     await self._tts_task  # REMOVIDO - causava cancel scope error
 
             # PRD-REACT-001: Ao completar, finaliza o AgenticLoopPanel
             turno.finalize_agentic_loop()
@@ -519,6 +530,19 @@ class MainScreen(RecordingToggleMixin, Screen):
             turno.set_error(str(e) if hasattr(e, '__str__') else str(type(e).__name__))
 
         finally:
+            # PRD027: Limpa worker TTS em caso de exceção
+            # Se não limpou antes, o worker fica preso aguardando eventos
+            if self._tts_queue:
+                try:
+                    self._tts_queue.put_nowait(None)  # Sinal de fim (não bloqueia)
+                except Exception:
+                    pass
+            if self._tts_task and not self._tts_task.done():
+                try:
+                    self._tts_task.cancel()
+                except Exception:
+                    pass
+
             # Cleanup seguro - não falha mesmo se widgets não existirem
             try:
                 scroll = self.query_one("#container", ChatScroll)
@@ -587,49 +611,140 @@ class MainScreen(RecordingToggleMixin, Screen):
                 pass
 
     # ------------------------------------------------------------------
-    # PRD027: TTS Progressivo - Worker e utilitários
+    # sky-tts-waveform: TTS Progressivo - Worker e utilitários
     # ------------------------------------------------------------------
 
     async def _tts_worker(self) -> None:
-        """Worker que captura TUDO e fala no final."""
+        """
+        Worker TTS progressivo que fala por sentença.
+
+        Características:
+        - Fala cada ciclo de pensamento SEQUENCIALMENTE
+        - Buffer de ~50 chars + detecção de pontuação final
+        - Reação pós-tool com hesitações
+        - Controle de waveform no SkyBubble
+        - NÃO bloqueia o stream de texto (worker roda em background)
+
+        IMPORTANTE: Usa await para garantir reprodução sequencial.
+        O stream de texto não é bloqueado porque este worker é criado
+        com asyncio.create_task() no início do processamento.
+        """
+        log = self.query_one(ChatLog)
+        log.evento("TTS WORKER", "Iniciando...")
+
         try:
-            log = self.query_one(ChatLog)
-            all_content = []
+            tts = get_tts_adapter()
+            log.evento("TTS WORKER", f"TTS adapter carregado: {type(tts).__name__}")
+
+            buffer = ""
+            last_event_type = None
             event_count = 0
 
-            log.evento("TTS WORKER", "Iniciado - capturando tudo...")
+            # Referência ao turno atual
+            turno = self._turno_atual
+
+            async def _speak_and_wait(text: str) -> None:
+                """Fala texto SEQUENCIALMENTE (await garante ordem)."""
+                if not text.strip():
+                    return
+                clean_text = self._clean_text_for_speech(text)
+                log.evento("TTS SPEAK", f"Falando: '{clean_text[:50]}...'")
+                self._start_waveform(turno, "speaking")
+                try:
+                    await tts.speak(clean_text, mode=VoiceMode.NORMAL)
+                finally:
+                    self._stop_waveform(turno)
 
             while True:
                 # Aguarda próximo evento ou sinal de fim
                 event = await self._tts_queue.get()
 
                 if event is None:  # Sinal de fim
-                    log.evento("TTS WORKER", f"Fim. Total capturado: {event_count} eventos")
+                    log.evento("TTS EOF", "Recebido sinal de fim")
+                    # Fala buffer restante e termina
+                    if buffer.strip():
+                        log.evento("TTS FINAL", f"Falando buffer restante: {len(buffer)} chars")
+                        await _speak_and_wait(buffer)
+                    log.evento("TTS EOF", "Worker terminando")
                     break
 
-                # Acumula TUDO com log detalhado
                 event_count += 1
-                all_content.append(event)
+                event_type, content = event
+                log.evento("TTS EVENT", f"{event_type}: '{content[:30]}...'")
 
-                # Log de cada evento recebido
-                preview = event[:50].replace('\n', '\\n') if len(event) > 50 else event.replace('\n', '\\n')
-                log.evento(f"TTS EVENT #{event_count}", f"+{len(event)} chars: '{preview}...'")
+                # NOVO CICLO DE PENSAMENTO: Fala buffer anterior antes de começar novo
+                # Detecta transição TOOL_RESULT -> THOUGHT como novo ciclo
+                if last_event_type == "TOOL_RESULT" and event_type == "THOUGHT":
+                    if buffer.strip():
+                        # Fala buffer do ciclo anterior (sequencial)
+                        await _speak_and_wait(buffer)
+                        buffer = ""
+                    # Adiciona reação de início de novo ciclo
+                    reaction = get_reaction("post_tool", "positive", 0.5)
+                    if reaction:
+                        buffer = f"{reaction} "
 
-            # Concatena tudo e fala
-            full_text = "".join(all_content)
+                # TRANSIÇÃO PARA TEXTO FINAL: Fala buffer do último pensamento
+                # TOOL_RESULT -> TEXT indica início do texto final/resumo
+                if last_event_type == "TOOL_RESULT" and event_type == "TEXT":
+                    if buffer.strip():
+                        await _speak_and_wait(buffer)
+                        buffer = ""
 
-            log.evento("TTS WORKER", f"Total acumulado: {len(full_text)} chars de {event_count} eventos")
-            log.evento("TTS TEXT FULL", f"Texto completo:\n{full_text}")
+                # Processa por tipo de evento
+                if event_type == "TEXT":
+                    buffer += content
 
-            try:
-                await self._voice_handler.handle_tts(full_text)
-                log.evento("TTS WORKER", "✓ Falou tudo!")
-            except Exception as e:
-                log.evento("TTS WORKER", f"✗ Erro: {e}")
+                elif event_type == "THOUGHT":
+                    # Pensamento: adiciona hesitação de início se buffer vazio
+                    if not buffer:
+                        starter = get_reaction("start", "positive", 0.3)
+                        buffer = f"{starter} {content}" if starter else content
+                    else:
+                        buffer += content
 
+                elif event_type in ("TOOL_START", "TOOL_RESULT", "ERROR"):
+                    # Antes de tool/error: fala buffer acumulado se tiver conteúdo
+                    if buffer.strip():
+                        await _speak_and_wait(buffer)
+                        buffer = ""
+
+                last_event_type = event_type
+
+                # Fala quando buffer pronto (50+ chars E termina em pontuação)
+                # CORREÇÃO: Verifica se buffer não está vazio após strip
+                stripped = buffer.rstrip()
+                if len(stripped) >= 50 and stripped[-1] in ".!?":
+                    await _speak_and_wait(buffer)
+                    buffer = ""
+
+            log.evento("TTS WORKER", f"Fim. Processados: {event_count} eventos")
+
+        except asyncio.CancelledError:
+            log.evento("TTS WORKER", "Cancelado (CancelledError)")
+            # IMPORTANTE: Não propaga CancelledError
+            # Isso evita erro de anyio cancel scope
         except Exception as e:
-            log = self.query_one(ChatLog)
+            import traceback
             log.warning(f"TTS worker error: {e}")
+            log.warning(traceback.format_exc())
+            # Garante que waveform para em caso de erro
+            self._stop_waveform(self._turno_atual)
+
+    def _start_waveform(self, turno, mode: str) -> None:
+        """Inicia animação do waveform no Header (global)."""
+        header = self.query_one(ChatHeader)
+        if header:
+            if mode == "thinking":
+                header.start_thinking()
+            else:
+                header.start_speaking()
+
+    def _stop_waveform(self, turno) -> None:
+        """Para animação do waveform no Header."""
+        header = self.query_one(ChatHeader)
+        if header:
+            header.stop_waveform()
 
     async def _speak_progressive(self, text: str, log, final: bool = False) -> None:
         """Fala texto imediatamente, sem dividir."""

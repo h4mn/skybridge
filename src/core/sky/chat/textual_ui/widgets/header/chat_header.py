@@ -2,7 +2,8 @@
 """
 ChatHeader - Header customizado para o chat Sky.
 
-Layout de 4 linhas:
+Layout de 4-7 linhas (dependendo do estado do waveform):
+  Linha 0:   WaveformTopBar (apenas quando Sky está falando/pensando)
   Linha 1-2: AnimatedTitle completo ("Sky verbo predicado")
   Linha 3:   ContextBar (barra de progresso do contexto)
   Linha 4:   métricas dinâmicas (RAG, mems, latência, tokens, modelo)
@@ -16,10 +17,11 @@ from core.sky.chat.textual_ui.widgets.header.title.animated_title import Animate
 from core.sky.chat.textual_ui.widgets.header.context_bar import ContextBar
 from core.sky.chat.textual_ui.widgets.header.animated_verb import EstadoLLM
 from core.sky.chat.textual_ui.widgets.header.title.history import TitleHistory
+from core.sky.chat.textual_ui.widgets.bubbles.waveform_topbar import WaveformTopBar
 
 
 class ChatHeader(Widget):
-    """Header com 4 linhas."""
+    """Header com waveform e 4 linhas de conteúdo."""
 
     DEFAULT_CSS = """
     ChatHeader {
@@ -29,6 +31,10 @@ class ChatHeader(Widget):
         padding: 0 1;
         background: $surface;
         border-bottom: solid $panel;
+    }
+    ChatHeader > WaveformTopBar {
+        height: 0;  /* 0 por padrão, 3 quando ativo */
+        width: 100%;
     }
     ChatHeader > AnimatedTitle {
         height: 2;
@@ -57,6 +63,7 @@ class ChatHeader(Widget):
         self._title_history = TitleHistory()
 
     def compose(self) -> ComposeResult:
+        yield WaveformTopBar(id="waveform")
         yield AnimatedTitle("Sky", self._verbo, self._predicado)
         yield ContextBar(total=20, id="context-bar")
         yield Static("", id="components")
@@ -144,6 +151,22 @@ class ChatHeader(Widget):
         """
         from core.sky.chat.textual_ui.widgets.header.title.history_dialog import TitleHistoryDialog
         self.app.push_screen(TitleHistoryDialog(self._title_history))
+
+    # ------------------------------------------------------------------
+    # API do Waveform
+    # ------------------------------------------------------------------
+
+    def start_speaking(self) -> None:
+        """Inicia animação de fala no waveform."""
+        self.query_one("#waveform", WaveformTopBar).start_speaking()
+
+    def start_thinking(self) -> None:
+        """Inicia animação de pensamento no waveform."""
+        self.query_one("#waveform", WaveformTopBar).start_thinking()
+
+    def stop_waveform(self) -> None:
+        """Para e oculta o waveform."""
+        self.query_one("#waveform", WaveformTopBar).stop()
 
 
 __all__ = ["ChatHeader"]

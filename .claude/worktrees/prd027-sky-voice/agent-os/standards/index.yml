@@ -1,0 +1,9 @@
+# Agent OS Standards Index
+
+global:
+  language:
+    description: Language standard - all communication in Portuguese Brasileiro (pt-BR)
+    priority: 1
+  tech-stack:
+    description: Technology stack and framework choices for the project
+    priority: 2

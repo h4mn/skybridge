@@ -15,32 +15,32 @@
 
 ## 2. Serviço TTS Isolado
 
-- [ ] 2.1 Criar `core/sy/voice/tts_service.py` com classe `TTSService`
-- [ ] 2.2 Implementar métodos `start()`, `stop()`, `enqueue()`
-- [ ] 2.3 Implementar `_worker()` com lógica de buffer/fala (transferida de `MainScreen._tts_worker`)
-- [ ] 2.4 Adicionar tratamento de `CancelledError` silencioso
-- [ ] 2.5 Publicar `TTSStartedEvent`/`TTSCompletedEvent` durante fala
-- [ ] 2.6 Criar `core/sy/voice/__init__.py` com export `TTSService`
-- [ ] 2.7 Adicionar testes em `tests/unit/voice/test_tts_service.py`
+- [x] 2.1 Criar `core/sy/voice/tts_service.py` com classe `TTSService`
+- [x] 2.2 Implementar métodos `start()`, `stop()`, `enqueue()`
+- [x] 2.3 Implementar `_worker()` com lógica de buffer/fala (transferida de `MainScreen._tts_worker`)
+- [x] 2.4 Adicionar tratamento de `CancelledError` silencioso
+- [x] 2.5 Publicar `TTSStartedEvent`/`TTSCompletedEvent` durante fala
+- [x] 2.6 Criar `core/sy/voice/__init__.py` com export `TTSService`
+- [x] 2.7 Adicionar testes em `tests/unit/voice/test_tts_service.py`
 
 ## 3. Orquestrador de Chat
 
-- [ ] 3.1 Criar `core/sy/chat/orchestrator.py` com classe `ChatOrchestrator`
-- [ ] 3.2 Implementar `process_turn(message, turn_id)` retornando `AsyncIterator[StreamChunkEvent]`
-- [ ] 3.3 Publicar `TurnStartedEvent` no início
-- [ ] 3.4 Consumir `ClaudeChatAdapter.stream_response()` e publicar cada chunk
-- [ ] 3.5 Enviar eventos para `TTSService.enqueue()` (non-blocking)
-- [ ] 3.6 Publicar `TurnCompletedEvent` ao final
-- [ ] 3.7 Adicionar testes em `tests/unit/chat/test_orchestrator.py`
+- [x] 3.1 Criar `core/sy/chat/orchestrator.py` com classe `ChatOrchestrator`
+- [x] 3.2 Implementar `process_turn(message, turn_id)` retornando `AsyncIterator[StreamChunkEvent]`
+- [x] 3.3 Publicar `TurnStartedEvent` no início
+- [x] 3.4 Consumir `ClaudeChatAdapter.stream_response()` e publicar cada chunk
+- [x] 3.5 Enviar eventos para `TTSService.enqueue()` (non-blocking)
+- [x] 3.6 Publicar `TurnCompletedEvent` ao final
+- [x] 3.7 Adicionar testes em `tests/unit/chat/test_orchestrator.py`
 
 ## 4. Container DI com Lifecycle
 
-- [ ] 4.1 Criar `core/sy/chat/container.py` com classe `ChatContainer`
-- [ ] 4.2 Implementar `ChatContainer.create()` factory method
-- [ ] 4.3 Implementar `shutdown()` para recursos em ordem reversa
-- [ ] 4.4 Implementar `__aenter__` e `__aexit__` para AsyncContextManager
-- [ ] 4.5 Criar `core/sy/chat/factory.py` com factory functions opcionais
-- [ ] 4.6 Adicionar testes de integração em `tests/integration/chat/test_container.py`
+- [x] 4.1 Criar `core/sy/chat/container.py` com classe `ChatContainer`
+- [x] 4.2 Implementar `ChatContainer.create()` factory method
+- [x] 4.3 Implementar `shutdown()` para recursos em ordem reversa
+- [x] 4.4 Implementar `__aenter__` e `__aexit__` para AsyncContextManager
+- [x] 4.5 Criar `core/sy/chat/factory.py` com factory functions opcionais
+- [x] 4.6 Adicionar testes de integração em `tests/integration/chat/test_container.py`
 
 ## 5. Integração com UI Textual (Migração Paralela)
 

@@ -1,0 +1,608 @@
+# -*- coding: utf-8 -*-
+"""
+Bootstrap — Inicialização da aplicação Skybridge.
+
+Orquestra a composição de todos os componentes.
+"""
+
+from pathlib import Path
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from contextlib import asynccontextmanager
+import threading
+import uuid
+import yaml
+import asyncio
+
+# RequestLoggingMiddleware (RF002)
+from runtime.delivery.middleware.request_log import RequestLoggingMiddleware
+
+# PRD022: Template Method Pattern
+from runtime.bootstrap.base_app import BaseApp
+
+from runtime.config.config import get_config, get_fileops_config
+from runtime.observability.logger import get_logger, print_separator, Colors
+from kernel import get_query_registry
+from kernel.registry.discovery import discover_modules
+from kernel.registry.skyrpc_registry import get_skyrpc_registry
+from infra.fileops.filesystem_adapter import create_filesystem_adapter
+from core.fileops.application.queries.read_file import ReadFileQuery, set_read_file_query
+
+# Webhook worker (PRD013) - Variáveis globais para gerenciamento no lifespan
+_webhook_worker_thread = None
+_webhook_worker_instance = None
+_trello_listener = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Gerenciador de lifecycle da aplicação FastAPI.
+
+    Responsável por:
+    - Iniciar o webhook worker no startup
+    - Encerrar graciosamente o worker no shutdown
+    """
+    global _webhook_worker_thread, _webhook_worker_instance, _trello_listener
+
+    from runtime.config.config import get_webhook_config
+    from runtime.observability.logger import get_logger, Colors
+
+    logger = get_logger()
+    webhook_config = get_webhook_config()
+
+    # Log para confirmar que lifespan está sendo usado
+    logger.info("Lifespan handler iniciado - gerenciando webhook worker")
+
+    # ========== AUTO-CRIAÇÃO WORKSPACE CORE ==========
+    from pathlib import Path
+    from runtime.workspace.workspace_initializer import WorkspaceInitializer
+    from runtime.config.workspace_repository import WorkspaceRepository
+    from runtime.config.workspace_config import Workspace
+
+    workspace_base = Path("workspace")
+    workspaces_db = Path("data/workspaces.db")
+
+    # Criar diretório base se não existe
+    workspace_base.mkdir(parents=True, exist_ok=True)
+    workspaces_db.parent.mkdir(parents=True, exist_ok=True)
+
+    # Inicializar workspace core se não existir
+    core_path = workspace_base / "core"
+    if not core_path.exists():
+        logger.info(f"{Colors.CYAN}Auto-criando workspace core{Colors.RESET} (primeira execução)")
+        initializer = WorkspaceInitializer(workspace_base)
+        initializer.create_core()
+
+        # Garante que workspace/core/.env existe (ADR024)
+        from runtime.config.config import ensure_workspace_env
+        ensure_workspace_env("core")
+
+    # Registrar workspace core no banco se necessário
+    if workspaces_db.exists():
+        workspaces_repo = WorkspaceRepository(workspaces_db)
+    else:
+        workspaces_repo = WorkspaceRepository.create(workspaces_db)
+
+    if not workspaces_repo.exists("core"):
+        core_workspace = Workspace(
+            id="core",
+            name="Skybridge Core",
+            path=str(core_path),
+            description="Instância principal",
+            auto=True,
+            enabled=True
+        )
+        workspaces_repo.save(core_workspace)
+        logger.info(f"{Colors.INFO}Workspace core registrado{Colors.RESET} no workspaces.db")
+
+    # ========== STARTUP ==========
+    if "github" in webhook_config.enabled_sources:
+        from kernel import get_event_bus
+        from core.webhooks.application.job_orchestrator import JobOrchestrator
+        from core.webhooks.application.worktree_manager import WorktreeManager
+        from core.webhooks.application.handlers import get_job_queue
+        from core.webhooks.application.guardrails import JobGuardrails
+        from core.webhooks.application.commit_message_generator import CommitMessageGenerator
+        from core.webhooks.application.git_service import GitService
+        from runtime.background.webhook_worker import WebhookWorker
+        from os import getenv
+
+        logger.info(f"Iniciando worker de {Colors.WHITE}Webhook{Colors.RESET} (lifespan)")
+
+        job_queue = get_job_queue()
+        worktree_manager = WorktreeManager(webhook_config.worktree_base_path, webhook_config.base_branch)
+        event_bus = get_event_bus()
+
+        # TrelloEventListener (PRD018 ARCH-08)
+        try:
+            from core.webhooks.infrastructure.listeners.trello_event_listener import (
+                TrelloEventListener,
+            )
+            from core.kanban.application.trello_integration_service import (
+                TrelloIntegrationService,
+            )
+            from infra.kanban.adapters.trello_adapter import TrelloAdapter
+            from runtime.config.config import get_trello_config
+
+            trello_config = get_trello_config()
+            trello_service = None
+
+            if trello_config.api_key and trello_config.api_token:
+                board_id = getenv("TRELLO_BOARD_ID")
+                if board_id:
+                    trello_adapter = TrelloAdapter(
+                        trello_config.api_key,
+                        trello_config.api_token,
+                        board_id
+                    )
+                    trello_service = TrelloIntegrationService(trello_adapter)
+
+            _trello_listener = TrelloEventListener(event_bus, trello_service)
+        except Exception as e:
+            logger.warning(f"TrelloEventListener não criado: {e}")
+            _trello_listener = None
+
+        # Commit/PR services (PRD018 Fase 3)
+        guardrails = JobGuardrails()
+        commit_message_generator = CommitMessageGenerator()
+        git_service = GitService()
+
+        github_client = None
+        github_token = getenv("GITHUB_TOKEN")
+        if github_token:
+            try:
+                from infra.github.github_api_client import create_github_client
+                github_client = create_github_client(github_token)
+                logger.info("GitHubAPIClient inicializado (commit/push/PR habilitado)")
+            except Exception as e:
+                logger.warning(f"GitHubAPIClient não criado: {e}")
+        else:
+            logger.info("GITHUB_TOKEN não configurado - PR automático desabilitado")
+
+        orchestrator = JobOrchestrator(
+            job_queue,
+            worktree_manager,
+            event_bus=event_bus,
+            guardrails=guardrails,
+            commit_message_generator=commit_message_generator,
+            git_service=git_service,
+            github_client=github_client,
+            enable_auto_commit=True,
+            enable_auto_pr=github_client is not None,
+        )
+        _webhook_worker_instance = WebhookWorker(job_queue, orchestrator)
+
+        # Inicia TrelloEventListener
+        if _trello_listener:
+            await _trello_listener.start()
+            logger.info("TrelloEventListener iniciado e inscrito no EventBus")
+
+        # Inicia worker em thread separada
+        async def run_worker():
+            """Corrotina para rodar o worker."""
+            await _webhook_worker_instance.start()
+
+        # Cria e inicia thread com event loop próprio
+        def run_worker_in_thread():
+            """Executa worker em thread com event loop separado."""
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(run_worker())
+            finally:
+                # Cancela todas as tasks pendentes antes de fechar
+                pending = asyncio.all_tasks(loop)
+                for task in pending:
+                    task.cancel()
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                loop.close()
+
+        _webhook_worker_thread = threading.Thread(
+            target=run_worker_in_thread,
+            daemon=True,
+            name="webhook-worker"
+        )
+        _webhook_worker_thread.start()
+        logger.info(f"Thread do worker de {Colors.WHITE}Webhook{Colors.RESET} iniciada")
+
+    # Yield para permitir que a aplicação rode
+    yield
+
+    # ========== SHUTDOWN ==========
+    logger.info("Iniciando shutdown graciosos dos recursos...")
+
+    # Para o webhook worker
+    if _webhook_worker_instance:
+        logger.info("Enviando sinal de shutdown para o webhook worker...")
+        _webhook_worker_instance.stop()
+
+    # Aguarda a thread do worker terminar (com timeout)
+    if _webhook_worker_thread and _webhook_worker_thread.is_alive():
+        logger.info("Aguardando thread do worker terminar...")
+        _webhook_worker_thread.join(timeout=5.0)
+        if _webhook_worker_thread.is_alive():
+            logger.warning("Thread do worker não terminou em 5 segundos (daemon thread será encerrada)")
+        else:
+            logger.info("Thread do worker encerrada graciosamente")
+
+    # Para o TrelloEventListener
+    if _trello_listener:
+        try:
+            await _trello_listener.stop()
+            logger.info("TrelloEventListener parado")
+        except Exception as e:
+            logger.warning(f"Erro ao parar TrelloEventListener: {e}")
+
+    logger.info("Shutdown concluído")
+
+
+class CorrelationMiddleware(BaseHTTPMiddleware):
+    """Middleware para adicionar correlation_id."""
+
+    async def dispatch(self, request: Request, call_next):
+        # Gera correlation_id
+        correlation_id = request.headers.get("x-correlation-id") or str(uuid.uuid4())
+        request.state.correlation_id = correlation_id
+
+        # Processa request
+        response = await call_next(request)
+
+        # Adiciona correlation_id no response
+        response.headers["x-correlation-id"] = correlation_id
+        return response
+
+
+class SkybridgeApp(BaseApp):
+    """
+    Aplicação Skybridge FastAPI.
+
+    Responsável por:
+    - Configurar FastAPI
+    - Registrar middlewares
+    - Registrar queries
+
+    PRD022: Extende BaseApp para usar Template Method Pattern.
+    """
+
+    def __init__(self):
+        # Chama __init__ de BaseApp (config e logger)
+        super().__init__()
+
+        # CRÍTICO: Criar EventBus global ANTES de qualquer outra coisa
+        # Isso garante que endpoints SSE e worker compartilhem o mesmo EventBus
+        from infra.domain_events.in_memory_event_bus import InMemoryEventBus
+        from kernel import set_event_bus, get_event_bus
+        try:
+            event_bus = get_event_bus()
+            self.logger.info(f"EventBus já existe: {type(event_bus).__name__}")
+        except RuntimeError:
+            # EventBus ainda não foi criado, criar agora
+            event_bus = InMemoryEventBus()
+            set_event_bus(event_bus)
+            self.logger.info("EventBus criado e registrado globalmente (startup)")
+
+        self.app = FastAPI(
+            title=self.config.title,
+            version=self.config.version,
+            description=self.config.description,
+            docs_url=self.config.docs_url,
+            redoc_url=self.config.redoc_url,
+            lifespan=lifespan,  # PRD013: usa lifespan para gerenciar worker
+        )
+        self.logger.info("FastAPI configurado com lifespan handler para gerenciamento de webhook worker")
+        # Override FastAPI's auto OpenAPI to use our manual YAML
+        self.app.openapi = self._custom_openapi
+        self._setup_middleware()
+        self._register_queries()
+        self._setup_routes()
+        # Worker agora é gerenciado pelo lifespan, não mais aqui
+
+    def _custom_openapi(self):
+        """
+        Gera OpenAPI Híbrido: operações estáticas (YAML), schemas dinâmicos (registry).
+
+        Conforme ADR016 e PRD010:
+        - Operações HTTP são carregadas do YAML estático
+        - Schemas são injetados do registry runtime
+        """
+        # 1. Encontra raiz do repositório
+        repo_root = None
+        for parent in Path(__file__).resolve().parents:
+            if (parent / "docs").is_dir() and (parent / "src").is_dir():
+                repo_root = parent
+                break
+        if repo_root is None:
+            repo_root = Path.cwd()
+
+        openapi_path = repo_root / "docs" / "spec" / "openapi" / "openapi.yaml"
+
+        # 2. Carrega YAML estático (operações)
+        if not openapi_path.exists():
+            return {}
+
+        with open(openapi_path, encoding="utf-8") as f:
+            spec = yaml.safe_load(f)
+
+        # 3. Inicializa components se não existir
+        if "components" not in spec:
+            spec["components"] = {}
+        if "schemas" not in spec["components"]:
+            spec["components"]["schemas"] = {}
+
+        # 4. Injeta schemas dinâmicos do registry
+        registry = get_skyrpc_registry()
+        discovery = registry.get_discovery()
+
+        # 4.1. Schemas de handlers (input/output)
+        for method_name, handler_meta in discovery.discovery.items():
+            spec["components"]["schemas"][f"{method_name}Input"] = handler_meta.input_schema or {"type": "object", "properties": {}}
+            spec["components"]["schemas"][f"{method_name}Output"] = handler_meta.output_schema or {"type": "object", "properties": {}}
+
+        # 5. Gera schemas reutilizáveis
+        spec["components"]["schemas"].update({
+            "TicketResponse": self._generate_ticket_response_schema(),
+            "EnvelopeRequest": self._generate_envelope_request_schema(),
+            "EnvelopeDetailStruct": self._generate_envelope_detail_struct_schema(),
+            "EnvelopeResponse": self._generate_envelope_response_schema(),
+            "Error": self._generate_error_schema(),
+            "SkyRpcDiscovery": self._generate_discovery_schema(),
+            "SkyRpcHandler": self._generate_handler_schema(),
+        })
+
+        return spec
+
+    def _generate_ticket_response_schema(self) -> dict:
+        """Gera schema de TicketResponse."""
+        return {
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "ticket": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string", "format": "uuid"},
+                        "method": {"type": "string"},
+                        "expires_in": {"type": "integer"},
+                        "accepts": {"type": "string"}
+                    },
+                    "required": ["id", "method", "expires_in"]
+                }
+            },
+            "required": ["ok"]
+        }
+
+    def _generate_envelope_request_schema(self) -> dict:
+        """Gera schema de EnvelopeRequest."""
+        return {
+            "type": "object",
+            "additionalProperties": True,
+            "properties": {
+                "ticket_id": {"type": "string", "format": "uuid"},
+                "detail": {
+                    "oneOf": [
+                        {"$ref": "#/components/schemas/EnvelopeDetailStruct"},
+                        {"type": "string"}
+                    ]
+                }
+            },
+            "required": ["ticket_id", "detail"]
+        }
+
+    def _generate_envelope_detail_struct_schema(self) -> dict:
+        """Gera schema de EnvelopeDetailStruct (v0.3)."""
+        return {
+            "type": "object",
+            "properties": {
+                "context": {"type": "string"},
+                "action": {"type": "string"},
+                "subject": {"type": "string"},
+                "scope": {"type": "string"},
+                "options": {"type": "object", "additionalProperties": True},
+                "payload": {"type": "object", "additionalProperties": True}
+            },
+            "required": ["context", "action"]
+        }
+
+    def _generate_envelope_response_schema(self) -> dict:
+        """Gera schema de EnvelopeResponse."""
+        return {
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "id": {"type": "string"},
+                "result": {"type": "object", "additionalProperties": True},
+                "error": {"$ref": "#/components/schemas/Error"}
+            },
+            "required": ["ok", "id"]
+        }
+
+    def _generate_error_schema(self) -> dict:
+        """Gera schema de Error."""
+        return {
+            "type": "object",
+            "properties": {
+                "code": {"type": "integer"},
+                "message": {"type": "string"},
+                "details": {"type": "object", "additionalProperties": True}
+            },
+            "required": ["code", "message"]
+        }
+
+    def _generate_discovery_schema(self) -> dict:
+        """Gera schema de SkyRpcDiscovery."""
+        return {
+            "type": "object",
+            "properties": {
+                "version": {"type": "string"},
+                "discovery": {
+                    "type": "object",
+                    "additionalProperties": {"$ref": "#/components/schemas/SkyRpcHandler"}
+                }
+            },
+            "required": ["version", "discovery"]
+        }
+
+    def _generate_handler_schema(self) -> dict:
+        """Gera schema de SkyRpcHandler."""
+        return {
+            "type": "object",
+            "properties": {
+                "method": {"type": "string"},
+                "kind": {"type": "string", "enum": ["query", "command"]},
+                "module": {"type": "string"},
+                "description": {"type": "string"},
+                "auth_required": {"type": "boolean"},
+                "input_schema": {"type": "object"},
+                "output_schema": {"type": "object"}
+            },
+            "required": ["method", "kind", "module"]
+        }
+
+    def _setup_middleware(self):
+        """
+        Configura middlewares.
+
+        ORDEM DE ADIÇÃO (inversa da execução em Starlette):
+
+        Ordem de EXECUÇÃO (call_next):
+        1º: CORSMiddleware (mais externo)
+        2º: CorrelationMiddleware (adiciona correlation_id)
+        3º: RequestLoggingMiddleware (lê correlation_id e loga)
+
+        Por isso a ordem de ADIÇÃO é inversa:
+        """
+        # 1º: Request Logging (adiciona primeiro, executa por último)
+        self.app.add_middleware(RequestLoggingMiddleware)
+
+        # 2º: Correlation ID (adiciona depois, executa antes do RequestLogging)
+        self.app.add_middleware(CorrelationMiddleware)
+
+        # 3º: CORS (adiciona por último, executa primeiro - mais externo)
+        self.app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+    def _register_queries(self):
+        """Registra queries no registry."""
+        registry = get_query_registry()
+
+        # Configurar FileOps
+        fileops_config = get_fileops_config()
+        fs_adapter = create_filesystem_adapter(
+            mode=fileops_config.allowlist_mode,
+            root=fileops_config.dev_root or str(Path.cwd())
+        )
+        read_file_query = ReadFileQuery(
+            allowed_path=fs_adapter.allowed_path,
+            filesystem=fs_adapter
+        )
+        set_read_file_query(read_file_query)
+
+        # Auto-descoberta via decorators
+        from runtime.config.config import get_discovery_config
+        discovery_config = get_discovery_config()
+        modules = discover_modules(
+            discovery_config.packages,
+            include_submodules=discovery_config.include_submodules,
+        )
+
+        self.logger.info("Queries registradas", extra={
+            "count": len(registry.list_all()),
+            "fileops_mode": fileops_config.allowlist_mode,
+            # "modules": modules, # Exibe os módulos registrados
+        })
+
+    def _setup_routes(self):
+        """Configura rotas."""
+        from runtime.delivery.routes import create_rpc_router
+        from runtime.delivery.websocket import create_console_router  # PRD019: WebSocket console
+        from runtime.delivery.workspaces_routes import create_router as create_workspaces_router
+        from runtime.delivery.kanban_routes import create_kanban_router  # Kanban Fase 1
+        from runtime.config.workspace_config import WorkspaceConfig
+        from runtime.config.workspace_repository import WorkspaceRepository
+
+        # Carregar configuração de workspaces
+        workspaces_file = Path(".workspaces")
+        workspaces_config = WorkspaceConfig.load(workspaces_file) if workspaces_file.exists() else None
+
+        # Criar repositório de workspaces
+        workspaces_db = Path("data/workspaces.db")
+        if workspaces_db.exists():
+            workspaces_repo = WorkspaceRepository(workspaces_db)
+        else:
+            # Criar repositório se não existir
+            workspaces_repo = WorkspaceRepository.create(workspaces_db)
+
+        # WorkspaceInitializer para criação de novos workspaces
+        workspace_base = Path("workspace")
+        workspace_base.mkdir(parents=True, exist_ok=True)
+        from runtime.workspace.workspace_initializer import WorkspaceInitializer
+        workspace_initializer = WorkspaceInitializer(workspace_base)
+
+        workspaces_router = create_workspaces_router(
+            config=workspaces_config,
+            repository=workspaces_repo,
+            initializer=workspace_initializer
+        )
+
+        # PRD014: Adiciona prefixo /api para todas as rotas (compatibilidade com WebUI)
+        self.app.include_router(create_rpc_router(), prefix="/api", tags=["Sky-RPC"])
+        self.app.include_router(create_console_router(), prefix="/api", tags=["WebSocket"])  # PRD019
+        self.app.include_router(workspaces_router)  # Já tem prefixo /api/workspaces
+        self.app.include_router(create_kanban_router(), prefix="/api")  # Kanban Fase 1
+        self.logger.info("Rotas configuradas com prefixo /api (incluindo WebSocket console, Workspaces e Kanban)")
+
+    # ========== PRD022: Template Method Pattern ==========
+    def _get_host(self) -> str:
+        """Retorna host da config."""
+        return self.config.host
+
+    def _get_port(self) -> int:
+        """Retorna porta da config."""
+        return self.config.port
+
+    def _get_uvicorn_kwargs(self, host: str, port: int) -> dict:
+        """
+        Retorna kwargs específicos para uvicorn: SkybridgeApp usa log_level padrão.
+
+        Contrato de logging:
+        - SkybridgeApp: log_level padrão (via uvicorn)
+        - SkybridgeServer: log_config customizado (ColorFormatter)
+
+        SSL é adicionado pelo BaseApp.run() automaticamente.
+        """
+        import uvicorn
+
+        uvicorn_kwargs = {
+            "app": self.app,
+            "host": host,
+            "port": port,
+            "log_level": self.config.log_level.lower(),
+        }
+        return uvicorn_kwargs
+
+    def _before_run(self) -> None:
+        """Hook antes de rodar (SkybridgeApp não precisa)."""
+        pass
+
+    def _after_run(self) -> None:
+        """Hook depois de rodar (SkybridgeApp não precisa)."""
+        pass
+
+
+# Singleton global
+_app: SkybridgeApp | None = None
+
+
+def get_app() -> SkybridgeApp:
+    """Retorna aplicação global."""
+    global _app
+    if _app is None:
+        _app = SkybridgeApp()
+    return _app

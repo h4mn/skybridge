@@ -1,0 +1,57 @@
+# Skybridge Requirements
+# Python 3.11+
+
+# Core
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+
+# CLI (sb)
+typer>=0.9.0
+requests>=2.31.0
+rich>=13.7.0
+prompt-toolkit>=3.0.0
+
+# Textual TUI (PRD019 Chat UI)
+textual>=0.80.0
+textual-dev>=1.5.0
+pyperclip>=1.8.0
+
+# Ngrok (opcional)
+pyngrok>=7.0.0
+
+# Job Queue - Redis/DragonflyDB (PRD018 Fase 2)
+redis>=5.0.0
+
+# PRD019: Claude Agent SDK
+claude-agent-sdk>=0.1.0
+
+# PRD-REACT-001: Sky Chat ReAct UI
+pyperclip>=1.8.0
+
+# WebSocket console
+websockets>=12.0
+
+# Sky Memory RAG (IDEA002/003)
+sqlite-vec>=0.1.0
+sentence-transformers>=2.2.0
+
+# PRD027: Sky Voice (TTS/STT)
+sounddevice>=0.4.6
+faster-whisper>=1.0.0
+torch>=2.1.0
+numpy>=1.24.0
+soundfile>=0.12.0
+pyttsx3>=2.90
+transformers>=4.30.0
+scipy>=1.10.0
+kokoro>=0.9.4
+
+# Limpeza de markdown para TTS (lib estável)
+strip-markdown>=1.3
+markdown>=3.5  # dependência do strip-markdown
+
+# Logging (futuro)
+# structlog>=23.2.0
+# colorlog>=6.8.0

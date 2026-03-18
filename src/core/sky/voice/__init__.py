@@ -39,7 +39,7 @@ from core.sky.voice.voice_service import (
 from core.sky.voice.tts_service import (
     TTSService,
     MOSSTTSAdapter,
-    KokoroAdapter,
+    KokoroAdapter as KokoroAdapterLegacy,
     Pyttsx3Adapter,
     ElevenLabsAdapter,
     TTSModel,
@@ -58,6 +58,21 @@ from core.sky.voice.voice_chat import (
     VoiceMode,
     VoiceState,
     VoiceChatConfig,
+)
+
+# Novo TTS Adapter com suporte a VoiceMode (sky-tts-waveform)
+from core.sky.voice.tts_adapter import (
+    TTSAdapter,
+    KokoroAdapter,
+    get_tts_adapter,
+)
+
+# Voice Modes e Hesitações (sky-tts-waveform)
+from core.sky.voice.voice_modes import (
+    VoiceMode as TTSVoiceMode,
+    HESITATIONS,
+    get_reaction,
+    add_hesitations,
 )
 
 # Captura de áudio
@@ -79,14 +94,23 @@ __all__ = [
     "VoiceService",
     "VoiceStats",
     "get_voice_service",
-    # TTS
+    # TTS (legacy)
     "TTSService",
     "MOSSTTSAdapter",
-    "KokoroAdapter",
+    "KokoroAdapterLegacy",
     "Pyttsx3Adapter",
     "ElevenLabsAdapter",
     "TTSModel",
     "VoiceConfig",
+    # TTS (novo adapter com VoiceMode)
+    "TTSAdapter",
+    "KokoroAdapter",
+    "get_tts_adapter",
+    # Voice Modes
+    "TTSVoiceMode",
+    "HESITATIONS",
+    "get_reaction",
+    "add_hesitations",
     # STT
     "STTService",
     "WhisperAdapter",
@@ -109,4 +133,4 @@ __all__ = [
     "CacheEntry",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

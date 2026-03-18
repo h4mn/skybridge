@@ -1,0 +1,26 @@
+{
+  "name": "task-builder",
+  "version": "1.0.0",
+  "description": "Create Hadsteca tasks with telegraphic templates",
+  "publisher": "skybridge",
+  "capabilities": {
+    "commands": ["task"],
+    "agents": ["task-builder"],
+    "skills": ["task-helper"]
+  },
+  "settings": [
+    {
+      "key": "tarefas_path",
+      "type": "string",
+      "description": "Path to tarefas workspace",
+      "default": "B:/_repositorios/Hadsteca/workspaces/futura/tarefas"
+    },
+    {
+      "key": "default_type",
+      "type": "string",
+      "description": "Default task type",
+      "default": "erro",
+      "enum": ["erro", "layout", "feature", "manutencao"]
+    }
+  ]
+}

@@ -935,12 +935,11 @@ Agora responda à seguinte mensagem: {user_message}"""
                     break
 
         except asyncio.CancelledError:
-            # PRD-REACT-001: Cancelamento pelo usuário (Ctrl+C)
-# logger.structured("Streaming cancelado pelo usuário", {
-#     "messages_processed": message_count,
-# }, level="info")
-            # Silenciosamente propaga CancelledError para limpeza graciosa
-            raise
+            # FIX anyio cancel scope: Não propaga CancelledError
+            # O raise causa problema no anyio cancel scope do SDK porque
+            # o cleanup acontece em uma task diferente. Retornar silenciosamente
+            # permite que o finally block faça cleanup corretamente.
+            pass  # Silenciosamente retorna - finally fará cleanup
         except Exception as e:
 # logger.structured("Erro no streaming SDK", {
 #     "error": str(e),

@@ -1,0 +1,161 @@
+# -*- coding: utf-8 -*-
+"""
+Exemplo: Como usar SKYBRIDGE_KANBAN_SLUG_LIST (ENV VAR única)
+
+DOC: PRD024 - Kanban Cards Vivos
+DOC: .env.example - SKYBRIDGE_KANBAN_SLUG_LIST
+"""
+
+import os
+from typing import Optional
+
+
+# =============================================================================
+# ENV VAR ÚNICA - Ordem do Fluxo Kanban
+# =============================================================================
+
+DEFAULT_SLUG_ORDER = "issues,backlog,todo,progress,review,publish"
+
+
+def get_kanban_slug_order() -> list[str]:
+    """
+    Retorna ordem do fluxo Kanban (regra de negócio).
+
+    Ordem define a sequência: issues → backlog → todo → progress → review → publish
+
+    Returns:
+        ["issues", "backlog", "todo", "progress", "review", "publish"]
+
+    Example:
+        >>> get_kanban_slug_order()
+        ['issues', 'backlog', 'todo', 'progress', 'review', 'publish']
+    """
+    slug_list = os.getenv("SKYBRIDGE_KANBAN_SLUG_LIST", "")
+    if not slug_list:
+        # Fallback: padrão Skybridge (PRD024)
+        return DEFAULT_SLUG_ORDER.split(",")
+
+    return [s.strip() for s in slug_list.split(",") if s.strip()]
+
+
+def get_kanban_slug_position(slug: str) -> int:
+    """
+    Retorna posição ordinal de um slug no fluxo.
+
+    Args:
+        slug: Slug da lista ("progress", "todo", etc)
+
+    Returns:
+        Posição (0-5) ou -1 se não encontrado
+
+    Example:
+        >>> get_kanban_slug_position("progress")
+        3
+        >>> get_kanban_slug_position("invalid")
+        -1
+    """
+    slugs = get_kanban_slug_order()
+    try:
+        return slugs.index(slug)
+    except ValueError:
+        return -1
+
+
+def is_valid_kanban_slug(slug: str) -> bool:
+    """
+    Verifica se slug é válido para regras de negócio Skybridge.
+
+    Args:
+        slug: Slug a validar
+
+    Returns:
+        True se válido, False caso contrário
+
+    Example:
+        >>> is_valid_kanban_slug("progress")
+        True
+        >>> is_valid_kanban_slug("invalid")
+        False
+    """
+    return slug in get_kanban_slug_order()
+
+
+def get_next_slug_in_flow(current_slug: str) -> Optional[str]:
+    """
+    Retorna o próximo slug no fluxo Kanban.
+
+    Args:
+        current_slug: Slug atual ("progress")
+
+    Returns:
+        Próximo slug ou None se for o último
+
+    Example:
+        >>> get_next_slug_in_flow("progress")
+        'review'
+        >>> get_next_slug_in_flow("publish")
+        None
+    """
+    position = get_kanban_slug_position(current_slug)
+    if position == -1:
+        return None
+
+    slugs = get_kanban_slug_order()
+    next_position = position + 1
+
+    if next_position >= len(slugs):
+        return None
+
+    return slugs[next_position]
+
+
+# =============================================================================
+# EXEMPLO DE USO - Single Source of Truth
+# =============================================================================
+
+def exemplo_move_card_por_slug(card_id: str, target_slug: str):
+    """
+    Exemplo: Mover card usando slug como identificador de negócio.
+
+    Slug é CONSTANTE (não muda), ID é DINÂMICO (muda a cada teste).
+    """
+    from core.kanban.domain.database import get_kanban_lists_config
+    from src.infra.kanban.adapters.sqlite_kanban_adapter import SQLiteKanbanAdapter
+
+    # 1. Validar slug contra consts de negócio
+    if not is_valid_kanban_slug(target_slug):
+        return f"❌ Slug '{target_slug}' inválido. Válidos: {get_kanban_slug_order()}"
+
+    # 2. Buscar lista no banco por slug (ID local pode ter mudado)
+    adapter = SQLiteKanbanAdapter()
+    target_list = adapter.get_list_by_slug(target_slug)  # ← ID do banco
+
+    if not target_list:
+        return f"❌ Lista slug '{target_slug}' não encontrada no banco"
+
+    # 3. Mover usando ID atual (sempre do banco, nunca hardcodado)
+    adapter.move_card(
+        card_id=card_id,
+        to_list_id=target_list.id,  # ← ID atual e válido (vem do banco)
+    )
+
+    # 4. Sincronizar com Trello usando trello_list_id atual (se existir)
+    if target_list.trello_list_id:
+        # trello_adapter.move_card(...)
+        return f"✅ Card movido para '{target_list.name}' (slug: {target_slug})"
+
+    return f"✅ Card movido (sem sinc Trello)"
+
+
+# =============================================================================
+# TESTES
+# =============================================================================
+
+if __name__ == "__main__":
+    print("=== Testes de Slug Order ===")
+    print(f"Ordem: {get_kanban_slug_order()}")
+    print(f"Posição 'progress': {get_kanban_slug_position('progress')}")
+    print(f"É válido 'progress'? {is_valid_kanban_slug('progress')}")
+    print(f"É válido 'invalid'? {is_valid_kanban_slug('invalid')}")
+    print(f"Próximo após 'progress': {get_next_slug_in_flow('progress')}")
+    print(f"Próximo após 'publish': {get_next_slug_in_flow('publish')}")
