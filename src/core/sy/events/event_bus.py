@@ -18,7 +18,6 @@ from datetime import datetime
 E = TypeVar("E")
 
 
-@dataclass
 class BaseEvent:
     """
     Classe base para todos os eventos de domínio.
@@ -28,8 +27,9 @@ class BaseEvent:
         metadata: Dados adicionais opcionais
     """
 
-    timestamp: datetime = field(default_factory=datetime.utcnow)
-    metadata: dict[str, Any] = field(default_factory=dict)
+    def __init__(self, timestamp: datetime | None = None, metadata: dict[str, Any] | None = None):
+        self.timestamp = timestamp or datetime.utcnow()
+        self.metadata = metadata or {}
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(timestamp={self.timestamp.isoformat()})"
