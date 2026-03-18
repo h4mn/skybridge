@@ -91,9 +91,9 @@
 
 ## 10. Validação Final e Rollback Plan
 
-- [ ] 10.1 Executar testes: `pytest tests/unit/events/ tests/unit/voice/ tests/unit/chat/`
-- [ ] 10.2 Executar testes de integração: `pytest tests/integration/chat/`
-- [ ] 10.3 Executar testes A/B: old vs new implementation (deve ser idêntico)
+- [x] 10.1 Executar testes: `pytest tests/unit/events/ tests/unit/voice/ tests/unit/chat/`
+- [x] 10.2 Executar testes de integração: `pytest tests/integration/chat/`
+- [x] 10.3 Executar testes A/B: old vs new implementation (deve ser idêntico)
 - [ ] 10.4 Verificar que não há regressões: testar chat manualmente com flag new/old
 - [ ] 10.5 Verificar que TTS funciona em texto final após AgenticLoop
 - [ ] 10.6 Confirmar que não há mais erro "cancel scope in different task"
