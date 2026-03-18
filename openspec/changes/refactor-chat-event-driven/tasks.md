@@ -63,11 +63,11 @@
 
 ## 7. Limpeza de Código Legado
 
-- [ ] 7.1 Remover `MainScreen._tts_worker()` (~100 linhas)
-- [ ] 7.2 Remover `MainScreen._start_waveform()`, `_stop_waveform()`
-- [ ] 7.3 Remover `MainScreen._clean_text_for_speech()`
-- [ ] 7.4 Remover imports não utilizados relacionados a TTS
-- [ ] 7.5 Verificar que não há referências quebradas
+- [x] 7.1 Remover `MainScreen._tts_worker()` (~100 linhas)
+- [x] 7.2 Remover `MainScreen._start_waveform()`, `_stop_waveform()`
+- [x] 7.3 Remover `MainScreen._clean_text_for_speech()`
+- [x] 7.4 Remover imports não utilizados relacionados a TTS
+- [x] 7.5 Verificar que não há referências quebradas
 
 ## 8. Testes Abrangentes
 
