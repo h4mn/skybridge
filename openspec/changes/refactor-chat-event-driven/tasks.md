@@ -1,0 +1,108 @@
+## 0. Testes FIRST (Pré-requisito Crítico)
+
+- [x] 0.1 Escrever teste E2E do fluxo atual (chat + TTS)
+- [x] 0.2 Capturar baseline de performance (tempo médio por turno)
+- [x] 0.3 Documentar edge cases que funcionam hoje (para garantir regressão)
+- [x] 0.4 Criar flag/feature toggle para alternar old/new implementation (N/A - troca direta com rollback rápido)
+
+## 1. Infraestrutura de Eventos
+
+- [x] 1.1 Criar `core/sy/events/__init__.py` com exports públicos
+- [x] 1.2 Criar `core/sy/events/event_bus.py` com protocolo `EventBus`
+- [x] 1.3 Criar `core/sy/events/in_memory_bus.py` implementando `EventBus`
+- [x] 1.4 Criar `core/sy/chat/events.py` com eventos de domínio (`StreamChunkEvent`, `TurnStartedEvent`, `TurnCompletedEvent`, `TTSStartedEvent`, `TTSCompletedEvent`)
+- [x] 1.5 Adicionar testes em `tests/unit/events/test_event_bus.py`
+
+## 2. Serviço TTS Isolado
+
+- [ ] 2.1 Criar `core/sy/voice/tts_service.py` com classe `TTSService`
+- [ ] 2.2 Implementar métodos `start()`, `stop()`, `enqueue()`
+- [ ] 2.3 Implementar `_worker()` com lógica de buffer/fala (transferida de `MainScreen._tts_worker`)
+- [ ] 2.4 Adicionar tratamento de `CancelledError` silencioso
+- [ ] 2.5 Publicar `TTSStartedEvent`/`TTSCompletedEvent` durante fala
+- [ ] 2.6 Criar `core/sy/voice/__init__.py` com export `TTSService`
+- [ ] 2.7 Adicionar testes em `tests/unit/voice/test_tts_service.py`
+
+## 3. Orquestrador de Chat
+
+- [ ] 3.1 Criar `core/sy/chat/orchestrator.py` com classe `ChatOrchestrator`
+- [ ] 3.2 Implementar `process_turn(message, turn_id)` retornando `AsyncIterator[StreamChunkEvent]`
+- [ ] 3.3 Publicar `TurnStartedEvent` no início
+- [ ] 3.4 Consumir `ClaudeChatAdapter.stream_response()` e publicar cada chunk
+- [ ] 3.5 Enviar eventos para `TTSService.enqueue()` (non-blocking)
+- [ ] 3.6 Publicar `TurnCompletedEvent` ao final
+- [ ] 3.7 Adicionar testes em `tests/unit/chat/test_orchestrator.py`
+
+## 4. Container DI com Lifecycle
+
+- [ ] 4.1 Criar `core/sy/chat/container.py` com classe `ChatContainer`
+- [ ] 4.2 Implementar `ChatContainer.create()` factory method
+- [ ] 4.3 Implementar `shutdown()` para recursos em ordem reversa
+- [ ] 4.4 Implementar `__aenter__` e `__aexit__` para AsyncContextManager
+- [ ] 4.5 Criar `core/sy/chat/factory.py` com factory functions opcionais
+- [ ] 4.6 Adicionar testes de integração em `tests/integration/chat/test_container.py`
+
+## 5. Integração com UI Textual (Migração Paralela)
+
+- [ ] 5.1 Modificar `src/core/sky/chat/textual_ui/screens/main.py`: adicionar `_container: ChatContainer | None`
+- [ ] 5.2 Criar método `_initialize_container()` para lazy initialization
+- [ ] 5.3 Criar `env var` ou flag para alternar entre old/new implementation
+- [ ] 5.4 Implementar `_processar_mensagem_new()` usando `container.orchestrator.process_turn()`
+- [ ] 5.5 Manter `_processar_mensagem_old()` como fallback durante migração
+- [ ] 5.6 Adicionar testes A/B comparando old vs new (mesma saída)
+- [ ] 5.7 Atualizar `on_unmount()` para chamar `container.shutdown()` apenas se container existir
+- [ ] 5.8 Validar que nova implementação produz mesmos resultados que old (testes A/B)
+
+## 6. Componente Waveform UI
+
+- [ ] 6.1 Criar `src/core/sky/chat/textual_ui/widgets/header/waveform_controller.py`
+- [ ] 6.2 Implementar `WaveformController` como widget Textual
+- [ ] 6.3 Consumir `TTSStartedEvent`/`TTSCompletedEvent` via EventBus
+- [ ] 6.4 Atualizar header (`start_speaking`, `start_thinking`, `stop_waveform`)
+- [ ] 6.5 Adicionar `WaveformController` ao `MainScreen.compose()`
+
+## 7. Limpeza de Código Legado
+
+- [ ] 7.1 Remover `MainScreen._tts_worker()` (~100 linhas)
+- [ ] 7.2 Remover `MainScreen._start_waveform()`, `_stop_waveform()`
+- [ ] 7.3 Remover `MainScreen._clean_text_for_speech()`
+- [ ] 7.4 Remover imports não utilizados relacionados a TTS
+- [ ] 7.5 Verificar que não há referências quebradas
+
+## 8. Testes Abrangentes
+
+- [ ] 8.1 Completar testes de `EventBus` (publish/subscribe, multiple subscribers)
+- [ ] 8.2 Adicionar teste de limite de buffer (max 100 eventos)
+- [ ] 8.3 Adicionar teste de timeout (30s síntese, 60s fala)
+- [ ] 8.4 Completar testes de `TTSService` (lifecycle, enqueue, buffer logic)
+- [ ] 8.5 Completar testes de `ChatOrchestrator` (process_turn yield)
+- [ ] 8.6 Completar testes de integração do `ChatContainer`
+- [ ] 8.7 Executar benchmark de performance do EventBus (deve ser <1ms)
+- [ ] 8.8 Verificar coverage > 80% para novos componentes
+- [ ] 8.9 Testar fallback: se EventBus falhar, usa chamada direta
+
+- [ ] 8.1 Completar testes de `EventBus` (publish/subscribe, multiple subscribers)
+- [ ] 8.2 Completar testes de `TTSService` (lifecycle, enqueue, buffer logic)
+- [ ] 8.3 Completar testes de `ChatOrchestrator` (process_turn yield)
+- [ ] 8.4 Completar testes de integração do `ChatContainer`
+- [ ] 8.5 Verificar coverage > 80% para novos componentes
+
+## 9. Documentação
+
+- [ ] 9.1 Criar `docs/architecture/chat-architecture.md` com diagrama de componentes
+- [ ] 9.2 Documentar fluxo de dados (User → Orchestrator → Chat/TTS → Events → UI)
+- [ ] 9.3 Documentar eventos em tabela (nome, quando, quem publica)
+- [ ] 9.4 Adicionar exemplos de uso (code snippets)
+- [ ] 9.5 Atualizar `README.md` se necessário
+
+## 10. Validação Final e Rollback Plan
+
+- [ ] 10.1 Executar testes: `pytest tests/unit/events/ tests/unit/voice/ tests/unit/chat/`
+- [ ] 10.2 Executar testes de integração: `pytest tests/integration/chat/`
+- [ ] 10.3 Executar testes A/B: old vs new implementation (deve ser idêntico)
+- [ ] 10.4 Verificar que não há regressões: testar chat manualmente com flag new/old
+- [ ] 10.5 Verificar que TTS funciona em texto final após AgenticLoop
+- [ ] 10.6 Confirmar que não há mais erro "cancel scope in different task"
+- [ ] 10.7 Medir performance: novo deve ser dentro de 5% do baseline
+- [ ] 10.8 Testar rollback: reverter para código legado e confirmar que funciona
+- [ ] 10.9 Documentar decisão final: (a) manter new como default, (b) manter old como fallback, ou (c) remover old
