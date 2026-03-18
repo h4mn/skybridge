@@ -71,21 +71,15 @@
 
 ## 8. Testes Abrangentes
 
-- [ ] 8.1 Completar testes de `EventBus` (publish/subscribe, multiple subscribers)
-- [ ] 8.2 Adicionar teste de limite de buffer (max 100 eventos)
-- [ ] 8.3 Adicionar teste de timeout (30s síntese, 60s fala)
-- [ ] 8.4 Completar testes de `TTSService` (lifecycle, enqueue, buffer logic)
-- [ ] 8.5 Completar testes de `ChatOrchestrator` (process_turn yield)
-- [ ] 8.6 Completar testes de integração do `ChatContainer`
-- [ ] 8.7 Executar benchmark de performance do EventBus (deve ser <1ms)
-- [ ] 8.8 Verificar coverage > 80% para novos componentes
-- [ ] 8.9 Testar fallback: se EventBus falhar, usa chamada direta
-
-- [ ] 8.1 Completar testes de `EventBus` (publish/subscribe, multiple subscribers)
-- [ ] 8.2 Completar testes de `TTSService` (lifecycle, enqueue, buffer logic)
-- [ ] 8.3 Completar testes de `ChatOrchestrator` (process_turn yield)
-- [ ] 8.4 Completar testes de integração do `ChatContainer`
-- [ ] 8.5 Verificar coverage > 80% para novos componentes
+- [x] 8.1 Completar testes de `EventBus` (publish/subscribe, multiple subscribers)
+- [x] 8.2 Adicionar teste de limite de buffer (max 100 eventos)
+- [x] 8.3 Adicionar teste de timeout (30s síntese, 60s fala)
+- [x] 8.4 Completar testes de `TTSService` (lifecycle, enqueue, buffer logic)
+- [x] 8.5 Completar testes de `ChatOrchestrator` (process_turn yield)
+- [x] 8.6 Completar testes de integração do `ChatContainer`
+- [x] 8.7 Executar benchmark de performance do EventBus (deve ser <1ms)
+- [x] 8.8 Verificar coverage > 80% para novos componentes
+- [x] 8.9 Testar fallback: se EventBus falhar, usa chamada direta
 
 ## 9. Documentação
 
