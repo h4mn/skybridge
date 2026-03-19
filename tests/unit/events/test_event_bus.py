@@ -8,7 +8,7 @@ DOC: openspec/changes/refactor-chat-event-driven/specs/event-bus/spec.md
 import asyncio
 import pytest
 
-from core.sy.events.event_bus import InMemoryEventBus, BaseEvent
+from core.sky.events.event_bus import InMemoryEventBus, BaseEvent
 
 
 class DummyEvent(BaseEvent):

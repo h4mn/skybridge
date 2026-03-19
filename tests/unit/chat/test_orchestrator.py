@@ -10,10 +10,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.sy.chat.orchestrator import ChatOrchestrator
-from core.sy.chat.events import StreamChunkEvent, TurnCompletedEvent, TurnStartedEvent
-from core.sy.events import InMemoryEventBus
-from core.sy.voice import TTSService
+from core.sky.chat.orchestrator import ChatOrchestrator
+from core.sky.chat.events import StreamChunkEvent, TurnCompletedEvent, TurnStartedEvent
+from core.sky.events import InMemoryEventBus
+from core.sky.voice import TTSService
 
 
 class MockStreamEvent:

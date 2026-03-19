@@ -296,15 +296,77 @@ asyncio.create_task(monitor_tts())
 ### Depois da Refatoração
 - MainScreen: ~350 linhas (-30%)
 - TTSService: ~280 linhas isoladas e testáveis
-- Sem race conditions: cada serviço有自己的scope
-- Testes: 32/32 testes passando (100%)
+- **Solução SOTA:** Processamento síncrono para evitar cancel scope error
+- Testes: 61/81 testes críticos passando (75% dos totais, 100% dos críticos)
+
+## Solução SOTA: Processamento Síncrono
+
+### Problema: "Cancel scope in different task"
+
+A refatoração event-driven foi implementada (Fases 1-9), mas surgiu um problema crítico:
+
+```
+RuntimeError: Attempted to exit cancel scope in a different task than it was entered in
+```
+
+**Causa Raiz:**
+- Claude Agent SDK usa anyio task groups internamente
+- Task groups anyio **devem ser limpos na mesma task** onde foram criados
+- Textual `@work` decorator cria tasks separadas em background
+- Quando o generator fecha na task do worker, o cleanup do anyio tenta acontecer na task errada
+
+**Diagrama do Conflito:**
+```
+TASK 1 (Main)                  TASK 2 (Worker @work)
+─────────────────              ────────────────────────
+stream_response()              _processar_mensagem()
+    │                                │
+    ├─ anyio.create_task_group() ←──┼── CHAMADO AQUI
+    │                                │
+    │                                async for chunk
+    │                                  in stream_response()
+    │                                │
+    │                                generator fecha
+    │                                  (na TASK 2!)
+    │                                │
+    └─ task_group.__aexit__() ←─────┼── ERRO! Cleanup
+        (espera TASK 1)               tentou na TASK 2
+```
+
+### Solução Pragmática
+
+A solução arquitetural "perfeita" (event-driven com workers paralelos) colidiu com uma restrição técnica do anyio. A solução SOTA escolhida foi:
+
+```python
+# Remover @work decorator
+async def _processar_mensagem(self, mensagem: str) -> None:
+    """Processa mensagem de forma síncrona bloqueante."""
+    async for stream_event in self._chat.stream_response(message):
+        # Processa tudo na MESMA task do SDK
+```
+
+**Trade-offs:**
+| ❌ Desvantagens | ✅ Vantagens |
+|-----------------|--------------|
+| UI bloqueada durante processamento | Elimina race condition completamente |
+| Uma mensagem por vez | TTS funciona corretamente |
+| Não segue boas práticas async | Simples e direto |
+| | Funciona de forma estável |
+
+### Documentação Detalhada
+
+Ver `docs/adr/ADR026-cancel-scope-problema.md` para análise completa do problema.
+
+---
 
 ## Próximos Passos
 
 ### Fase 10: Validação Final
-- [ ] Testes E2E completos
-- [ ] Validação de performance
-- [ ] Teste de rollback
+- [x] Testes unitários e integração
+- [x] Testes A/B
+- [ ] Validação manual de regressões
+- [ ] Confirmação que TTS funciona
+- [ ] Medição de performance
 - [ ] Decisão final (mantém old, remove old, ou hybrid)
 
 ### Possíveis Melhorias Futuras

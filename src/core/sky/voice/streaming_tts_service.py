@@ -1,58 +1,32 @@
 # coding: utf-8
 """
-TTSService - Serviço TTS isolado com lifecycle próprio.
+StreamingTTSService - Serviço TTS com worker assíncrono para streaming.
 
 DOC: openspec/changes/refactor-chat-event-driven/specs/tts-service/spec.md
 
 Serviço TTS que gerencia próprio worker e fila, desacoplado da UI.
 Consome eventos via EventBus e publica TTSStartedEvent/TTSCompletedEvent.
 
-## Características
-
-- Lifecycle explícito com métodos start() e stop()
-- Worker assíncrono com buffer/fala inteligente
-- Publica eventos para notificar UI (waveform, indicators)
-- Tratamento silencioso de CancelledError
-- Isolamento completo de UI Textual
-
-## Exemplo
-
-```python
-from core.sy.voice import TTSService
-from core.sy.events import InMemoryEventBus
-
-bus = InMemoryEventBus()
-tts = TTSService(event_bus=bus)
-
-await tts.start()  # Inicia worker
-
-# Enfileira eventos de fala
-await tts.enqueue(StreamChunkEvent(
-    turn_id="turn-1",
-    content="Olá, mundo!",
-    event_type="TEXT"
-))
-
-await tts.stop()  # Para worker graciosamente
-```
+NOTA: Nome diferente de TTSService legado para evitar conflitos.
+O TTSService legado (core.sky.voice.tts_service) é a interface para backends TTS.
+Este StreamingTTSService é o wrapper com worker/fila para processamento de stream.
 """
 
 import asyncio
 from dataclasses import dataclass, field
 from typing import Literal
 
-from core.sy.chat.events import (
+from core.sky.chat.events import (
     StreamChunkEvent,
     TTSCompletedEvent,
     TTSStartedEvent,
-    TurnStartedEvent,
-    TurnCompletedEvent,
 )
-from core.sy.events import InMemoryEventBus
-from core.sky.voice.tts_adapter import VoiceMode, get_tts_adapter
+from core.sky.events import InMemoryEventBus
+from core.sky.voice import get_tts_adapter, TTSAdapter
+from core.sky.voice.voice_modes import VoiceMode
 
 
-class TTSService:
+class StreamingTTSService:
     """
     Serviço TTS isolado com lifecycle próprio.
 
@@ -67,18 +41,19 @@ class TTSService:
     - Gerenciar waveform (isso é feito via EventBus por UI)
     """
 
-    def __init__(self, event_bus: InMemoryEventBus):
+    def __init__(self, event_bus: InMemoryEventBus, tts_adapter: TTSAdapter | None = None):
         """
-        Inicializa o TTSService.
+        Inicializa o StreamingTTSService.
 
         Args:
             event_bus: EventBus para publicar eventos TTS
+            tts_adapter: Adapter TTS (opcional, usa get_tts_adapter() se None)
         """
         self._event_bus = event_bus
         self._queue: asyncio.Queue[StreamChunkEvent | None] | None = None
         self._worker_task: asyncio.Task | None = None
         self._running = False
-        self._tts = get_tts_adapter()
+        self._tts = tts_adapter or get_tts_adapter()
 
     @property
     def is_running(self) -> bool:
@@ -96,7 +71,7 @@ class TTSService:
             RuntimeError: Se já estiver rodando
         """
         if self._running:
-            raise RuntimeError("TTSService já está rodando")
+            raise RuntimeError("StreamingTTSService já está rodando")
 
         self._queue = asyncio.Queue()
         self._worker_task = asyncio.create_task(self._worker())
@@ -141,7 +116,7 @@ class TTSService:
             RuntimeError: Se serviço não estiver rodando
         """
         if not self._running or not self._queue:
-            raise RuntimeError("TTSService não está rodando. Chame start() primeiro.")
+            raise RuntimeError("StreamingTTSService não está rodando. Chame start() primeiro.")
 
         await self._queue.put(event)
 
@@ -174,7 +149,7 @@ class TTSService:
                         await self._speak_and_wait(
                             buffer.strip(),
                             current_turn_id,
-                            mode=VoiceMode.NORMAL
+                            mode="normal"
                         )
                     break
 
@@ -191,7 +166,7 @@ class TTSService:
                         await self._speak_and_wait(
                             buffer.strip(),
                             current_turn_id,
-                            mode=VoiceMode.NORMAL
+                            mode="normal"
                         )
                         buffer = ""
                     # Reação de início de novo ciclo
@@ -203,7 +178,7 @@ class TTSService:
                         await self._speak_and_wait(
                             buffer.strip(),
                             current_turn_id,
-                            mode=VoiceMode.NORMAL
+                            mode="normal"
                         )
                         buffer = ""
 
@@ -223,7 +198,7 @@ class TTSService:
                         await self._speak_and_wait(
                             buffer.strip(),
                             current_turn_id,
-                            mode=VoiceMode.NORMAL
+                            mode="normal"
                         )
                         buffer = ""
 
@@ -235,7 +210,7 @@ class TTSService:
                     await self._speak_and_wait(
                         buffer.strip(),
                         current_turn_id,
-                        mode=VoiceMode.NORMAL
+                        mode="normal"
                     )
                     buffer = ""
 
@@ -244,28 +219,31 @@ class TTSService:
             # Worker será limpo no stop()
             pass
 
-    async def _speak_and_wait(self, text: str, turn_id: str, mode: VoiceMode) -> None:
+    async def _speak_and_wait(self, text: str, turn_id: str, mode: str) -> None:
         """
         Fala texto e publica eventos para UI.
 
         Args:
             text: Texto para falar
             turn_id: ID do turno atual
-            mode: Modo de voz (NORMAL/THINKING)
+            mode: Modo de voz como string ("normal" ou "thinking")
         """
         if not text.strip():
             return
+
+        # Converte string para VoiceMode enum
+        voice_mode = VoiceMode(mode)
 
         # Publica evento de início
         await self._event_bus.publish(TTSStartedEvent(
             turn_id=turn_id,
             text=text,
-            mode=mode.value
+            mode=mode
         ))
 
         try:
             # Fala o texto
-            await self._tts.speak(text, mode=mode)
+            await self._tts.speak(text, mode=voice_mode)
         finally:
             # Publica evento de conclusão
             await self._event_bus.publish(TTSCompletedEvent(

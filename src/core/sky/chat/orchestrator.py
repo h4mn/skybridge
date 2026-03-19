@@ -17,8 +17,8 @@ Não conhece UI - apenas orquestra chat e TTS.
 ## Exemplo
 
 ```python
-from core.sy.chat import ChatOrchestrator, ChatContainer
-from core.sy.events import InMemoryEventBus
+from core.sky.chat import ChatOrchestrator, ChatContainer
+from core.sky.events import InMemoryEventBus
 
 async with ChatContainer.create() as container:
     orchestrator = container.orchestrator
@@ -32,13 +32,13 @@ import time
 from typing import AsyncIterator
 
 from core.sky.chat.claude_chat import ClaudeChatAdapter, StreamEvent, StreamEventType
-from core.sy.chat.events import (
+from core.sky.chat.events import (
     StreamChunkEvent,
     TurnCompletedEvent,
     TurnStartedEvent,
 )
-from core.sy.events import InMemoryEventBus
-from core.sy.voice import TTSService
+from core.sky.events import InMemoryEventBus
+from core.sky.voice.streaming_tts_service import StreamingTTSService
 
 
 class ChatOrchestrator:
@@ -54,7 +54,7 @@ class ChatOrchestrator:
     def __init__(
         self,
         chat: ClaudeChatAdapter,
-        tts_service: TTSService,
+        tts_service: StreamingTTSService,
         event_bus: InMemoryEventBus,
     ):
         """
@@ -62,7 +62,7 @@ class ChatOrchestrator:
 
         Args:
             chat: ClaudeChatAdapter para consumir stream
-            tts_service: TTSService para enfileirar eventos de fala
+            tts_service: StreamingTTSService para enfileirar eventos de fala
             event_bus: EventBus para publicar eventos
         """
         self._chat = chat
@@ -94,8 +94,11 @@ class ChatOrchestrator:
             user_message=user_message
         ))
 
-        # 2. Consome stream e processa chunks
-        async for stream_event in self._chat.stream_response(user_message):
+        # 2. Cria ChatMessage e consome stream
+        from core.sky.chat.claude_chat import ChatMessage
+        chat_message = ChatMessage(role="user", content=user_message)
+
+        async for stream_event in self._chat.stream_response(chat_message):
             event_type = self._map_stream_event_type(stream_event.type)
 
             # Cria evento de domínio

@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.sy.chat import ChatContainer
-from core.sy.chat.events import StreamChunkEvent
+from core.sky.chat import ChatContainer
+from core.sky.chat.events import StreamChunkEvent
 from core.sky.chat.claude_chat import ClaudeChatAdapter, StreamEvent, StreamEventType
 
 

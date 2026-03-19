@@ -26,7 +26,7 @@ O código atual do chat sofre de **race conditions** entre o stream do Claude Ag
 ## Impact
 
 - **Código afetado**: `src/core/sky/chat/textual_ui/screens/main.py` (~200 linhas removidas/transferidas)
-- **Novos componentes**: `core/sy/events/`, `core/sy/chat/orchestrator.py`, `core/sy/voice/tts_service.py`, `core/sy/chat/container.py`
+- **Novos componentes**: `core/sky/events/`, `core/sky/chat/orchestrator.py`, `core/sky/voice/streaming_tts_service.py`, `core/sky/chat/container.py`
 - **Dependencies**: Nenhuma dependência externa adicional (usa apenas asyncio padrão)
 - **Sistemas**: Chat UI, TTS, Claude Agent SDK integration
 - **Migração**: Retrocompatível via interface `stream_response()` mantida

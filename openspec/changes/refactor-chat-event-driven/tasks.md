@@ -7,25 +7,25 @@
 
 ## 1. Infraestrutura de Eventos
 
-- [x] 1.1 Criar `core/sy/events/__init__.py` com exports públicos
-- [x] 1.2 Criar `core/sy/events/event_bus.py` com protocolo `EventBus`
-- [x] 1.3 Criar `core/sy/events/in_memory_bus.py` implementando `EventBus`
-- [x] 1.4 Criar `core/sy/chat/events.py` com eventos de domínio (`StreamChunkEvent`, `TurnStartedEvent`, `TurnCompletedEvent`, `TTSStartedEvent`, `TTSCompletedEvent`)
+- [x] 1.1 Criar `core/sky/events/__init__.py` com exports públicos
+- [x] 1.2 Criar `core/sky/events/event_bus.py` com protocolo `EventBus`
+- [x] 1.3 Criar `core/sky/events/in_memory_bus.py` implementando `EventBus`
+- [x] 1.4 Criar `core/sky/chat/events.py` com eventos de domínio (`StreamChunkEvent`, `TurnStartedEvent`, `TurnCompletedEvent`, `TTSStartedEvent`, `TTSCompletedEvent`)
 - [x] 1.5 Adicionar testes em `tests/unit/events/test_event_bus.py`
 
 ## 2. Serviço TTS Isolado
 
-- [x] 2.1 Criar `core/sy/voice/tts_service.py` com classe `TTSService`
+- [x] 2.1 Criar `core/sky/voice/tts_service.py` com classe `TTSService`
 - [x] 2.2 Implementar métodos `start()`, `stop()`, `enqueue()`
 - [x] 2.3 Implementar `_worker()` com lógica de buffer/fala (transferida de `MainScreen._tts_worker`)
 - [x] 2.4 Adicionar tratamento de `CancelledError` silencioso
 - [x] 2.5 Publicar `TTSStartedEvent`/`TTSCompletedEvent` durante fala
-- [x] 2.6 Criar `core/sy/voice/__init__.py` com export `TTSService`
+- [x] 2.6 Criar `core/sky/voice/__init__.py` com export `TTSService`
 - [x] 2.7 Adicionar testes em `tests/unit/voice/test_tts_service.py`
 
 ## 3. Orquestrador de Chat
 
-- [x] 3.1 Criar `core/sy/chat/orchestrator.py` com classe `ChatOrchestrator`
+- [x] 3.1 Criar `core/sky/chat/orchestrator.py` com classe `ChatOrchestrator`
 - [x] 3.2 Implementar `process_turn(message, turn_id)` retornando `AsyncIterator[StreamChunkEvent]`
 - [x] 3.3 Publicar `TurnStartedEvent` no início
 - [x] 3.4 Consumir `ClaudeChatAdapter.stream_response()` e publicar cada chunk
@@ -35,11 +35,11 @@
 
 ## 4. Container DI com Lifecycle
 
-- [x] 4.1 Criar `core/sy/chat/container.py` com classe `ChatContainer`
+- [x] 4.1 Criar `core/sky/chat/container.py` com classe `ChatContainer`
 - [x] 4.2 Implementar `ChatContainer.create()` factory method
 - [x] 4.3 Implementar `shutdown()` para recursos em ordem reversa
 - [x] 4.4 Implementar `__aenter__` e `__aexit__` para AsyncContextManager
-- [x] 4.5 Criar `core/sy/chat/factory.py` com factory functions opcionais
+- [x] 4.5 Criar `core/sky/chat/factory.py` com factory functions opcionais
 - [x] 4.6 Adicionar testes de integração em `tests/integration/chat/test_container.py`
 
 ## 5. Integração com UI Textual (Migração Paralela)
@@ -94,9 +94,10 @@
 - [x] 10.1 Executar testes: `pytest tests/unit/events/ tests/unit/voice/ tests/unit/chat/`
 - [x] 10.2 Executar testes de integração: `pytest tests/integration/chat/`
 - [x] 10.3 Executar testes A/B: old vs new implementation (deve ser idêntico)
-- [ ] 10.4 Verificar que não há regressões: testar chat manualmente com flag new/old
+- [x] 10.6 Implementar solução SOTA (remover @work, processamento síncrono)
+- [ ] 10.4 Verificar que não há regressões: testar chat manualmente
 - [ ] 10.5 Verificar que TTS funciona em texto final após AgenticLoop
-- [ ] 10.6 Confirmar que não há mais erro "cancel scope in different task"
+- [ ] 10.6 Confirmar que não há mais erro "cancel scope in different task" (AGUARDANDO TESTE MANUAL)
 - [ ] 10.7 Medir performance: novo deve ser dentro de 5% do baseline
 - [ ] 10.8 Testar rollback: reverter para código legado e confirmar que funciona
 - [ ] 10.9 Documentar decisão final: (a) manter new como default, (b) manter old como fallback, ou (c) remover old

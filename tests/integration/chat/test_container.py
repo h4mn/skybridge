@@ -12,10 +12,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.sy.chat import ChatContainer, ChatContainerContext
-from core.sy.chat.events import StreamChunkEvent
-from core.sy.events import InMemoryEventBus
-from core.sy.voice import TTSService
+from core.sky.chat import ChatContainer, ChatContainerContext
+from core.sky.chat.events import StreamChunkEvent
+from core.sky.events import InMemoryEventBus
+from core.sky.voice import TTSService
 
 
 class MockChatAdapter:
@@ -132,7 +132,7 @@ async def test_container_orchestrator_integration():
 @pytest.mark.asyncio
 async def test_container_event_bus_integration():
     """Teste: EventBus do container funciona corretamente."""
-    from core.sy.chat.events import TurnStartedEvent
+    from core.sky.chat.events import TurnStartedEvent
 
     # Cria container com chat mock
     mock_chat = MockChatAdapter()
@@ -197,7 +197,7 @@ async def test_container_exception_during_context():
 @pytest.mark.asyncio
 async def test_container_tts_not_started_when_auto_start_false():
     """Teste: create() com auto_start=False deixa TTS parado."""
-    from core.sy.chat.factory import create_chat_container
+    from core.sky.chat.factory import create_chat_container
 
     container = await create_chat_container(auto_start_tts=False)
 

@@ -15,8 +15,8 @@ from typing import AsyncIterator
 
 from textual.widget import Widget
 
-from core.sy.events import InMemoryEventBus
-from core.sy.chat.events import TTSCompletedEvent, TTSStartedEvent
+from core.sky.events import InMemoryEventBus
+from core.sky.chat.events import TTSCompletedEvent, TTSStartedEvent
 
 
 class WaveformController(Widget):

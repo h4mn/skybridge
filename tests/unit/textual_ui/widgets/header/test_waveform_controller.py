@@ -11,8 +11,8 @@ import asyncio
 
 import pytest
 
-from core.sy.chat.events import TTSCompletedEvent, TTSStartedEvent
-from core.sy.events import InMemoryEventBus
+from core.sky.chat.events import TTSCompletedEvent, TTSStartedEvent
+from core.sky.events import InMemoryEventBus
 from core.sky.chat.textual_ui.widgets.header.waveform_controller import WaveformControllerV2
 
 

@@ -10,13 +10,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.sy.chat.events import (
+from core.sky.chat.events import (
     StreamChunkEvent,
     TTSCompletedEvent,
     TTSStartedEvent,
 )
-from core.sy.events import InMemoryEventBus
-from core.sy.voice import TTSService
+from core.sky.events import InMemoryEventBus
+from core.sky.voice import TTSService
 from core.sky.voice.tts_adapter import VoiceMode
 
 
