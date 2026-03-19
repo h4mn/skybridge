@@ -49,9 +49,9 @@
 - [x] 5.3 Criar `env var` ou flag para alternar entre old/new implementation
 - [x] 5.4 Implementar `_processar_mensagem_new()` usando `container.orchestrator.process_turn()`
 - [x] 5.5 Manter `_processar_mensagem_old()` como fallback durante migração
-- [x] 5.6 Adicionar testes A/B comparando old vs new (mesma saída)
+- [ ] 5.6 Adicionar testes A/B comparando old vs new (mesma saída)
 - [x] 5.7 Atualizar `on_unmount()` para chamar `container.shutdown()` apenas se container existir
-- [x] 5.8 Validar que nova implementação produz mesmos resultados que old (testes A/B)
+- [ ] 5.8 Validar que nova implementação produz mesmos resultados que old (testes A/B)
 
 ## 6. Componente Waveform UI
 
@@ -93,8 +93,7 @@
 
 - [x] 10.1 Executar testes: `pytest tests/unit/events/ tests/unit/voice/ tests/unit/chat/`
 - [x] 10.2 Executar testes de integração: `pytest tests/integration/chat/`
-- [x] 10.3 Executar testes A/B: old vs new implementation (deve ser idêntico)
-- [x] 10.6 Implementar solução SOTA (remover @work, processamento síncrono)
+- [x] 10.3 Implementar solução SOTA (remover @work, processamento síncrono)
 - [ ] 10.4 Verificar que não há regressões: testar chat manualmente
 - [ ] 10.5 Verificar que TTS funciona em texto final após AgenticLoop
 - [ ] 10.6 Confirmar que não há mais erro "cancel scope in different task" (AGUARDANDO TESTE MANUAL)

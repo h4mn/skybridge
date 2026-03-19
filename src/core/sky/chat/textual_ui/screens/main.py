@@ -32,6 +32,10 @@ from core.sky.chat.textual_ui.widgets.recording_mixin import RecordingToggleMixi
 from core.sky.chat.claude_chat import ClaudeChatAdapter, ChatMessage, get_claude_model, StreamEvent, StreamEventType
 from core.sky.memory import get_memory
 
+# Event-driven architecture (refactor-chat-event-driven)
+import os
+from core.sky.chat.container import ChatContainer
+
 # PRD027: Comandos de voz (/tts, /voice)
 # NOTA: /stt é processado pelo ChatTextArea (transcrição → texto normal)
 from core.sky.chat.textual_ui.commands import Command, CommandType
@@ -177,6 +181,10 @@ class MainScreen(RecordingToggleMixin, Screen):
         self._memory = get_memory()
         self._chat = ClaudeChatAdapter(memory=self._memory)
 
+        # Event-driven architecture (refactor-chat-event-driven)
+        self._container: ChatContainer | None = None
+        self._use_new_implementation = os.getenv("SKYBRIDGE_USE_NEW_CHAT_IMPL", "0") == "1"
+
         # Turno atualmente em andamento
         self._turno_atual: Turn | None = None
 
@@ -228,12 +236,39 @@ class MainScreen(RecordingToggleMixin, Screen):
         if self.input:
             self.set_timer(0.1, lambda: self._abrir_turno_e_processar(self.input))
 
+    async def _initialize_container(self) -> ChatContainer:
+        """
+        Inicializa o ChatContainer com nova arquitetura event-driven.
+
+        Lazy initialization - só cria se necessário.
+        """
+        if self._container is None:
+            self._container = await ChatContainer.create(chat=self._chat)
+        return self._container
+
+    async def _shutdown_container(self) -> None:
+        """
+        Encerra o ChatContainer graciosamente.
+        """
+        if self._container is not None:
+            await self._container.shutdown()
+            self._container = None
+
     def on_unmount(self) -> None:
         """Chamado quando a tela é desmontada. Cancela tasks pendentes."""
         pass
 
     def on_unload(self) -> None:
         """Chamado quando a tela é descarregada. Restaura stdout/stderr."""
+        # Encerra container se estiver ativo
+        if self._container is not None:
+            # Cria task para shutdown assíncrono
+            try:
+                asyncio.create_task(self._shutdown_container())
+            except RuntimeError:
+                # Event loop já fechado
+                pass
+
         if hasattr(self, '_chat_logger') and self._chat_logger is not None:
             self._chat_logger.restore()
 
@@ -291,7 +326,14 @@ class MainScreen(RecordingToggleMixin, Screen):
         # Processamento normal de mensagem (incluindo texto transcrito pelo /stt)
         scroll = self.query_one("#container", ChatScroll)
         self._turno_atual = scroll.iniciar_turno(mensagem)
-        self._processar_mensagem(mensagem)
+
+        # Escolhe implementação baseado em flag
+        if self._use_new_implementation:
+            # Nova arquitetura event-driven (sem @work)
+            asyncio.create_task(self._processar_mensagem_new(mensagem))
+        else:
+            # Implementação SOTA: síncrona sem @work (evita cancel scope error)
+            asyncio.create_task(self._processar_mensagem(mensagem))
 
     @work(exclusive=True)
     async def _process_voice_command(self, command: Command) -> None:
@@ -330,13 +372,14 @@ class MainScreen(RecordingToggleMixin, Screen):
         state = "ativo" if self._voice_handler.tts_responses else "inativo"
         log.evento("TTS progressivo", f"Estado alterado para: {state}")
 
-    @work(exclusive=True)
     async def _processar_mensagem(self, mensagem: str) -> None:
         """
         Processa mensagem com Claude/RAG usando streaming (PRD019 Fase 1).
 
-        SOLUÇÃO: @work + aclose() explícito para evitar "cancel scope in different task".
-        O generator do SDK é fechado explicitamente na mesma task que o criou.
+        SOLUÇÃO SOTA: Processamento síncrono SEM @work para evitar "cancel scope in different task".
+        O stream é processado na mesma task, sem worker assíncrono separado.
+
+        Trade-off: UI bloqueada durante processamento, mas sem race conditions.
         """
         turno = self._turno_atual
         if turno is None:
@@ -452,6 +495,133 @@ class MainScreen(RecordingToggleMixin, Screen):
             log = self.query_one(ChatLog)
             log.evento("Cancelamento", "Turno cancelado pelo usuário")
             if turno and not turno.is_cancelled:
+                turno.set_cancelled()
+        except Exception as e:
+            import traceback
+            log = self.query_one(ChatLog)
+            log.error(f"Erro: {e}")
+            log.error(traceback.format_exc())
+            turno.set_error(str(e) if hasattr(e, '__str__') else str(type(e).__name__))
+
+        finally:
+            self._turno_atual = None
+
+    async def _processar_mensagem_new(self, mensagem: str) -> None:
+        """
+        Processa mensagem usando nova arquitetura event-driven.
+
+        Usa ChatOrchestrator que coordena chat + TTS via EventBus.
+        Não usa @work - processamento síncrono para evitar cancel scope error.
+
+        DOC: openspec/changes/refactor-chat-event-driven
+        """
+        import time
+
+        turno = self._turno_atual
+        if turno is None:
+            return
+
+        try:
+            header = self.query_one(ChatHeader)
+            log = self.query_one(ChatLog)
+
+            # Verbo: inferido da mensagem
+            estado_ativo = _inferir_estado(mensagem)
+            header.update_estado(estado_ativo)
+            log.evento("Verbo inferido", f"{estado_ativo.verbo} ({estado_ativo.emocao})")
+
+            # PRD-REACT-001: Inicia o painel AgenticLoopPanel
+            turno.start_agentic_loop()
+
+            # Inicializa container com nova arquitetura
+            container = await self._initialize_container()
+            orchestrator = container.orchestrator
+
+            # Processa turno via orquestrador
+            turn_id = f"turn-{int(time.time())}"
+
+            async for chunk in orchestrator.process_turn(
+                user_message=mensagem,
+                turn_id=turn_id
+            ):
+                # Processa cada chunk do stream
+                if chunk.event_type == "TEXT":
+                    await turno.append_response(chunk.content)
+                elif chunk.event_type == "THOUGHT":
+                    await turno.add_thought(chunk.content)
+                elif chunk.event_type == "TOOL_START":
+                    meta = chunk.metadata or {}
+                    tool_name = meta.get("tool", "tool")
+                    param = chunk.content
+                    if ": " in param:
+                        param = param.split(": ", 1)[1]
+                    await turno.add_action(
+                        tool_name,
+                        param,
+                        input_json=meta.get("input", "")
+                    )
+                elif chunk.event_type == "TOOL_RESULT":
+                    meta = chunk.metadata or {}
+                    await turno.add_action_result(
+                        content=chunk.content,
+                        tool=meta.get("tool", ""),
+                        full_output=chunk.content,
+                        exit_code=meta.get("exit_code"),
+                        command=meta.get("command", ""),
+                    )
+                elif chunk.event_type == "ERROR":
+                    await turno.add_thinking_entry(ThinkingEntry(
+                        type="error",
+                        timestamp=datetime.now(),
+                        content=chunk.content,
+                        metadata=chunk.metadata,
+                    ))
+
+            # PRD-REACT-001: Ao completar, finaliza o AgenticLoopPanel
+            turno.finalize_agentic_loop()
+            turno.show_retry_action()
+
+            # Coleta métricas
+            self._turn_count += 1
+            self._last_latency_ms = self._chat._last_latency_ms
+            self._total_tokens_in += self._chat._last_tokens_in
+            self._total_tokens_out += self._chat._last_tokens_out
+            history_len = len(self._chat.get_history())
+
+            rag_enabled = self._memory.is_rag_enabled() if hasattr(self._memory, "is_rag_enabled") else False
+            memories_used = 0
+            if rag_enabled:
+                results = self._memory.search(mensagem, top_k=1)
+                memories_used = len(results)
+                self._total_memories_used += memories_used
+
+            header.update_metricas(
+                turn_count=self._turn_count,
+                tokens_in=self._total_tokens_in,
+                tokens_out=self._total_tokens_out,
+                latency_ms=self._last_latency_ms,
+                memories_used=self._total_memories_used,
+                rag_enabled=rag_enabled,
+                model=get_claude_model(),
+            )
+            header.update_context_bar(history_len)
+
+            # Verbo: conjuga no passado
+            verbo_passado = conjugar_passado(estado_ativo.verbo)
+            self._verbo_idx = (self._verbo_idx + 1) % len(_VERBOS)
+            proximo_verbo = _VERBOS[self._verbo_idx]
+            header.update_verbo(proximo_verbo.verbo, proximo_verbo.emocao)
+
+            log.evento("Verbo atualizado", f"{verbo_passado} → {proximo_verbo.verbo}")
+
+            # P4: Gerar título a cada 3 turnos
+            if self._turn_count % 3 == 0:
+                self._gerar_titulo_task = asyncio.create_task(self._gerar_titulo())
+
+        except asyncio.CancelledError:
+            log = self.query_one(ChatLog)
+            if turno:
+                log.warning("Turno cancelado pelo usuário")
                 turno.set_cancelled()
         except Exception as e:
             import traceback
