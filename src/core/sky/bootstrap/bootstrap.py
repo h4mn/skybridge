@@ -22,6 +22,9 @@ from .progress import Progress
 # Feature flags
 USE_RAG_MEMORY = os.getenv("USE_RAG_MEMORY", "false").lower() in ("true", "1", "yes")
 
+# Voice API feature flag
+USE_VOICE_API = os.getenv("SKYBRIDGE_VOICE_API_ENABLED", "0").lower() in ("1", "true", "yes")
+
 
 def _setup_external_libs():
     """
@@ -75,12 +78,13 @@ def _get_collection_names() -> list[str]:
     return ["identity", "shared-moments", "teachings", "operational"]
 
 
-def _get_stages(use_rag: bool) -> list[Stage]:
+def _get_stages(use_rag: bool, use_voice_api: bool) -> list[Stage]:
     """
-    Retorna lista de estágios baseado em configuração RAG.
+    Retorna lista de estágios baseado em configuração RAG e Voice API.
 
     Args:
         use_rag: Se True, inclui estágios RAG (embedding, model_weights, vector_db, collections)
+        use_voice_api: Se True, inclui estágio voice_api (Voice API isolada)
 
     Returns:
         Lista de estágios configurados.
@@ -96,6 +100,13 @@ def _get_stages(use_rag: bool) -> list[Stage]:
             Stage("vector_db", "Inicializando banco vetorial...", weight=1.0),
             Stage("collections", "Configurando coleções...", weight=0.5),
         ])
+
+    # Voice API - inicia subprocess isolado para STT/TTS
+    # Deve vir antes do "textual" para estar pronto quando a UI iniciar
+    if use_voice_api:
+        stages.append(
+            Stage("voice_api", "Inicializando Voice API...", weight=5.0)
+        )
 
     stages.append(
         Stage("textual", "Iniciando interface...", weight=0.5)
@@ -211,12 +222,48 @@ def _stage_collections(progress: "Progress", ctx=None) -> None:
 
 
 def _stage_textual(progress: "Progress", ctx=None) -> None:
-    """Estágio 5: Inicialização da interface Textual."""
+    """Estágio: Inicialização da interface Textual."""
     from core.sky.chat.textual_ui import SkyApp
 
     # Apenas importa para garantir que está disponível
     # A instância será criada pelo caller
     pass
+
+
+def _stage_voice_api(progress: "Progress", ctx=None) -> str:
+    """
+    Estágio: Inicialização da Voice API como subprocess isolado.
+
+    DOC: openspec/changes/voice-api-isolation/tasks.md - Seções 12 e 13
+
+    Este estágio:
+    - Inicia a Voice API como subprocess separado
+    - Aguarda until ready (polling /health)
+    - Retorna URL da API para ser usada pelo MainScreen
+
+    Returns:
+        URL base da Voice API (ex: "http://127.0.0.1:8765")
+
+    Raises:
+        RuntimeError: Se Voice API falhar após retries
+    """
+    from .stages.voice_api import get_voice_api_stage
+
+    stage = get_voice_api_stage()
+
+    # Executa e retorna URL
+    # O callback de progresso será usado internamente pelo stage
+    voice_api_url = stage.execute(
+        progress_update_callback=None,
+        progress_context=ctx
+    )
+
+    if voice_api_url:
+        logger.info(f"Voice API inicializada em {voice_api_url}")
+    else:
+        logger.info("Voice API desabilitada (feature flag OFF)")
+
+    return voice_api_url
 
 
 def run(console: Optional["Console"] = None, cold_start_start: Optional[float] = None, initial_print_done: bool = False) -> "SkyApp":
@@ -260,7 +307,8 @@ def run(console: Optional["Console"] = None, cold_start_start: Optional[float] =
             console.print("[bold green]✓[/bold green] Iniciando Sky Chat...")
     # Criar stages
     use_rag = USE_RAG_MEMORY
-    stages = _get_stages(use_rag)
+    use_voice_api = USE_VOICE_API
+    stages = _get_stages(use_rag, use_voice_api)
 
     # Criar progress
     progress = Progress(console)
@@ -272,8 +320,12 @@ def run(console: Optional["Console"] = None, cold_start_start: Optional[float] =
         "model_weights": _stage_model_weights if use_rag else None,
         "vector_db": _stage_vector_db if use_rag else None,
         "collections": _stage_collections if use_rag else None,
+        "voice_api": _stage_voice_api if use_voice_api else None,
         "textual": _stage_textual,
     }
+
+    # Variável para armazenar URL da Voice API
+    voice_api_url: Optional[str] = None
 
     # Adicionar stages ao progress
     for stage in stages:
@@ -284,10 +336,65 @@ def run(console: Optional["Console"] = None, cold_start_start: Optional[float] =
         for stage in stages:
             func = stage_functions.get(stage.name)
             if func is not None:
-                ctx.run_stage(stage.name, func, progress, ctx)
+                result = ctx.run_stage(stage.name, func, progress, ctx)
+
+                # Captura URL da Voice API
+                if stage.name == "voice_api" and isinstance(result, str):
+                    voice_api_url = result
 
     # Importar e retornar SkyApp
     from core.sky.chat.textual_ui import SkyApp
 
     console.print("[bold green][OK] Sky Chat pronto![/bold green]")
+
+    # TODO: Passar voice_api_url para SkyApp quando a integração estiver pronta
+    # Por ora, a URL será obtida via feature_toggle.get_voice_api_url()
+    # Se necessário, adicionar parâmetro ao construtor do SkyApp
+
+    # Registra cleanup da Voice API no shutdown
+    _register_voice_api_cleanup()
+
     return SkyApp()
+
+
+def _register_voice_api_cleanup() -> None:
+    """
+    Registra signal handlers para encerrar Voice API graciosamente no shutdown.
+
+    DOC: openspec/changes/voice-api-isolation/tasks.md - 13.4
+
+    Quando SkyChat receber SIGTERM/SIGINT:
+    1. Envia SIGTERM para Voice API subprocess
+    2. Aguarda até 5 segundos para shutdown graciosos
+    3. Se não responder, envia SIGKILL
+    """
+    if not USE_VOICE_API:
+        return
+
+    def _cleanup_handler(signum, frame):
+        """Handler para SIGTERM/SIGINT."""
+        from .stages.voice_api import get_voice_api_stage
+
+        stage = get_voice_api_stage()
+
+        if stage.is_ready():
+            logger.info("Encerrando Voice API (shutdown signal received)...")
+            stage.shutdown(timeout=SHUTDOWN_TIMEOUT)
+
+        # Re-leva signal para comportamento padrão
+        import signal
+        signal.signal(signum, signal.SIG_DFL)
+        signal.raise_signal(signum)
+
+    # Registra handlers
+    if sys.platform == "win32":
+        # Windows: SIGINT é o principal (CTRL+C)
+        signal.signal(signal.SIGINT, _cleanup_handler)
+    else:
+        # Unix-like: SIGTERM e SIGINT
+        signal.signal(signal.SIGTERM, _cleanup_handler)
+        signal.signal(signal.SIGINT, _cleanup_handler)
+
+
+# Constante para timeout de shutdown
+SHUTDOWN_TIMEOUT = 5.0
