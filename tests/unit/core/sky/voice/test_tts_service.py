@@ -13,14 +13,14 @@ Este teste valida:
 
 import pytest
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from src.core.sky.voice.tts_service import (
+from core.sky.voice.tts_service import (
     TTSService,
     MOSSTTSAdapter,
     ElevenLabsAdapter,
     TTSModel,
     VoiceConfig,
 )
-from src.core.sky.voice.audio_capture import AudioData
+from core.sky.voice.audio_capture import AudioData
 
 
 class TestVoiceConfig:

@@ -128,7 +128,7 @@ class StreamingTTSService:
 
         Lógica:
         1. Acumula texto até 50+ chars com pontuação final
-        2. Detecta transições de evento (TOOL_RESULT → THOUGHT/TEXT)
+        2. Detecta transições de evento (TOOL_RESULT → TEXT)
         3. Publica TTSStartedEvent/TTSCompletedEvent
         4. Trata CancelledError silenciosamente
         """
@@ -144,7 +144,7 @@ class StreamingTTSService:
                 event = await self._queue.get()
 
                 if event is None:  # Sinal de fim (EOF)
-                    # Fala buffer restante
+                    # Fala buffer restante (sempre fala texto final, mesmo curto)
                     if buffer.strip() and current_turn_id:
                         await self._speak_and_wait(
                             buffer.strip(),
@@ -159,18 +159,6 @@ class StreamingTTSService:
 
                 event_type = event.event_type
                 content = event.content
-
-                # NOVO CICLO DE PENSAMENTO (TOOL_RESULT → THOUGHT)
-                if last_event_type == "TOOL_RESULT" and event_type == "THOUGHT":
-                    if buffer.strip():
-                        await self._speak_and_wait(
-                            buffer.strip(),
-                            current_turn_id,
-                            mode="normal"
-                        )
-                        buffer = ""
-                    # Reação de início de novo ciclo
-                    buffer = "hum... "
 
                 # TRANSIÇÃO PARA TEXTO FINAL (TOOL_RESULT → TEXT)
                 if last_event_type == "TOOL_RESULT" and event_type == "TEXT":
@@ -187,10 +175,8 @@ class StreamingTTSService:
                     buffer += content
 
                 elif event_type == "THOUGHT":
-                    if not buffer:
-                        buffer = f"hum... {content}"
-                    else:
-                        buffer += content
+                    # Thoughts são adicionados ao buffer normalmente
+                    buffer += content
 
                 elif event_type in ("TOOL_START", "TOOL_RESULT", "ERROR"):
                     # Antes de tool/error: fala buffer acumulado

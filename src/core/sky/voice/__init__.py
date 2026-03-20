@@ -134,3 +134,22 @@ __all__ = [
 ]
 
 __version__ = "0.2.0"
+
+# Voice API - Nova arquitetura isolada (voice-api-isolation)
+# Cliente HTTP para consumir a Voice API
+try:
+    from core.sky.voice.client import (
+        VoiceAPIClient,
+        VoiceAPITimeoutError,
+        VoiceAPIUnavailableError,
+        VoiceAPIRequestError,
+    )
+    __all__.extend([
+        "VoiceAPIClient",
+        "VoiceAPITimeoutError",
+        "VoiceAPIUnavailableError",
+        "VoiceAPIRequestError",
+    ])
+except ImportError:
+    # Voice API ainda não implementada
+    pass

@@ -12,14 +12,14 @@ Este teste valida:
 
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
-from src.core.sky.voice.stt_service import (
+from core.sky.voice.stt_service import (
     STTService,
     WhisperAdapter,
     STTModel,
     TranscriptionConfig,
     TranscriptionResult,
 )
-from src.core.sky.voice.audio_capture import AudioData
+from core.sky.voice.audio_capture import AudioData
 
 
 class TestWhisperAdapterInit:
