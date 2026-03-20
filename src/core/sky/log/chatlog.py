@@ -1,8 +1,37 @@
 # coding: utf-8
 """
-ChatLog 2.0 - Widget principal de log.
+ChatLog 2.0 - Widget principal de log com ring buffer e virtualização.
 
-Ring buffer com virtualização e filtros por nível/escopo.
+Este módulo implementa o widget ChatLog para exibição de logs em tempo real
+na UI Textual, com as seguintes características:
+
+Características:
+    - Ring buffer configurável (limita memória)
+    - Virtualização de widgets (renderiza apenas visíveis)
+    - Filtro por nível (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    - Filtro por escopo (SYSTEM, USER, API, DATABASE, NETWORK, VOICE, MEMORY)
+    - Busca reativa com highlight de matches
+    - Buffer when_closed (economiza memória quando widget fechado)
+    - Flush em batch (evita flicker)
+
+Uso:
+    >>> from core.sky.log import ChatLog, ChatLogConfig
+    >>>
+    >>> config = ChatLogConfig(
+    ...     max_entries=1000,
+    ...     buffer_when_closed=100,
+    ...     virtualization_threshold=50
+    ... )
+    >>> chat_log = ChatLog(config=config)
+    >>>
+    >>> # Escrever logs via LogConsumer Protocol
+    >>> entry = LogEntry(level=logging.INFO, message="Test", ...)
+    >>> chat_log.write_log(entry)
+
+Integração:
+    - Usa LogConsumer Protocol para receber logs
+    - Emite VisibleEntriesChanged para LogCopier
+    - Recebe FilterChanged e SearchChanged dos widgets
 """
 
 import logging
@@ -31,6 +60,7 @@ class ChatLogConfig:
     max_entries: int = 1000
     buffer_when_closed: int = 100
     virtualization_threshold: int = 50
+    virtualization_margin: int = 20  # Margem acima/abaixo do visível
 
 
 class ChatLog(VerticalScroll):
@@ -72,6 +102,11 @@ class ChatLog(VerticalScroll):
     .highlight {
         text-style: bold reverse;
     }
+
+    .-current-match {
+        background: $accent;
+        text-style: bold;
+    }
     """
 
     def __init__(self, config: ChatLogConfig, **kwargs) -> None:
@@ -88,6 +123,9 @@ class ChatLog(VerticalScroll):
         self._search_term: str = ""
         self._search_pattern: re.Pattern[str] | None = None
         self._pending_refresh = False
+        # Buffer para quando o widget está fechado
+        self._closed_buffer: List[LogEntry] = []
+        self._was_closed = False
 
     def write_log(self, entry: LogEntry) -> None:
         """Adiciona entry ao buffer (implementa LogConsumer).
@@ -95,8 +133,24 @@ class ChatLog(VerticalScroll):
         Args:
             entry: LogEntry para adicionar
         """
-        self._entries.append(entry)
-        self._schedule_refresh()
+        # Verificar se widget está visível (tem app e está montado)
+        # Usa getattr com padrão True para contextos onde is_visible não existe
+        is_widget_visible = (
+            hasattr(self, 'app') and
+            self.app is not None and
+            getattr(self, 'is_visible', True)
+        )
+
+        # Se widget está fechado/oculto, usa buffer reduzido
+        if not is_widget_visible:
+            self._closed_buffer.append(entry)
+            # Mantém apenas buffer_when_closed entries
+            if len(self._closed_buffer) > self._config.buffer_when_closed:
+                self._closed_buffer = self._closed_buffer[-self._config.buffer_when_closed:]
+            self._was_closed = True
+        else:
+            self._entries.append(entry)
+            self._schedule_refresh()
 
     def set_min_level(self, level: int) -> None:
         """Define filtro de nível mínimo.
@@ -133,6 +187,68 @@ class ChatLog(VerticalScroll):
             self._pending_refresh = True
             self.set_timer(0.05, self._refresh)
 
+    def on_show(self) -> None:
+        """Chamado quando widget fica visível.
+
+        Restaura entries do buffer if widget estava fechado.
+        """
+        if self._was_closed and self._closed_buffer:
+            # Restaurar entries do buffer
+            for entry in self._closed_buffer:
+                self._entries.append(entry)
+            self._closed_buffer.clear()
+            self._was_closed = False
+        self._schedule_refresh()
+
+    def on_hide(self) -> None:
+        """Chamado quando widget fica oculto.
+
+        Marca que widget está fechado para ativar buffer reduzido.
+        """
+        # As próximas writes vão para _closed_buffer
+        pass
+
+    def _get_visible_range(self, total_entries: int) -> tuple[int, int]:
+        """Calcula range de entries visíveis na tela.
+
+        Args:
+            total_entries: Número total de entries para considerar
+
+        Returns:
+            Tupla (start_index, end_index) do range visível com margem
+        """
+        # Altura visível em linhas (estimado)
+        try:
+            height = self.region.height
+        except Exception:
+            height = 20  # Fallback
+
+        # Altura aproximada de cada linha (1 linha de texto + padding)
+        line_height = 1
+
+        # Quantas linhas cabem na tela
+        visible_lines = height // line_height if height > 0 else 20
+
+        # Scroll atual (0 = topo, 1 = base)
+        try:
+            scroll_pos = self.scroll_y(0).fraction if hasattr(self, 'scroll_y') else 0
+        except Exception:
+            scroll_pos = 0
+
+        # Índice baseado na posição do scroll
+        if total_entries <= visible_lines:
+            return 0, total_entries
+
+        # Calcular start baseado no scroll
+        max_scroll = total_entries - visible_lines
+        start = int(scroll_pos * max_scroll) if scroll_pos < 1 else total_entries - visible_lines
+
+        # Aplicar margem
+        start = max(0, start - self._config.virtualization_margin)
+        end = min(total_entries, start + visible_lines + 2 * self._config.virtualization_margin)
+
+        return start, end
+
     def _get_visible_entries(self) -> List[LogEntry]:
         """Retorna entries filtradas."""
         visible = []
@@ -148,7 +264,9 @@ class ChatLog(VerticalScroll):
             # Filtro de busca (pattern ou substring)
             if self._search_term:
                 # Texto para busca inclui mensagem, escopo e nível
-                searchable_text = f"{entry.message} {entry.scope.value} {logging.getLevelName(entry.level)}".lower()
+                # scope pode ser LogScope ou string (compatibilidade com testes)
+                scope_value = entry.scope.value if isinstance(entry.scope, LogScope) else str(entry.scope)
+                searchable_text = f"{entry.message} {scope_value} {logging.getLevelName(entry.level)}".lower()
 
                 if self._search_pattern:
                     # Usa pattern com curingas
@@ -213,9 +331,9 @@ class ChatLog(VerticalScroll):
         to_render = visible
 
         if len(visible) > self._config.virtualization_threshold:
-            # TODO: Implementar virtualização verdadeira (scroll_region)
-            # Por enquanto, renderiza todos até o threshold
-            to_render = visible[: self._config.virtualization_threshold]
+            # Calcular range visível
+            start_idx, end_idx = self._get_visible_range(len(visible))
+            to_render = visible[start_idx:end_idx]
 
         # Remove todos os filhos
         self.remove_children()
@@ -227,7 +345,11 @@ class ChatLog(VerticalScroll):
 
             timestamp = entry.timestamp.strftime("%H:%M:%S")
             level_name = logging.getLevelName(entry.level)
-            scope_str = entry.scope.value.upper()
+            # scope pode ser LogScope ou string (compatibilidade com testes)
+            if isinstance(entry.scope, LogScope):
+                scope_str = entry.scope.value.upper()
+            else:
+                scope_str = str(entry.scope).upper()
 
             self.mount(
                 Static(
@@ -238,6 +360,14 @@ class ChatLog(VerticalScroll):
 
         # Emite evento com entries visíveis para o LogCopier
         self.post_message(VisibleEntriesChanged(visible))
+
+        # Atualiza contador de matches no LogSearch
+        from core.sky.log.widgets.search import LogSearch
+        try:
+            search_widget = self.app.query_one(LogSearch)
+            search_widget.set_match_count(len(visible))
+        except Exception:
+            pass
 
     def _get_level_class(self, level: int) -> str:
         """Retorna classe CSS para o nível."""
@@ -268,10 +398,38 @@ class ChatLog(VerticalScroll):
     @on(SearchChanged)
     def on_search_changed(self, event: SearchChanged) -> None:
         """Handle mudança de busca."""
-        # TODO: Obter pattern do LogSearch via algum mecanismo
+        from core.sky.log.widgets.search import LogSearch
+
+        # Obter pattern do LogSearch
+        try:
+            search_widget = self.app.query_one(LogSearch)
+            self._search_pattern = search_widget.get_search_pattern()
+        except Exception:
+            self._search_pattern = None
+
         self._search_term = event.search_term
-        self._search_pattern = None
         self._schedule_refresh()
+
+    @on("NavigateMatch")
+    def on_navigate_match(self, event) -> None:
+        """Handle navegação entre matches (F3/Shift+F3)."""
+        # Obter entries visíveis filtradas
+        visible = self._get_visible_entries()
+
+        if not visible or event.index >= len(visible):
+            return
+
+        # Encontrar o widget na posição do match e scroll até ele
+        target_entry = visible[event.index]
+
+        # Encontrar widget correspondente (os widgets são montados em ordem)
+        # Precisamos encontrar o widget que contém a mensagem do target_entry
+        widgets = list(self.query(Static))
+        if event.index < len(widgets):
+            target_widget = widgets[event.index]
+            target_widget.scroll_visible()
+            # Adiciona highlight temporário no match atual
+            target_widget.add_class("-current-match")
 
 
 __all__ = ["ChatLog", "ChatLogConfig"]

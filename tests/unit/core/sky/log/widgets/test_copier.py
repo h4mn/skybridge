@@ -28,15 +28,15 @@ class TestLogCopier:
     async def test_log_copier_tem_botao_copiar(self):
         """
         QUANDO LogCopier é criado
-        ENTÃO possui botão com emoji de clipboard
+        ENTÃO possui botão com letra C de clipboard
         """
         # Arrange & Act
         async with LogCopierApp().run_test() as pilot:
             copier = pilot.app.query_one(LogCopier)
             button = pilot.app.query_one(Button)
 
-            # Assert - emoji de clipboard
-            assert "📋" in button.label
+            # Assert - letra C de clipboard
+            assert "C" in button.label
 
     async def test_log_copier_copia_entries_visiveis(self):
         """

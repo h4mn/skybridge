@@ -14,6 +14,8 @@ from core.sky.log.entry import LogEntry
 class VisibleEntriesChanged(Message):
     """Mensagem emitida quando as entries visíveis mudam."""
 
+    bubble = True
+
     def __init__(self, entries: list[LogEntry]) -> None:
         """Inicializa mensagem.
 

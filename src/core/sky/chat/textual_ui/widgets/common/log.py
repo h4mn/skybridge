@@ -2,6 +2,24 @@
 """
 ChatLog - Widget de log com scroll e cópia.
 
+===============================================================================
+DEPRECATED - Este módulo está obsoleto e será removido em versões futuras.
+
+Use o novo subsistema de log em core.sky.log:
+    - from core.sky.log import ChatLog, ChatLogConfig (NOVO)
+    - from core.sky.log import LogFilter, LogSearch, LogCopier, LogToolbar
+
+O novo ChatLog 2.0 oferece:
+    - Ring buffer com limite configurável
+    - Virtualização para performance
+    - Filtro por nível e escopo
+    - Busca reativa com highlight
+    - Cópia para clipboard respeitando filtros
+    - LogConsumer Protocol para desacoplamento
+
+Este arquivo legado é mantido apenas para compatibilidade durante migração.
+===============================================================================
+
 Usa VerticalScroll + Static para wrap de palavra nativo e seleção de texto.
 Flicker corrigido via fila de linhas pendentes — flush em batch no próximo tick de UI.
 

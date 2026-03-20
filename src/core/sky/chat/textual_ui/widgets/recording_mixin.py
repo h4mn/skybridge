@@ -6,6 +6,10 @@ Fornece lógica compartilhada para gravação de áudio com toggle:
 - Primeira vez: Inicia gravação contínua
 - Segunda vez: Para gravação e transcreve
 
+Integração Voice API (voice-api-isolation):
+- Quando SKYBRIDGE_VOICE_API_ENABLED=1: Usa VoiceAPIClient (HTTP)
+- Quando desabilitado: Usa VoiceService legado (direto)
+
 Uso em Screens:
     class MyScreen(RecordingToggleMixin, Screen):
         BINDINGS = [
@@ -28,12 +32,44 @@ class RecordingToggleMixin:
     Estados:
     - _is_recording: Se está gravando
     - _recording_capture: Instância de SoundDeviceCapture ativa
+    - _use_voice_api: Se deve usar Voice API (feature flag)
+    - _voice_api_client: Cliente HTTP VoiceAPIClient (quando ativo)
     """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._is_recording: bool = False
         self._recording_capture: Optional["SoundDeviceCapture"] = None
+        self._use_voice_api: bool = False
+        self._voice_api_client: Optional["VoiceAPIClient"] = None
+        self._voice_service = None
+
+    def _initialize_voice_backend(self) -> None:
+        """
+        Inicializa backend de voz (legado ou Voice API).
+
+        Verifica feature flag SKYBRIDGE_VOICE_API_ENABLED e configura
+        o backend apropriado.
+        """
+        try:
+            from core.sky.voice.feature_toggle import is_voice_api_enabled
+            from core.sky.voice.client import VoiceAPIClient
+            from core.sky.voice import get_voice_service
+
+            if is_voice_api_enabled():
+                # Usa Voice API (HTTP) - backend isolado
+                self._use_voice_api = True
+                self._voice_api_client = VoiceAPIClient()
+            else:
+                # Usa legado (direto) - VoiceService local
+                self._use_voice_api = False
+                self._voice_service = get_voice_service()
+
+        except ImportError as e:
+            # Fallback para legado se Voice API não disponível
+            from core.sky.voice import get_voice_service
+            self._use_voice_api = False
+            self._voice_service = get_voice_service()
 
     def action_toggle_recording(self) -> None:
         """
@@ -43,6 +79,10 @@ class RecordingToggleMixin:
         - Primeira chamada: Inicia gravação contínua
         - Segunda chamada: Para gravação e transcreve
         """
+        # Inicializa backend na primeira vez
+        if self._voice_service is None and self._voice_api_client is None:
+            self._initialize_voice_backend()
+
         if self._is_recording:
             # Para gravação e transcreve
             self._stop_recording_and_transcribe()
@@ -71,7 +111,6 @@ class RecordingToggleMixin:
         try:
             # Importa aqui para evitar import circular
             from core.sky.voice.audio_capture import SoundDeviceCapture
-            from core.sky.voice import get_voice_service
 
             # Inicia captura
             self._recording_capture = SoundDeviceCapture(sample_rate=16000, channels=1)
@@ -85,9 +124,31 @@ class RecordingToggleMixin:
             audio = await self._recording_capture.stop_recording()
             self._recording_capture = None
 
-            # Transcreve
-            voice = get_voice_service()
-            transcribed_text = await voice.transcribe(audio, language="pt")
+            # Transcreve usando backend configurado (Voice API ou legado)
+            if self._use_voice_api and self._voice_api_client:
+                # Voice API - backend isolado via HTTP
+                from core.sky.voice.audio_capture import AudioData
+                from core.sky.voice.client import VoiceAPIUnavailableError
+
+                # Converte AudioData para bytes WAV
+                if isinstance(audio, AudioData):
+                    audio_bytes = audio.to_wav_bytes()
+                else:
+                    # Se já for bytes, usa diretamente
+                    audio_bytes = audio
+
+                try:
+                    transcribed_text = await self._voice_api_client.stt(audio_bytes)
+                except VoiceAPIUnavailableError as e:
+                    # Fallback para legado se Voice API indisponível
+                    self._log_event("Voice API", f"Indisponível, usando legado: {e}")
+                    voice = self._get_voice_service_fallback()
+                    transcribed_text = await voice.transcribe(audio, language="pt")
+
+            else:
+                # Legado - VoiceService local (faster-whisper direto)
+                voice = self._voice_service or self._get_voice_service_fallback()
+                transcribed_text = await voice.transcribe(audio, language="pt")
 
             # Callback com resultado
             await self._on_recording_complete(transcribed_text)
@@ -101,6 +162,15 @@ class RecordingToggleMixin:
             self._cleanup_recording()
             self._log_error(f"Gravação erro: {e}")
             self._update_placeholder("Digite algo...")
+
+    def _get_voice_service_fallback(self):
+        """
+        Retorna VoiceService legado como fallback.
+
+        Usado quando Voice API não está disponível ou falhou.
+        """
+        from core.sky.voice import get_voice_service
+        return get_voice_service()
 
     def _cleanup_recording(self) -> None:
         """Limpa recursos de gravação."""

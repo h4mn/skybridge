@@ -10,7 +10,7 @@ O sistema SHALL fornecer um Protocol `LogConsumer` que define a interface para t
 
 #### Scenario: Qualquer classe com write_log é um consumidor válido
 
-- **GIVEN** uma classe com método `write_log(level, message, timestamp, scope, context)`
+- **GIVEN** uma classe com método `write_log(entry: LogEntry) -> None`
 - **WHEN** a classe é usada como `LogConsumer`
 - **THEN** o type-checker aceita a classe como válida
 - **AND** nenhuma exceção de tipo é lançada

@@ -201,21 +201,37 @@ class AsyncSafeLogConsumer:
 
 ---
 
-### 7. Clipboard Vendorizado
+### 7. Clipboard - Lib Externa com Fallback
 
-**Decisão**: Copiar código essencial do pyperclip (simplificado).
+**Decisão**: Usar lib `clipboard` como preferência, com fallback vendored.
+
+**Racional (POC invalidou vendored):**
+- A POC demonstrou que a implementação vendored tem problemas de compatibilidade
+- Lib `clipboard` é mais robusta e cross-platform
+- Mantém fallback vendored para casos onde lib não está instalada
 
 **Arquivo:** `src/core/sky/log/clipboard.py`
 
 **Implementação:**
-- Windows: `win32clipboard` ou subprocess `clip`
-- macOS: subprocess `pbcopy`
-- Linux: tenta `xclip`, depois `wl-copy`, fallback para arquivo temporário
+1. Primeiro tenta `import clipboard`
+2. Se falha, usa implementação vendored (Windows/macOS/Linux)
+3. Tenta `win32clipboard` ou subprocess no Windows
+4. Tenta `pbcopy` no macOS
+5. Tenta `xclip`, `wl-copy` no Linux
 
 ```python
 def copy_to_clipboard(text: str) -> bool:
-    """Copia texto para clipboard. Retorna True se sucesso."""
-    # Implementação vendored do pyperclip
+    """Copia texto para clipboard. Retorna True se sucesso.
+
+    Tenta lib clipboard primeiro, depois fallback vendored.
+    """
+    try:
+        import clipboard
+        clipboard.copy(text)
+        return True
+    except ImportError:
+        # Fallback para implementação vendored
+        ...
 ```
 
 ---

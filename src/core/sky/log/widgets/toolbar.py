@@ -20,18 +20,16 @@ class LogToolbar(Vertical):
 
     DEFAULT_CSS = """
     LogToolbar {
-        height: 4;
+        height: 6;
         dock: top;
     }
 
-    LogToolbar LogSearch {
-        width: 1fr;
-        height: 2;
-    }
-
     LogToolbar .buttons-row {
-        height: 2;
+        height: 3;
         width: 1fr;
+        layout: horizontal;
+        padding: 0 0;
+        margin: 0 0;
     }
 
     LogToolbar .buttons-row LogFilter {
@@ -39,11 +37,13 @@ class LogToolbar(Vertical):
     }
 
     LogToolbar .buttons-row LogCopier {
-        width: 3;
+        width: 5;
+        min_width: 5;
     }
 
     LogToolbar .buttons-row LogClose {
-        width: 3;
+        width: 5;
+        min_width: 5;
     }
     """
 

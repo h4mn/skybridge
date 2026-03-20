@@ -1,9 +1,8 @@
 # coding: utf-8
 """
-Clipboard vendorizado - Implementação interna de cópia para clipboard.
+Clipboard - Lib externa com fallback vendored.
 
-Baseado no pyperclip mas simplificado e sem dependências externas.
-Suporta Windows, macOS e Linux.
+POC invalidou implementação 100% vendored. Usa lib 'clipboard' como preferência.
 """
 
 import sys
@@ -21,8 +20,8 @@ def _detect_platform() -> Platform:
     return "linux"
 
 
-def _copy_windows(text: str) -> bool:
-    """Copia texto para clipboard no Windows."""
+def _copy_windows_fallback(text: str) -> bool:
+    """Copia texto para clipboard no Windows (fallback vendored)."""
     try:
         # Tenta win32clipboard primeiro (mais rápido)
         import win32clipboard  # type: ignore
@@ -34,18 +33,15 @@ def _copy_windows(text: str) -> bool:
         return True
     except Exception:
         # Fallback para subprocess com PowerShell
-        # Usa stdin para evitar problemas de escape
         try:
             import subprocess
 
-            # Passa texto via stdin para evitar problemas com caracteres especiais
             process = subprocess.Popen(
                 ["powershell", "-NoProfile", "-Command", "-"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            # Comando PowerShell que lê de stdin e define o clipboard
             cmd = f"$input | Set-Clipboard\r\n"
             process.communicate(input=(cmd + text).encode("utf-16-le"))
             return process.returncode == 0
@@ -53,8 +49,8 @@ def _copy_windows(text: str) -> bool:
             return False
 
 
-def _copy_macos(text: str) -> bool:
-    """Copia texto para clipboard no macOS."""
+def _copy_macos_fallback(text: str) -> bool:
+    """Copia texto para clipboard no macOS (fallback vendored)."""
     try:
         import subprocess
 
@@ -70,14 +66,13 @@ def _copy_macos(text: str) -> bool:
         return False
 
 
-def _copy_linux(text: str) -> bool:
-    """Copia texto para clipboard no Linux."""
+def _copy_linux_fallback(text: str) -> bool:
+    """Copia texto para clipboard no Linux (fallback vendored)."""
     import subprocess
 
-    # Tenta xclip primeiro
     commands = [
         ["xclip", "-selection", "clipboard"],
-        ["wl-copy"],  # Wayland
+        ["wl-copy"],
     ]
 
     for cmd in commands:
@@ -96,12 +91,13 @@ def _copy_linux(text: str) -> bool:
         except Exception:
             continue
 
-    # Nenhum comando funcionou - retorna False
     return False
 
 
 def copy_to_clipboard(text: str) -> bool:
     """Copia texto para clipboard de forma cross-platform.
+
+    Tenta lib 'clipboard' primeiro, depois fallback vendored.
 
     Args:
         text: Texto para copiar
@@ -112,13 +108,27 @@ def copy_to_clipboard(text: str) -> bool:
     if not text:
         return True
 
+    # Tenta lib clipboard primeiro (POC validou como mais robusta)
+    try:
+        import clipboard
+
+        clipboard.copy(text)
+        return True
+    except ImportError:
+        # Lib não instalada - usa fallback vendored
+        pass
+    except Exception:
+        # Lib falhou - tenta fallback vendored
+        pass
+
+    # Fallback vendored
     platform = _detect_platform()
 
     if platform == "windows":
-        return _copy_windows(text)
+        return _copy_windows_fallback(text)
     if platform == "macos":
-        return _copy_macos(text)
-    return _copy_linux(text)
+        return _copy_macos_fallback(text)
+    return _copy_linux_fallback(text)
 
 
 __all__ = ["copy_to_clipboard"]

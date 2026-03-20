@@ -7,6 +7,7 @@ Logger completamente independente do SkybridgeLogger, projetado para:
 - Filtrar e silenciar saídas de sentence-transformers, torch, transformers, huggingface_hub
 - Salvar logs em arquivo isolado (.sky/chat.log)
 - Integrar com o widget ChatLog para exibição na UI Textual
+- Integrar com LogConsumer Protocol (ChatLog 2.0)
 
 RESTRIÇÃO: NÃO depende de runtime.observability.logger
 """
@@ -20,10 +21,22 @@ import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import TextIO, Optional, TYPE_CHECKING
+from typing import TextIO, Optional, TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.sky.chat.textual_ui.widgets.chat_log import ChatLog
+
+# Import condicional do LogConsumer (ChatLog 2.0)
+try:
+    from core.sky.log.protocol import LogConsumer
+    from core.sky.log.entry import LogEntry
+    from core.sky.log.scope import LogScope
+    HAS_CHATLOG_2_0 = True
+except ImportError:
+    HAS_CHATLOG_2_0 = False
+    LogConsumer = None  # type: ignore
+    LogEntry = None  # type: ignore
+    LogScope = None  # type: ignore
 
 
 class _ChatLoggerStream(TextIO):
@@ -68,31 +81,42 @@ class ChatLogger:
     Logger específico para o domínio de chat com redirecionamento
     permanente de stdout/stderr e integração com ChatLog widget.
 
-    Uso:
-        chat_log_widget = ChatLog()  # Widget Textual
+    Suporta tanto o ChatLog legado quanto o ChatLog 2.0 (via LogConsumer Protocol).
+
+    Uso (ChatLog 2.0 recomendado):
+        from core.sky.log.chatlog import ChatLog, ChatLogConfig
+
+        chat_log = ChatLog(config=ChatLogConfig())
 
         chat_logger = ChatLogger(
             session_id="abc123",
-            chat_log_widget=chat_log_widget  # Conecta ao widget
+            log_consumer=chat_log  # Usa LogConsumer Protocol
         )
 
-        # stdout/stderr redirecionados, bibliotecas silenciadas
         chat_logger.info("Mensagem")
-        # Saídas de bibliotecas externas são capturadas e filtradas
+        chat_logger.restore()
 
-        chat_logger.restore()  # Restaura stdout/stderr
+    Uso (legado, ainda suportado):
+        chat_log_widget = ChatLog()  # Widget Textual antigo
+
+        chat_logger = ChatLogger(
+            session_id="abc123",
+            chat_log_widget=chat_log_widget  # Conecta ao widget legado
+        )
     """
 
     def __init__(
         self,
         session_id: str | None = None,
         chat_log_widget: Optional['ChatLog'] = None,
+        log_consumer: Optional['LogConsumer'] = None,  # ChatLog 2.0
         log_file: Path | None = None,
         verbosity: str = "WARNING",
         show_in_ui: bool = True
     ):
         self._session_id = session_id or self._generate_session_id()
         self._chat_log_widget = chat_log_widget
+        self._log_consumer = log_consumer  # ChatLog 2.0 consumer
         self._log_file = log_file or self._default_log_file()
         self._verbosity = verbosity
         self._show_in_ui = show_in_ui
@@ -206,54 +230,135 @@ class ChatLogger:
         self._file_handler.write(f"[{timestamp}] [{source}] {text}")
         self._file_handler.flush()
 
+    def _write_to_consumer(self, level: int, message: str, scope: 'LogScope' = None, context: dict[str, Any] = None) -> bool:
+        """Escreve no LogConsumer (ChatLog 2.0).
+
+        Args:
+            level: Nível de logging (logging.DEBUG, logging.INFO, etc.)
+            message: Mensagem de log
+            scope: Escopo da mensagem (default: LogScope.USER)
+            context: Contexto adicional
+
+        Returns:
+            True se escreveu no consumer, False caso contrário
+        """
+        if not HAS_CHATLOG_2_0 or not self._log_consumer:
+            return False
+
+        try:
+            from core.sky.log.entry import LogEntry
+            from core.sky.log.scope import LogScope
+
+            entry = LogEntry(
+                level=level,
+                message=message,
+                timestamp=datetime.now(),
+                scope=scope or LogScope.USER,
+                context=context
+            )
+            self._log_consumer.write_log(entry)
+            return True
+        except Exception:
+            return False
+
     def _write_to_widget(self, text: str, source: str):
-        """Escreve no ChatLog widget."""
+        """Escreve no ChatLog widget (legado) ou LogConsumer (ChatLog 2.0)."""
+        text_stripped = text.strip()
+        text_lower = text_stripped.lower()
+
+        # Detecta nível e escopo baseado no conteúdo
+        if "error" in text_lower or "exception" in text_lower:
+            level = logging.ERROR
+            scope = LogScope.SYSTEM if HAS_CHATLOG_2_0 else None
+        elif "warning" in text_lower:
+            level = logging.WARNING
+            scope = LogScope.SYSTEM if HAS_CHATLOG_2_0 else None
+        elif any(kw in text_lower for kw in ["loading", "carregando", "baixando"]):
+            # Progresso é tratado como INFO com context de evento
+            level = logging.INFO
+            scope = LogScope.SYSTEM if HAS_CHATLOG_2_0 else None
+            if self._write_to_consumer(level, text_stripped, scope, context={"type": "event", "event_name": "PROGRESSO"}):
+                return  # Usou LogConsumer, não precisa escrever no widget legado
+        else:
+            level = logging.INFO
+            scope = LogScope.USER if HAS_CHATLOG_2_0 else None
+
+        # Tenta LogConsumer (ChatLog 2.0) primeiro
+        if self._write_to_consumer(level, text_stripped, scope):
+            return  # Usou LogConsumer, não precisa escrever no widget legado
+
+        # Fallback para widget legado
         if not self._chat_log_widget:
             return
 
-        # Detecta tipo de mensagem baseado no conteúdo
-        text_lower = text.lower()
-
         if "error" in text_lower or "exception" in text_lower:
-            self._chat_log_widget.error(text.strip())
+            self._chat_log_widget.error(text_stripped)
         elif "warning" in text_lower:
-            self._chat_log_widget.debug(text.strip())  # Amarelo para warning
+            self._chat_log_widget.debug(text_stripped)  # Amarelo para warning
         elif any(kw in text_lower for kw in ["loading", "carregando", "baixando"]):
-            self._chat_log_widget.evento("PROGRESSO", text.strip())
+            self._chat_log_widget.evento("PROGRESSO", text_stripped)
         else:
-            self._chat_log_widget.info(text.strip())
+            self._chat_log_widget.info(text_stripped)
 
-    # Interface de logging (usa ChatLog widget se disponível)
+    # Interface de logging (usa LogConsumer se disponível, senão ChatLog widget)
     def debug(self, message: str, **kwargs):
         """Log debug."""
         self._write_to_file(f"[DEBUG] {message}\n", "CHAT")
-        if self._show_in_ui and self._chat_log_widget:
-            self._chat_log_widget.debug(message)
+
+        # Tenta LogConsumer (ChatLog 2.0) primeiro
+        if not self._write_to_consumer(logging.DEBUG, message):
+            # Fallback para widget legado
+            if self._show_in_ui and self._chat_log_widget:
+                self._chat_log_widget.debug(message)
 
     def info(self, message: str, **kwargs):
         """Log info."""
         self._write_to_file(f"[INFO] {message}\n", "CHAT")
-        if self._show_in_ui and self._chat_log_widget:
-            self._chat_log_widget.info(message)
+
+        # Tenta LogConsumer (ChatLog 2.0) primeiro
+        if not self._write_to_consumer(logging.INFO, message):
+            # Fallback para widget legado
+            if self._show_in_ui and self._chat_log_widget:
+                self._chat_log_widget.info(message)
 
     def warning(self, message: str, **kwargs):
         """Log warning."""
         self._write_to_file(f"[WARNING] {message}\n", "CHAT")
-        if self._show_in_ui and self._chat_log_widget:
-            self._chat_log_widget.debug(message)  # Amarelo
+
+        # Tenta LogConsumer (ChatLog 2.0) primeiro
+        if not self._write_to_consumer(logging.WARNING, message):
+            # Fallback para widget legado
+            if self._show_in_ui and self._chat_log_widget:
+                self._chat_log_widget.debug(message)  # Amarelo
 
     def error(self, message: str, **kwargs):
         """Log error."""
         self._write_to_file(f"[ERROR] {message}\n", "CHAT")
-        if self._show_in_ui and self._chat_log_widget:
-            self._chat_log_widget.error(message)
+
+        # Tenta LogConsumer (ChatLog 2.0) primeiro
+        if not self._write_to_consumer(logging.ERROR, message):
+            # Fallback para widget legado
+            if self._show_in_ui and self._chat_log_widget:
+                self._chat_log_widget.error(message)
 
     def evento(self, nome: str, dados: str = ""):
-        """Log de evento (verde no ChatLog)."""
+        """Log de evento (verde no ChatLog).
+
+        NOTA: Este método está DEPRECATED. Use info() com context={"type": "event", ...}
+        Mantido por compatibilidade com código existente.
+        """
         msg = f"{nome} {dados}".strip()
         self._write_to_file(f"[EVENT] {msg}\n", "CHAT")
-        if self._show_in_ui and self._chat_log_widget:
-            self._chat_log_widget.evento(nome, dados)
+
+        # Tenta LogConsumer (ChatLog 2.0) com context apropriado
+        if not self._write_to_consumer(
+            logging.INFO,
+            msg,
+            context={"type": "event", "event_name": nome, "event_data": dados}
+        ):
+            # Fallback para widget legado
+            if self._show_in_ui and self._chat_log_widget:
+                self._chat_log_widget.evento(nome, dados)
 
     def structured(self, message: str, data: dict, level: str = "info"):
         """Log estruturado."""

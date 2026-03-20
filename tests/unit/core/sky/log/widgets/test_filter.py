@@ -45,7 +45,7 @@ class TestLogFilter:
     async def test_log_filter_tem_botoes_nivel(self):
         """
         QUANDO LogFilter é criado
-        ENTÃO possui botões para todos os níveis de logging com emojis
+        ENTÃO possui botões para todos os níveis de logging com letras
         """
         # Arrange & Act
         async with LogFilterApp().run_test() as pilot:
@@ -54,14 +54,14 @@ class TestLogFilter:
             level_buttons = app.query(LevelButton)
             assert len(level_buttons) == 6  # ALL, DEBUG, INFO, WARN, ERROR, CRIT
 
-            # Verifica labels (emojis)
+            # Verifica labels (letras)
             labels = {btn.label for btn in level_buttons}
-            assert "🌐" in labels  # ALL
-            assert "🐛" in labels  # DEBUG
-            assert "ℹ️" in labels  # INFO
-            assert "⚠️" in labels  # WARNING
-            assert "❌" in labels  # ERROR
-            assert "🔥" in labels  # CRITICAL
+            assert "A" in labels  # ALL
+            assert "D" in labels  # DEBUG
+            assert "I" in labels  # INFO
+            assert "W" in labels  # WARNING
+            assert "E" in labels  # ERROR
+            assert "C" in labels  # CRITICAL
 
     async def test_log_filter_atualiza_estado_ao_clicar(self):
         """

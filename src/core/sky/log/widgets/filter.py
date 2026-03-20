@@ -1,12 +1,16 @@
 # coding: utf-8
 """
-LogFilter - Widget de filtro por nível.
+LogFilter - Widget de filtro por nível de log.
 
-Filtro simplificado com emojis para seleção de nível de logging.
+Implementa botões para filtrar logs por nível:
+    ALL (mostra tudo), DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+Emite FilterChanged(level, scope) quando a seleção muda.
 """
 
 import logging
 
+from textual import on
 from textual.message import Message
 from textual.widgets import Button
 from textual.containers import Horizontal
@@ -16,6 +20,8 @@ from core.sky.log.scope import LogScope
 
 class FilterChanged(Message):
     """Mensagem emitida quando o filtro muda."""
+
+    bubble = True
 
     def __init__(self, level: int, scope: LogScope) -> None:
         """Inicializa mensagem.
@@ -30,16 +36,16 @@ class FilterChanged(Message):
 
 
 class LevelButton(Button):
-    """Botão para seleção de nível com emoji."""
+    """Botão para seleção de nível com texto curto."""
 
-    # Emojis para cada nível
-    EMOJIS = {
-        logging.NOTSET: "🌐",
-        logging.DEBUG: "🐛",
-        logging.INFO: "ℹ️",
-        logging.WARNING: "⚠️",
-        logging.ERROR: "❌",
-        logging.CRITICAL: "🔥",
+    # Labels de 1 letra para cada nível
+    LABELS = {
+        logging.NOTSET: "A",
+        logging.DEBUG: "D",
+        logging.INFO: "I",
+        logging.WARNING: "W",
+        logging.ERROR: "E",
+        logging.CRITICAL: "C",
     }
 
     def __init__(self, level: int, **kwargs) -> None:
@@ -49,8 +55,8 @@ class LevelButton(Button):
             level: Nível de logging (ex: logging.INFO)
         """
         self.log_level = level
-        emoji = self.EMOJIS.get(level, "?")
-        super().__init__(label=emoji, id=f"level-{level}", **kwargs)
+        label = self.LABELS.get(level, "?")
+        super().__init__(label=label, id=f"level-{level}", **kwargs)
 
 
 class LogFilter(Horizontal):
@@ -58,11 +64,17 @@ class LogFilter(Horizontal):
 
     DEFAULT_CSS = """
     LogFilter {
-        height: 1;
+        height: auto;
+        width: 1fr;
+        layout: horizontal;
+        padding: 0 0;
+        margin: 0 0;
     }
 
     LevelButton {
-        width: 3;
+        width: 10%;
+        min-width: 5;
+        margin-right: 1;
     }
 
     LevelButton.selected {
@@ -123,6 +135,18 @@ class LogFilter(Horizontal):
         self._current_level = logging.NOTSET
         self._update_selected_buttons()
         self.post_message(FilterChanged(self._current_level, LogScope.ALL))
+
+    @on(FilterChanged)
+    def on_filter_changed_event(self, event: FilterChanged) -> None:
+        """Handle FilterChanged de outros widgets (ex: LogClose).
+
+        Quando o botão Limpar (X) é pressionado, ele emite FilterChanged(NOTSET, ALL).
+        Este handler garante que o visual do filtro também seja atualizado.
+        """
+        # Se evento veio de fora (não foi o botão clicado), atualiza visual
+        if event.level != self._current_level:
+            self._current_level = event.level
+            self._update_selected_buttons()
 
     def _update_selected_buttons(self) -> None:
         """Atualiza classes selected dos botões."""

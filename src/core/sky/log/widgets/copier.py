@@ -1,9 +1,6 @@
 # coding: utf-8
 """
 LogCopier - Widget para copiar logs para clipboard.
-
-Botão que copia as entradas de log visíveis (respeitando filtros)
-para o clipboard, com formatação apropriada.
 """
 
 import logging
@@ -26,14 +23,15 @@ class LogCopier(Button):
     DEFAULT_CSS = """
     LogCopier {
         width: 3;
-        min-width: 3;
+        margin-right: 1;
     }
     """
 
     def __init__(self, **kwargs) -> None:
         """Inicializa widget de cópia."""
-        super().__init__(label="📋", id="copy-button", **kwargs)
+        super().__init__(label="C", id="copy-button", **kwargs)
         self._visible_entries: List[LogEntry] = []
+        self._original_label = "C"
 
     @on(VisibleEntriesChanged)
     def on_visible_entries_changed(self, event: VisibleEntriesChanged) -> None:
@@ -51,7 +49,7 @@ class LogCopier(Button):
     def on_press(self) -> None:
         """Handle botão pressionado."""
         if not self._visible_entries:
-            self.label = "⭕"
+            self.label = "-"
             self.set_timer(1.0, self._restore_label)
             return
 
@@ -69,7 +67,6 @@ class LogCopier(Button):
         success = copy_to_clipboard(text)
 
         if success:
-            count = len(self._visible_entries)
             self.label = "✓"
         else:
             self.label = "✗"
@@ -79,7 +76,7 @@ class LogCopier(Button):
 
     def _restore_label(self) -> None:
         """Restaura label original."""
-        self.label = "📋"
+        self.label = self._original_label
 
     def _level_name(self, level: int) -> str:
         """Retorna nome do nível de logging."""
