@@ -26,6 +26,10 @@ from core.sky.chat.claude_chat import (
     MAX_HISTORY_LENGTH,
 )
 
+# Event-driven architecture exports
+from core.sky.chat.container import ChatContainer, ChatContainerContext
+from core.sky.chat.orchestrator import ChatOrchestrator
+
 # UI exports - escolhe entre Textual e Legacy baseado em feature flag
 USE_TEXTUAL_UI = os.getenv("USE_TEXTUAL_UI", "false").lower() == "true"
 

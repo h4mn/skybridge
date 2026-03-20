@@ -23,6 +23,17 @@ dev = [
     "python-semantic-release>=9.0.0",
 ]
 
+[project.dependencies]
+# Voice API dependencies (voice-api-isolation change)
+starlette = ">=0.27.0"
+httpx = ">=0.24.0"
+uvicorn = {extras = ["standard"], version = ">=0.23.0"}
+python-multipart = ">=0.0.6"
+
+[project.scripts]
+# Voice API entry point (voice-api-isolation change)
+sky-voice-api = "src.core.sky.voice.api.main:main"
+
 [tool.setuptools_scm]
 write_to = "src/_version.py"
 version_scheme = "release-branch-semver"
