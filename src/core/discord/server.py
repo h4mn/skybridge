@@ -398,6 +398,8 @@ class DiscordMCPServer:
             debug_log.write_text(f"[{datetime.now().isoformat()}] HANDLER CHAMADO! Type: {interaction.type}\n", mode='a')
             """
             Handler DDD para interações Discord (botões, select menus).
+
+            Envia notificação MCP para Claude Code quando usuário clica em botão.
             """
             print(f"[DEBUG on_interaction_create] Interaction type: {interaction.type}")
             try:
@@ -421,6 +423,49 @@ class DiscordMCPServer:
                 print(f"[DEBUG] Adapter result: {result}")
                 if result["status"] == "success":
                     logger.info(f"Interação processada: {result['message']}")
+
+                # ========================================
+                # CRÍTICO: Enviar notificação MCP para Claude Code
+                # ========================================
+                # Sem isso, Claude Code nunca sabe que o botão foi clicado
+                chat_id = str(interaction.channel_id)
+
+                # Extrair informações do botão clicado
+                custom_id = "unknown"
+                button_label = "unknown"
+
+                if interaction.data:
+                    custom_id = interaction.data.get("custom_id", "unknown")
+
+                # Tentar obter label da mensagem original
+                try:
+                    message = interaction.message
+                    if message and message.components:
+                        for action_row in message.components:
+                            for component in action_row.children:
+                                if component.custom_id == custom_id:
+                                    button_label = component.label or custom_id
+                                    break
+                except Exception:
+                    button_label = custom_id
+
+                # Enviar notificação MCP
+                notification = {
+                    "content": f"[button] {button_label} ({custom_id})",
+                    "meta": {
+                        "chat_id": chat_id,
+                        "message_id": str(interaction.message.id) if interaction.message else "",
+                        "user": interaction.user.name,
+                        "user_id": str(interaction.user.id),
+                        "ts": interaction.created_at.isoformat(),
+                        "interaction_type": "button_click",
+                        "custom_id": custom_id,
+                        "button_label": button_label,
+                    },
+                }
+
+                await self.send_notification("notifications/claude/channel", notification)
+                print(f"[DEBUG] Notificação MCP enviada: {custom_id}")
 
             except Exception as e:
                 print(f"[ERROR] Erro no handler: {e}")
