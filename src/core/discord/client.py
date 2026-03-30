@@ -18,6 +18,7 @@ from discord import (
     TextChannel,
     DMChannel,
     Thread,
+    InteractionType,
 )
 
 from .access import load_access

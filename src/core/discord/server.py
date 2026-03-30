@@ -18,6 +18,8 @@ import json
 import logging
 import re
 import sys
+from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 # MCP SDK
@@ -77,46 +79,25 @@ def create_mcp_server() -> Server:
 # =============================================================================
 # Tool Registry
 # =============================================================================
+#
+# MIGRAÇÃO DDD (2026-03-30):
+# Todos os MCP tools foram migrados de `tools/` para `presentation/tools/`
+# seguindo a arquitetura DDD definida em SPEC010.
+#
+# Estrutura antiga: src/core/discord/tools/*.py (REMOVIDO)
+# Estrutura nova: src/core/discord/presentation/tools/*.py
+#
+# A camada de Presentation agora é a entrada oficial para MCP tools,
+# delegando para Application Services quando necessário.
+#
+# DOC: docs/spec/SPEC010-discord-ddd-migration.md
+# =============================================================================
 
-# Importa todos os tools
-from .tools import (
-    reply,
-    fetch_messages,
-    react,
-    edit_message,
-    download_attachment,
-    create_thread,
-    list_threads,
-    archive_thread,
-    rename_thread,
-)
+# Importa DiscordService (fachada DDD - Application Layer)
+from .application.services.discord_service import DiscordService
 
-# Mapeamento nome → handler e definição
-TOOL_HANDLERS = {
-    "reply": (reply.handle_reply, reply.TOOL_DEFINITION),
-    "fetch_messages": (fetch_messages.handle_fetch_messages, fetch_messages.TOOL_DEFINITION),
-    "react": (react.handle_react, react.TOOL_DEFINITION),
-    "edit_message": (edit_message.handle_edit_message, edit_message.TOOL_DEFINITION),
-    "download_attachment": (download_attachment.handle_download_attachment, download_attachment.TOOL_DEFINITION),
-    "create_thread": (create_thread.handle_create_thread, create_thread.TOOL_DEFINITION),
-    "list_threads": (list_threads.handle_list_threads, list_threads.TOOL_DEFINITION),
-    "archive_thread": (archive_thread.handle_archive_thread, archive_thread.TOOL_DEFINITION),
-    "rename_thread": (rename_thread.handle_rename_thread, rename_thread.TOOL_DEFINITION),
-}
-
-
-def get_tool_definitions() -> list[Tool]:
-    """Retorna lista de definições de tools para registro."""
-    tools = []
-    for name, (_, definition) in TOOL_HANDLERS.items():
-        tools.append(
-            Tool(
-                name=definition["name"],
-                description=definition["description"],
-                inputSchema=definition["inputSchema"],
-            )
-        )
-    return tools
+# Importa TODOS os tools da camada de Presentation (estrutura DDD)
+from .presentation.tools import TOOL_HANDLERS, get_tool_definitions
 
 
 # =============================================================================
@@ -325,6 +306,8 @@ class DiscordMCPServer:
         self.discord_client = create_discord_client()
         self._shutdown = False
         self._write_stream = None  # Stream para enviar notificações MCP
+        # CRIA instância do DiscordService com o client (não usa singleton)
+        self._discord_service = DiscordService(client=self.discord_client)
 
     async def send_notification(self, method: str, params: dict) -> None:
         """
@@ -334,10 +317,13 @@ class DiscordMCPServer:
             method: Método da notificação (ex: "notifications/claude/channel")
             params: Parâmetros da notificação
         """
+        print(f"[DEBUG send_notification] Method: {method}, Params: {params}")
         if self._write_stream is None:
             logger.warning("write_stream não disponível para notificação")
+            print("[WARNING] write_stream é None!")
             return
 
+        print(f"[DEBUG] write_stream disponivel, criando notificacao...")
         notification = JSONRPCNotification(
             jsonrpc="2.0",
             method=method,
@@ -347,12 +333,105 @@ class DiscordMCPServer:
         try:
             # Envelopa em JSONRPCMessage para enviar pelo stream
             message = JSONRPCMessage(notification)
+            print(f"[DEBUG] Enviando mensagem pelo stream...")
             await self._write_stream.send(message)
+            print(f"[DEBUG] Mensagem enviada!")
         except Exception as e:
             logger.error(f"Erro ao enviar notificação MCP: {e}")
+            print(f"[ERROR] Erro ao enviar: {e}")
+            import traceback
+            traceback.print_exc()
 
     async def run(self, token: str) -> None:
         """Executa o servidor."""
+
+        # MARCADOR ÚNICO v5 - Código DDD com handlers ANTES do connect
+        print(f"[MARCADOR v5] Iniciando servidor DDD com handlers ANTES de conectar", flush=True)
+
+        # Debug imediato
+        import sys
+        sys.stderr.write("[DEBUG] run() chamado\n")
+        sys.stderr.flush()
+
+        # Debug: verificar token
+        print(f"[DEBUG run] Token recebido: {token[:20]}...{token[-10:] if len(token) > 30 else token}", flush=True)
+        print(f"[DEBUG run] Tamanho do token: {len(token)}", flush=True)
+
+        # =============================================================================
+        # CRÍTICO: Registrar handlers ANTES de conectar
+        # =============================================================================
+        # Discord.py requer que handlers sejam registrados antes do connect()
+        # caso contrário, eventos podem não ser roteados corretamente
+        # =============================================================================
+
+        # Importa adapter DDD para processar interações
+        from discord import InteractionType
+        from .infrastructure.mcp_button_adapter import MCPButtonAdapter
+        from .application.services.event_publisher import EventPublisher
+
+        # Inicializa adapter DDD
+        event_publisher = EventPublisher()
+        button_adapter = MCPButtonAdapter(event_publisher, self)
+
+        # Arquivo de debug para interações
+        debug_log = Path("discord_interaction_debug.log")
+        debug_log.write_text(f"[{datetime.now().isoformat()}] Registrando handlers ANTES de conectar...\n")
+
+        # Registrando handlers ANTES do connect()
+        @self.discord_client.event
+        async def on_message(message: Message):
+            if message.author.bot:
+                return
+            await handle_inbound(self.discord_client, self, message)
+
+        @self.discord_client.event
+        async def on_ready():
+            print(f"[DEBUG on_ready] DISCORD GATEWAY CONECTADO!")
+            if self.discord_client.user:
+                logger.info(f"Discord gateway conectado como {self.discord_client.user}")
+                print(f"[DEBUG on_ready] Usuario: {self.discord_client.user}")
+            else:
+                print("[DEBUG on_ready] user é None!")
+
+        @self.discord_client.event
+        async def on_interaction_create(interaction):
+            debug_log.write_text(f"[{datetime.now().isoformat()}] HANDLER CHAMADO! Type: {interaction.type}\n", mode='a')
+            """
+            Handler DDD para interações Discord (botões, select menus).
+            """
+            print(f"[DEBUG on_interaction_create] Interaction type: {interaction.type}")
+            try:
+                # Apenas interações de componente
+                if interaction.type != InteractionType.component:
+                    print(f"[DEBUG] Não é componente, retornando")
+                    return
+
+                print(f"[DEBUG] É componente! Fazendo defer...")
+                # Fazer defer para evitar timeout (acknowledge não existe em discord.py 2.x)
+                try:
+                    await interaction.response.defer()
+                except Exception:
+                    print(f"[DEBUG] Falha no defer")
+                    return
+
+                print(f"[DEBUG] Chamando adapter...")
+                # Processar via adapter DDD
+                result = await button_adapter.handle_interaction(interaction)
+
+                print(f"[DEBUG] Adapter result: {result}")
+                if result["status"] == "success":
+                    logger.info(f"Interação processada: {result['message']}")
+
+            except Exception as e:
+                print(f"[ERROR] Erro no handler: {e}")
+                import traceback
+                traceback.print_exc()
+                logger.error(f"Erro no handler de interação DDD: {e}")
+
+        print(f"[DEBUG] Handlers registrados ANTES de conectar", flush=True)
+
+        # CORREÇÃO 1: set_mcp_server removido - fluxo DDD usa MCPButtonAdapter
+        # que já tem acesso ao server via construtor
 
         # Configura handlers do MCP
         @self.mcp_server.list_tools()
@@ -366,22 +445,17 @@ class DiscordMCPServer:
 
             handler, _ = TOOL_HANDLERS[name]
             try:
-                result = await handler(self.discord_client, arguments)
-                return [TextContent(type="text", text=result.model_dump_json())]
+                # MIGRAÇÃO DDD: Todos os handlers usam DiscordService (fachada da Application Layer)
+                result = await handler(self._discord_service, arguments)
+
+                print(f"[DEBUG SERVER] Tool {name} retornou: {type(result)} = {result}")
+
+                # Handlers DDD retornam dict
+                import json
+                return [TextContent(type="text", text=json.dumps(result))]
             except Exception as e:
+                print(f"[DEBUG SERVER] Erro no tool {name}: {e}")
                 return [TextContent(type="text", text=f"{name} failed: {e}", isError=True)]
-
-        # Configura handler de mensagens Discord
-        @self.discord_client.event
-        async def on_message(message: Message):
-            if message.author.bot:
-                return
-            await handle_inbound(self.discord_client, self, message)
-
-        @self.discord_client.event
-        async def on_ready():
-            if self.discord_client.user:
-                logger.info(f"Discord gateway conectado como {self.discord_client.user}")
 
         # Inicia polling de aprovações
         async def approval_poller():
@@ -397,17 +471,35 @@ class DiscordMCPServer:
             # Task de polling
             poller_task = asyncio.create_task(approval_poller())
 
-            # Task de login Discord
-            async def discord_login():
+            # Task de login/conectar Discord EM BACKGROUND
+            async def keep_discord_connected():
+                """Mantém conexão Discord ativa, reconectando se necessário."""
+                print(f"[DEBUG] Iniciando tarefa de conexão Discord...", flush=True)
                 try:
                     await self.discord_client.login(token)
+                    print(f"[DEBUG] Login OK, conectando...", flush=True)
                     await self.discord_client.connect()
+                    print(f"[DEBUG] Discord conectado!", flush=True)
                 except Exception as e:
+                    print(f"[DEBUG] Erro Discord: {e}", flush=True)
+                    import traceback
+                    traceback.print_exc()
                     logger.error(f"Erro Discord: {e}")
 
-            discord_task = asyncio.create_task(discord_login())
+            discord_task = asyncio.create_task(keep_discord_connected())
 
-            # MCP server
+            # Aguarda Discord conectar (event-driven, sem sleep fixo)
+            # wait_until_ready() retorna assim que on_ready dispara
+            # timeout de 30s como fallback para redes lentas
+            print(f"[DEBUG] Aguardando Discord conectar...", flush=True)
+            try:
+                await asyncio.wait_for(self.discord_client.wait_until_ready(), timeout=30.0)
+                print(f"[DEBUG] Discord pronto! Iniciando MCP server...", flush=True)
+            except asyncio.TimeoutError:
+                print(f"[WARNING] Discord não conectou em 30s, iniciando MCP server assim mesmo...", flush=True)
+                logger.warning("Discord demorou mais de 30s para conectar")
+
+            # MCP server (bloqueia aqui)
             try:
                 # Declara capabilities de channel para Claude Code registrar listener
                 experimental_capabilities = {

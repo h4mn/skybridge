@@ -54,6 +54,9 @@ def load_env() -> None:
 
 def main() -> None:
     """Ponto de entrada principal."""
+    # MARCADOR v5 - Garante que estamos carregando código novo
+    print("[MARCADOR v5 __main__] Carregando __main__.py NOVO", flush=True)
+
     # Carrega .env
     load_env()
 
