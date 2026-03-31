@@ -179,16 +179,16 @@ class TestSendMessageHandler:
         DOC: specs/discord-domain/spec.md
         Scenario: MessageContent vazio é inválido
 
-        WHEN command.content está vazio
-        THEN SHALL lançar ValueError
+        WHEN command.text está vazio
+        THEN SHALL lançar ValueError na criação do command
+        NOTA: A validação ocorre no MessageContent.__post_init__, não no handler
         """
-        command = SendMessageCommand.create(
-            channel_id="123456789",
-            text="",  # Vazio
-        )
-
-        with pytest.raises(ValueError, match="não pode estar vazio"):
-            await handler.handle(command)
+        # O Command valida na criação, antes de chegar ao handler
+        with pytest.raises(ValueError, match="MessageContent.*não pode ser vazio"):
+            SendMessageCommand.create(
+                channel_id="123456789",
+                text="",  # Vazio
+            )
 
     @pytest.mark.asyncio
     async def test_handle_rejeita_conteudo_muito_longo(self):
