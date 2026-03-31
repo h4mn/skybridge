@@ -35,6 +35,11 @@ class MessageContent:
     MAX_LENGTH: int = 20000
 
     def __post_init__(self) -> None:
+        # Valida conteúdo vazio
+        if not self.text or not self.text.strip():
+            raise ValueError("MessageContent não pode ser vazio")
+
+        # Valida tamanho máximo
         if len(self.text) > self.MAX_LENGTH:
             raise MessageTooLongError(len(self.text), self.MAX_LENGTH)
 
