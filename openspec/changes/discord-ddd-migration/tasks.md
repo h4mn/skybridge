@@ -7,16 +7,26 @@
 
 ---
 
-## ✅ STATUS: ATIVO (Testes)
+## ✅ STATUS: TESTES COMPLETOS (2026-03-31)
 
 **Atualizado:** 2026-03-31
-**Foco:** Testes (SKY-78) e Cleanup (SKY-79)
+**Foco:** Testes (SKY-78) ✅ COMPLETO
+
+### Cobertura de Testes
+
+| Camada | Testes | Status |
+|-------|--------|--------|
+| Domain Layer | 56 | ✅ |
+| Application Layer | 43 | ✅ |
+| Infrastructure Layer | 21 | ✅ |
+| **TOTAL** | **120** | **✅** |
 
 ### Observações
 
 - **SKY-91** marcada como "Bug Falso Positivo" - método `get_history()` existe e funciona
 - **Componentes Discord** 100% funcionais após sessão de debug (2026-03-31)
 - **Commit validação:** `f19813b` - fix(discord): componentes interação funcionando
+- **Testes commits:** 9b315b4, bcc4a9c, 633b189, 0f70258, 8a77cce
 
 ---
 
@@ -243,6 +253,38 @@
 ### Integration Layer
 - ✅ Projections: PortfolioProjection, OrdemProjection
 - ✅ Handlers: PortfolioUIHandler, OrdemUIHandler
+
+---
+
+## Testes Unitários ✅
+
+**Total:** 120 testes passando (2026-03-31)
+
+### Domain Layer (56 testes)
+- ✅ `test_message.py` - Message entity, Attachment, Reaction (16 testes)
+- ✅ `test_button_clicked_event.py` - ButtonClickedEvent (4 testes)
+- ✅ `test_message_received_event.py` - MessageReceivedEvent (6 testes)
+- ✅ `test_message_sent_event.py` - MessageSentEvent (6 testes)
+- ✅ `test_discord_value_objects.py` - ChannelId, MessageId, UserId, MessageContent (24 testes)
+
+### Application Layer (43 testes)
+- ✅ `test_send_message_handler.py` (4 testes)
+- ✅ `test_send_embed_handler.py` (6 testes)
+- ✅ `test_send_buttons_handler.py` (7 testes)
+- ✅ `test_send_menu_handler.py` (6 testes)
+- ✅ `test_fetch_messages_handler.py` (4 testes)
+- ✅ `test_list_threads_handler.py` (4 testes)
+- ✅ `test_update_component_handler.py` (5 testes)
+- ✅ `test_button_click_handler.py` (6 testes)
+- ✅ `test_discord_service.py` (1 teste)
+
+### Infrastructure Layer (21 testes)
+- ✅ `test_access_repository.py` - JsonAccessRepository (21 testes)
+
+### Bugs Corrigidos via TDD
+1. **MessageContent** não validava conteúdo vazio
+2. **UpdateComponentHandler** usava `int(channel_id)` → corrigido para `channel_id.to_int()`
+3. **ButtonClickHandler** usava métodos inexistentes `HandlerResult.success()`/`error()` → corrigido
 
 ---
 
