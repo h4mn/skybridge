@@ -46,7 +46,7 @@ from .access import (
 )
 from .client import create_discord_client, is_dm_channel, is_thread_channel
 from .utils import is_recently_sent, note_sent
-from .models import ChannelNotification
+from .presentation.dto.legacy_dto import ChannelNotification
 
 if TYPE_CHECKING:
     from discord import Client

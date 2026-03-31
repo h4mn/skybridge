@@ -1,5 +1,5 @@
 """
-Entry point para o Discord MCP Server.
+Entry point para o Discord MCP Server (DDD Architecture v2.0).
 
 Uso:
     python -m src.core.discord
@@ -7,7 +7,14 @@ Uso:
 Variáveis de ambiente:
     DISCORD_BOT_TOKEN: Token do bot Discord (obrigatório)
     DISCORD_STATE_DIR: Diretório de estado (opcional)
-    DISCORD_ACCESS_MODE: 'static' para modo somente leitura (opcional)
+
+Arquitetura DDD:
+    - Domain Layer: Entidades, VOs, Events
+    - Application Layer: Commands, Queries, Handlers
+    - Infrastructure Layer: Adapters, Persistence
+    - Presentation Layer: MCP Tools, DTOs
+
+DOC: docs/spec/SPEC010-discord-ddd-migration.md
 """
 
 from __future__ import annotations

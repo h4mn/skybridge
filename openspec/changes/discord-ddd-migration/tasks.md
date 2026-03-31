@@ -7,10 +7,10 @@
 
 ---
 
-## ✅ STATUS: TESTES COMPLETOS (2026-03-31)
+## ✅ STATUS: MIGRAÇÃO COMPLETA (2026-03-31)
 
 **Atualizado:** 2026-03-31
-**Foco:** Testes (SKY-78) ✅ COMPLETO
+**Foco:** Testes (SKY-78) ✅ COMPLETO | Cleanup (SKY-79) ⏸️ Pendente
 
 ### Cobertura de Testes
 
@@ -19,7 +19,8 @@
 | Domain Layer | 56 | ✅ |
 | Application Layer | 43 | ✅ |
 | Infrastructure Layer | 21 | ✅ |
-| **TOTAL** | **120** | **✅** |
+| Integration Layer | 28 | ✅ |
+| **TOTAL** | **148** | **✅** |
 
 ### Observações
 
@@ -32,16 +33,18 @@
 
 ## Resumo
 
-| Fase | Tasks | Status |
-|------|-------|--------|
-| PHASE-1: Estrutura | 3 | ✅ |
-| PHASE-2: Domain Layer | 17 | ✅ |
-| PHASE-3: Application Layer | 13 | ✅ |
-| PHASE-4: Infrastructure Layer | 3 | ✅ |
-| PHASE-5: Presentation Layer | 15 | ✅ |
-| PHASE-6: Prompts PT-BR | 4 | ✅ |
-| PHASE-7: Integration Layer | 3 | ✅ |
-| **Total** | **66** | **100%** |
+| Fase | Tasks | Status | Issue |
+|------|-------|--------|-------|
+| PHASE-1: Estrutura | 3 | ✅ | SKY-71 |
+| PHASE-2: Domain Layer | 17 | ✅ | SKY-72 |
+| PHASE-3: Application Layer | 13 | ✅ | SKY-73 |
+| PHASE-4: Infrastructure Layer | 3 | ✅ | SKY-74 |
+| PHASE-5: Presentation Layer | 15 | ✅ | SKY-75 |
+| PHASE-6: Prompts PT-BR | 4 | ✅ | SKY-76 |
+| PHASE-7: Integration Layer | 3 | ✅ | SKY-77 |
+| PHASE-8: Testes Unit + Integration | 4 | ✅ | SKY-78 |
+| PHASE-9: Migração Final e Cleanup | 4 | ⏸️ | SKY-79 |
+| **Total** | **70** | **88%** | |
 
 ---
 
@@ -214,6 +217,64 @@
 
 ---
 
+## PHASE-8: Testes Unit + Integration
+
+**Issue:** [SKY-78](https://linear.app/skybridge/issue/SKY-78)
+**Status:** ✅ Completo
+
+### Domain Layer Tests (56)
+
+- [x] 19.1 `test_message.py` - Message entity, Attachment, Reaction (16 testes)
+- [x] 19.2 `test_button_clicked_event.py` - ButtonClickedEvent (4 testes)
+- [x] 19.3 `test_message_received_event.py` - MessageReceivedEvent (6 testes)
+- [x] 19.4 `test_message_sent_event.py` - MessageSentEvent (6 testes)
+- [x] 19.5 `test_discord_value_objects.py` - ChannelId, MessageId, UserId, MessageContent (24 testes)
+
+### Application Layer Tests (43)
+
+- [x] 20.1 `test_send_message_handler.py` (4 testes)
+- [x] 20.2 `test_send_embed_handler.py` (6 testes)
+- [x] 20.3 `test_send_buttons_handler.py` (7 testes)
+- [x] 20.4 `test_send_menu_handler.py` (6 testes)
+- [x] 20.5 `test_fetch_messages_handler.py` (4 testes)
+- [x] 20.6 `test_list_threads_handler.py` (4 testes)
+- [x] 20.7 `test_update_component_handler.py` (5 testes)
+- [x] 20.8 `test_button_click_handler.py` (6 testes)
+- [x] 20.9 `test_discord_service.py` (1 teste)
+
+### Infrastructure Layer Tests (21)
+
+- [x] 21.1 `test_access_repository.py` - JsonAccessRepository (21 testes)
+
+### Integration Layer Tests (28)
+
+- [x] 22.1 `test_projections.py` - PortfolioProjection, OrdemProjection (9 testes)
+- [x] 22.2 `test_portfolio_ui_handler.py` - PortfolioUIHandler (9 testes)
+- [x] 22.3 `test_ordem_ui_handler.py` - OrdemUIHandler (10 testes)
+
+### Bugs Corrigidos via TDD
+
+1. **MessageContent** não validava conteúdo vazio
+2. **UpdateComponentHandler** usava `int(channel_id)` → corrigido para `channel_id.to_int()`
+3. **ButtonClickHandler** usava métodos inexistentes `HandlerResult.success()`/`error()` → corrigido
+4. **PortfolioUIHandler/OrdemUIHandler** acessavam embed diretamente → corrigido para `to_embed_dict()`
+
+---
+
+## PHASE-9: Migração Final e Cleanup
+
+**Issue:** [SKY-79](https://linear.app/skybridge/issue/SKY-79)
+**Status:** ⏸️ Pendente
+
+### Tasks
+
+- [ ] 23.1 Atualizar imports em `src/core/discord/__init__.py`
+- [ ] 23.2 Atualizar `src/core/discord/__main__.py` para usar nova estrutura
+- [ ] 23.3 Remover arquivos legacy após migração completa
+- [ ] 23.4 Atualizar documentação e MEMORY.md
+
+---
+
 ## Entregáveis
 
 - [x] Módulo Discord reestruturado em 4 camadas DDD
@@ -258,7 +319,7 @@
 
 ## Testes Unitários ✅
 
-**Total:** 120 testes passando (2026-03-31)
+**Total:** 148 testes passando (2026-03-31)
 
 ### Domain Layer (56 testes)
 - ✅ `test_message.py` - Message entity, Attachment, Reaction (16 testes)
@@ -281,10 +342,16 @@
 ### Infrastructure Layer (21 testes)
 - ✅ `test_access_repository.py` - JsonAccessRepository (21 testes)
 
+### Integration Layer (28 testes)
+- ✅ `test_projections.py` - PortfolioProjection, OrdemProjection (9 testes)
+- ✅ `test_portfolio_ui_handler.py` - PortfolioUIHandler (9 testes)
+- ✅ `test_ordem_ui_handler.py` - OrdemUIHandler (10 testes)
+
 ### Bugs Corrigidos via TDD
 1. **MessageContent** não validava conteúdo vazio
 2. **UpdateComponentHandler** usava `int(channel_id)` → corrigido para `channel_id.to_int()`
 3. **ButtonClickHandler** usava métodos inexistentes `HandlerResult.success()`/`error()` → corrigido
+4. **PortfolioUIHandler/OrdemUIHandler** acessavam embed diretamente → corrigido para `to_embed_dict()`
 
 ---
 

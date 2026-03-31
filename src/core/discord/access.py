@@ -19,7 +19,7 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .models import Access, DMPolicy, PendingEntry
+from .presentation.dto.legacy_dto import Access, DMPolicy, PendingEntry
 
 if TYPE_CHECKING:
     pass
