@@ -69,7 +69,7 @@ class ContinuousBot(discord.Client):
         logger.info(f"Bot pronto! Conectado como {self.user}")
 
         # Aguardar um momento para estabilizar
-        await asyncio.sleep(2)
+        # await asyncio.sleep(2)
 
         # Enviar os cards de teste
         await self.send_test_cards()
