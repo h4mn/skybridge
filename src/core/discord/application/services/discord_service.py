@@ -96,12 +96,38 @@ class DiscordService:
         self._views_by_message: Dict[int, discord.ui.View] = {}
         self._progress_trackers: Dict[str, str] = {}  # tracking_id -> message_id
 
+    def is_ready(self) -> bool:
+        """Verifica se o Discord client está pronto."""
+        if not self._client:
+            return False
+        return self._client.is_ready()
+
+    async def ensure_ready(self, timeout: float = 5.0) -> bool:
+        """
+        Aguarda o Discord client estar pronto.
+
+        Args:
+            timeout: Tempo máximo de espera em segundos
+
+        Returns:
+            True se ficou pronto, False se timeout
+        """
+        if not self._client:
+            return False
+
+        if self._client.is_ready():
+            return True
+
+        try:
+            import asyncio
+            await asyncio.wait_for(self._client.wait_until_ready(), timeout=timeout)
+            return True
+        except asyncio.TimeoutError:
+            return False
+
     def set_client(self, client: discord.Client):
         """Define o cliente Discord."""
-        print(f"[DEBUG DiscordService.set_client] Client: {client}")
-        print(f"[DEBUG DiscordService.set_client] Type: {type(client)}")
         self._client = client
-        print(f"[DEBUG DiscordService.set_client] self._client: {self._client}")
 
     async def send_message(
         self,
@@ -210,17 +236,26 @@ class DiscordService:
             def __init__(self, timeout: Optional[float] = None):
                 super().__init__(timeout=timeout)
 
-            async def _handle_button_click(self, interaction: discord.Interaction):
+            async def _handle_button_click(self, interaction: discord.Interaction, button):
                 """
                 Callback genérico para todos os botões.
 
                 Apenas faz defer para evitar timeout.
                 O processamento real é feito pelo on_interaction_create global.
+
+                NOTA: O parâmetro `button` é obrigatório mesmo que não usado,
+                caso contrário o callback não é chamado (discord.py requirement).
                 """
+                import sys
+                sys.stderr.write(f"[DDDView._handle_button_click] CHAMADO! custom_id={interaction.data.get('custom_id') if interaction.data else 'none'}\n")
+                sys.stderr.flush()
                 try:
                     await interaction.response.defer()
+                    sys.stderr.write(f"[DDDView._handle_button_click] Defer OK!\n")
+                    sys.stderr.flush()
                 except Exception as e:
-                    print(f"[DDDView] Erro no defer: {e}")
+                    sys.stderr.write(f"[DDDView] Erro no defer: {e}\n")
+                    sys.stderr.flush()
 
         view = DDDView(timeout=timeout)
 
@@ -244,6 +279,99 @@ class DiscordService:
             view.add_item(button)
 
         return view
+
+    def create_select_view(
+        self,
+        placeholder: str,
+        options: List[dict],
+        timeout: Optional[float] = None
+    ) -> discord.ui.View:
+        """
+        Cria uma View Discord com menu Select.
+
+        Mesmo padrão dos botões que funcionam: classe interna + add_item.
+        """
+        # View customizada (igual DDDView dos botões)
+        class SelectView(discord.ui.View):
+            def __init__(self, timeout: Optional[float] = None):
+                super().__init__(timeout=timeout)
+
+            async def _handle_select(self, interaction: discord.Interaction, select):
+                """Callback genérico para Select - apenas defer."""
+                try:
+                    await interaction.response.defer()
+                except Exception as e:
+                    print(f"[SelectView] Erro no defer: {e}")
+
+        view = SelectView(timeout=timeout)
+
+        # Cria os SelectOptions
+        select_options = [
+            discord.SelectOption(
+                label=opt["label"],
+                value=opt["value"],
+                description=opt.get("description"),
+                emoji=opt.get("emoji"),
+            )
+            for opt in options
+        ]
+
+        # Cria o Select
+        select = discord.ui.Select(
+            placeholder=placeholder,
+            min_values=1,
+            max_values=1,
+            options=select_options
+        )
+
+        # Callback genérico (igual botões)
+        select.callback = view._handle_select
+
+        # Adiciona à View
+        view.add_item(select)
+
+        return view
+
+    async def send_menu(
+        self,
+        channel_id: str,
+        placeholder: str,
+        options: List[dict],
+    ) -> Optional[discord.Message]:
+        """
+        Envia menu suspenso (Select) para canal Discord.
+
+        Args:
+            channel_id: ID do canal
+            placeholder: Texto do placeholder
+            options: Lista de {label, value, description, emoji}
+
+        Returns:
+            Mensagem enviada ou None se erro
+        """
+        if not self._client:
+            raise RuntimeError("Discord client não configurado")
+
+        # Aguarda Discord estar pronto
+        if not self._client.is_ready():
+            if not await self.ensure_ready(timeout=5.0):
+                raise RuntimeError("Discord client não está pronto")
+
+        try:
+            channel = await self._client.fetch_channel(int(channel_id))
+            view = self.create_select_view(placeholder, options, timeout=None)
+
+            # Envia com embed (como send_buttons que funciona)
+            embed = Embed(title="Selecione uma opção", description=placeholder)
+            msg = await channel.send(embed=embed, view=view)
+
+            self._views_by_message[msg.id] = view
+            return msg
+        except Exception as e:
+            print(f"Erro ao enviar menu: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     async def send_buttons(
         self,
@@ -269,15 +397,16 @@ class DiscordService:
         if not self._client:
             raise RuntimeError("Discord client não configurado")
 
+        # Aguarda Discord estar pronto (até 5 segundos)
+        if not self._client.is_ready():
+            if not await self.ensure_ready(timeout=5.0):
+                raise RuntimeError("Discord client não está pronto. Tente novamente em instantes.")
+
         if not buttons:
             raise ValueError("Ao menos um botão é necessário")
 
         try:
-            print(f"[DEBUG DiscordService] Client: {self._client}")
-            print(f"[DEBUG DiscordService] Channel ID: {channel_id}")
-
             channel = await self._client.fetch_channel(int(channel_id))
-            print(f"[DEBUG DiscordService] Channel fetched: {channel}")
 
             # Criar embed
             if embed_data:
@@ -287,10 +416,8 @@ class DiscordService:
 
             # Criar view com botões
             view = self.create_view(buttons, timeout=None)
-            print(f"[DEBUG DiscordService] View created: {view}")
 
             msg = await channel.send(embed=embed, view=view)
-            print(f"[DEBUG DiscordService] Message sent: {msg.id}")
 
             # Guardar referência da view
             self._views_by_message[msg.id] = view
@@ -298,6 +425,8 @@ class DiscordService:
             return msg
         except Exception as e:
             print(f"Erro ao enviar botões: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     async def send_progress(

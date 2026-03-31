@@ -18,18 +18,12 @@ import json
 import logging
 import re
 import sys
-import io
 from datetime import datetime
 
 # =============================================================================
-# FORÇAR UTF-8 NO STDOUT/STDERR (Windows cp1252 fix)
+# NOTA: UTF-8 é configurado via variáveis de ambiente no run_discord_mcp.py
+# NÃO manipulamos stdout/stderr diretamente pois isso quebra o MCP stdio
 # =============================================================================
-if hasattr(sys.stdout, 'buffer'):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-if hasattr(sys.stderr, 'buffer'):
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-sys.stdout.reconfigure(encoding='utf-8') if hasattr(sys.stdout, 'reconfigure') else None
-sys.stderr.reconfigure(encoding='utf-8') if hasattr(sys.stderr, 'reconfigure') else None
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -328,13 +322,10 @@ class DiscordMCPServer:
             method: Método da notificação (ex: "notifications/claude/channel")
             params: Parâmetros da notificação
         """
-        print(f"[DEBUG send_notification] Method: {method}, Params: {params}")
         if self._write_stream is None:
             logger.warning("write_stream não disponível para notificação")
-            print("[WARNING] write_stream é None!")
             return
 
-        print(f"[DEBUG] write_stream disponivel, criando notificacao...")
         notification = JSONRPCNotification(
             jsonrpc="2.0",
             method=method,
@@ -344,29 +335,12 @@ class DiscordMCPServer:
         try:
             # Envelopa em JSONRPCMessage para enviar pelo stream
             message = JSONRPCMessage(notification)
-            print(f"[DEBUG] Enviando mensagem pelo stream...")
             await self._write_stream.send(message)
-            print(f"[DEBUG] Mensagem enviada!")
         except Exception as e:
             logger.error(f"Erro ao enviar notificação MCP: {e}")
-            print(f"[ERROR] Erro ao enviar: {e}")
-            import traceback
-            traceback.print_exc()
 
     async def run(self, token: str) -> None:
         """Executa o servidor."""
-
-        # MARCADOR ÚNICO v5 - Código DDD com handlers ANTES do connect
-        print(f"[MARCADOR v5] Iniciando servidor DDD com handlers ANTES de conectar", flush=True)
-
-        # Debug imediato
-        import sys
-        sys.stderr.write("[DEBUG] run() chamado\n")
-        sys.stderr.flush()
-
-        # Debug: verificar token
-        print(f"[DEBUG run] Token recebido: {token[:20]}...{token[-10:] if len(token) > 30 else token}", flush=True)
-        print(f"[DEBUG run] Tamanho do token: {len(token)}", flush=True)
 
         # =============================================================================
         # CRÍTICO: Registrar handlers ANTES de conectar
@@ -397,41 +371,26 @@ class DiscordMCPServer:
 
         @self.discord_client.event
         async def on_ready():
-            print(f"[DEBUG on_ready] DISCORD GATEWAY CONECTADO!")
             if self.discord_client.user:
                 logger.info(f"Discord gateway conectado como {self.discord_client.user}")
-                print(f"[DEBUG on_ready] Usuario: {self.discord_client.user}")
-            else:
-                print("[DEBUG on_ready] user é None!")
 
         @self.discord_client.event
-        async def on_interaction_create(interaction):
-            debug_log.write_text(f"[{datetime.now().isoformat()}] HANDLER CHAMADO! Type: {interaction.type}\n", mode='a')
-            """
-            Handler DDD para interações Discord (botões, select menus).
-
-            Envia notificação MCP para Claude Code quando usuário clica em botão.
-            """
-            print(f"[DEBUG on_interaction_create] Interaction type: {interaction.type}")
+        async def on_interaction(interaction):
+            """Handler para interações Discord - Client usa on_interaction."""
             try:
                 # Apenas interações de componente
                 if interaction.type != InteractionType.component:
-                    print(f"[DEBUG] Não é componente, retornando")
                     return
 
-                print(f"[DEBUG] É componente! Fazendo defer...")
                 # Fazer defer para evitar timeout (acknowledge não existe em discord.py 2.x)
                 try:
                     await interaction.response.defer()
-                except Exception:
-                    print(f"[DEBUG] Falha no defer")
+                except Exception as e:
                     return
 
-                print(f"[DEBUG] Chamando adapter...")
                 # Processar via adapter DDD
                 result = await button_adapter.handle_interaction(interaction)
 
-                print(f"[DEBUG] Adapter result: {result}")
                 if result["status"] == "success":
                     logger.info(f"Interação processada: {result['message']}")
 
@@ -441,50 +400,91 @@ class DiscordMCPServer:
                 # Sem isso, Claude Code nunca sabe que o botão foi clicado
                 chat_id = str(interaction.channel_id)
 
-                # Extrair informações do botão clicado
-                custom_id = "unknown"
-                button_label = "unknown"
+                # Detectar tipo de componente (Button=2, Select=3, etc)
+                component_type = interaction.data.get("component_type", 2) if interaction.data else 2
 
-                if interaction.data:
-                    custom_id = interaction.data.get("custom_id", "unknown")
+                # Para Select Menus (component_type == 3)
+                if component_type == 3:
+                    # Extrair valor selecionado do Select
+                    selected_values = interaction.data.get("values", []) if interaction.data else []
+                    selected_value = selected_values[0] if selected_values else "unknown"
+                    custom_id = interaction.data.get("custom_id", "unknown") if interaction.data else "unknown"
 
-                # Tentar obter label da mensagem original
-                try:
-                    message = interaction.message
-                    if message and message.components:
-                        for action_row in message.components:
-                            for component in action_row.children:
-                                if component.custom_id == custom_id:
-                                    button_label = component.label or custom_id
-                                    break
-                except Exception:
-                    button_label = custom_id
+                    # Tentar obter o label da opção selecionada
+                    selected_label = selected_value
+                    try:
+                        message = interaction.message
+                        if message and message.components:
+                            for action_row in message.components:
+                                for component in action_row.children:
+                                    if component.custom_id == custom_id:
+                                        # Buscar o label correspondente ao value
+                                        for opt in component.options:
+                                            if opt.value == selected_value:
+                                                selected_label = opt.label
+                                                break
+                                        break
+                    except Exception:
+                        pass
 
-                # Enviar notificação MCP
-                notification = {
-                    "content": f"[button] {button_label} ({custom_id})",
-                    "meta": {
-                        "chat_id": chat_id,
-                        "message_id": str(interaction.message.id) if interaction.message else "",
-                        "user": interaction.user.name,
-                        "user_id": str(interaction.user.id),
-                        "ts": interaction.created_at.isoformat(),
-                        "interaction_type": "button_click",
-                        "custom_id": custom_id,
-                        "button_label": button_label,
-                    },
-                }
+                    # Enviar notificação MCP para Select
+                    notification = {
+                        "content": f"[select] {selected_label} ({selected_value})",
+                        "meta": {
+                            "chat_id": chat_id,
+                            "message_id": str(interaction.message.id) if interaction.message else "",
+                            "user": interaction.user.name,
+                            "user_id": str(interaction.user.id),
+                            "ts": interaction.created_at.isoformat(),
+                            "interaction_type": "select_change",
+                            "custom_id": custom_id,
+                            "selected_value": selected_value,
+                            "selected_label": selected_label,
+                        },
+                    }
+                else:
+                    # Para Botões e outros componentes
+                    custom_id = "unknown"
+                    button_label = "unknown"
+
+                    if interaction.data:
+                        custom_id = interaction.data.get("custom_id", "unknown")
+
+                    # Tentar obter label da mensagem original
+                    try:
+                        message = interaction.message
+                        if message and message.components:
+                            for action_row in message.components:
+                                for component in action_row.children:
+                                    if component.custom_id == custom_id:
+                                        button_label = component.label or custom_id
+                                        break
+                    except Exception as e:
+                        button_label = custom_id
+
+                    # Enviar notificação MCP para Button
+                    notification = {
+                        "content": f"[button] {button_label} ({custom_id})",
+                        "meta": {
+                            "chat_id": chat_id,
+                            "message_id": str(interaction.message.id) if interaction.message else "",
+                            "user": interaction.user.name,
+                            "user_id": str(interaction.user.id),
+                            "ts": interaction.created_at.isoformat(),
+                            "interaction_type": "button_click",
+                            "custom_id": custom_id,
+                            "button_label": button_label,
+                        },
+                    }
 
                 await self.send_notification("notifications/claude/channel", notification)
-                print(f"[DEBUG] Notificação MCP enviada: {custom_id}")
 
             except Exception as e:
-                print(f"[ERROR] Erro no handler: {e}")
                 import traceback
                 traceback.print_exc()
                 logger.error(f"Erro no handler de interação DDD: {e}")
 
-        print(f"[DEBUG] Handlers registrados ANTES de conectar", flush=True)
+        # print removed for MCP stdio
 
         # CORREÇÃO 1: set_mcp_server removido - fluxo DDD usa MCPButtonAdapter
         # que já tem acesso ao server via construtor
@@ -504,13 +504,10 @@ class DiscordMCPServer:
                 # MIGRAÇÃO DDD: Todos os handlers usam DiscordService (fachada da Application Layer)
                 result = await handler(self._discord_service, arguments)
 
-                print(f"[DEBUG SERVER] Tool {name} retornou: {type(result)} = {result}")
-
                 # Handlers DDD retornam dict
                 import json
                 return [TextContent(type="text", text=json.dumps(result))]
             except Exception as e:
-                print(f"[DEBUG SERVER] Erro no tool {name}: {e}")
                 return [TextContent(type="text", text=f"{name} failed: {e}", isError=True)]
 
         # Inicia polling de aprovações
@@ -518,6 +515,20 @@ class DiscordMCPServer:
             while not self._shutdown:
                 check_approvals()
                 await asyncio.sleep(1)
+
+        # =============================================================================
+        # CRÍTICO: Login ANTES do stdio_server para garantir client pronto
+        # =============================================================================
+        try:
+            sys.stderr.write("[DISCORD] Fazendo login...\n")
+            sys.stderr.flush()
+            await self.discord_client.login(token)
+            sys.stderr.write("[DISCORD] Login OK!\n")
+            sys.stderr.flush()
+        except Exception as e:
+            sys.stderr.write(f"[DISCORD] Erro no login: {e}\n")
+            sys.stderr.flush()
+            raise
 
         # Executa MCP server e Discord client em paralelo
         async with stdio_server() as (read_stream, write_stream):
@@ -527,35 +538,24 @@ class DiscordMCPServer:
             # Task de polling
             poller_task = asyncio.create_task(approval_poller())
 
-            # Task de login/conectar Discord EM BACKGROUND
+            # Task de conectar Discord Gateway EM BACKGROUND
+            # Login já foi feito antes do stdio_server
             async def keep_discord_connected():
-                """Mantém conexão Discord ativa, reconectando se necessário."""
-                print(f"[DEBUG] Iniciando tarefa de conexão Discord...", flush=True)
+                """Mantém Gateway conectado com loop de eventos."""
                 try:
-                    await self.discord_client.login(token)
-                    print(f"[DEBUG] Login OK, conectando...", flush=True)
+                    # connect() inicia o loop de eventos do Gateway
                     await self.discord_client.connect()
-                    print(f"[DEBUG] Discord conectado!", flush=True)
                 except Exception as e:
-                    print(f"[DEBUG] Erro Discord: {e}", flush=True)
                     import traceback
                     traceback.print_exc()
-                    logger.error(f"Erro Discord: {e}")
+                    logger.error(f"Erro Discord connect: {e}")
 
             discord_task = asyncio.create_task(keep_discord_connected())
 
-            # Aguarda Discord conectar (event-driven, sem sleep fixo)
-            # wait_until_ready() retorna assim que on_ready dispara
-            # timeout de 30s como fallback para redes lentas
-            print(f"[DEBUG] Aguardando Discord conectar...", flush=True)
-            try:
-                await asyncio.wait_for(self.discord_client.wait_until_ready(), timeout=30.0)
-                print(f"[DEBUG] Discord pronto! Iniciando MCP server...", flush=True)
-            except asyncio.TimeoutError:
-                print(f"[WARNING] Discord não conectou em 30s, iniciando MCP server assim mesmo...", flush=True)
-                logger.warning("Discord demorou mais de 30s para conectar")
+            # Discord conecta em background - NAO bloqueia MCP server
+            # Se Discord falhar, MCP funciona sem funcionalidades Discord
 
-            # MCP server (bloqueia aqui)
+            # MCP server (inicia imediatamente)
             try:
                 # Declara capabilities de channel para Claude Code registrar listener
                 experimental_capabilities = {

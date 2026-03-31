@@ -12,18 +12,9 @@ Variáveis de ambiente (opcional - pode usar .env):
 """
 import os
 import sys
-import io
 from pathlib import Path
 
-# =============================================================================
-# FORÇAR UTF-8 NO WINDOWS
-# =============================================================================
-if hasattr(sys.stdout, 'buffer'):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-if hasattr(sys.stderr, 'buffer'):
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-sys.stdout.reconfigure(encoding='utf-8') if hasattr(sys.stdout, 'reconfigure') else None
-sys.stderr.reconfigure(encoding='utf-8') if hasattr(sys.stderr, 'reconfigure') else None
+# UTF-8 via variáveis de ambiente (NÃO manipula stdout/stderr diretamente)
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 os.environ['PYTHONUTF8'] = '1'
 
@@ -36,7 +27,6 @@ state_dir = Path(os.environ.get("DISCORD_STATE_DIR", Path.home() / ".claude" / "
 env_file = state_dir / ".env"
 
 if env_file.exists():
-    print(f"[INFO] Carregando variáveis de {env_file}")
     for line in env_file.read_text(encoding="utf-8").split("\n"):
         line = line.strip()
         if not line or line.startswith("#"):
@@ -51,13 +41,7 @@ if env_file.exists():
 # Verifica token
 token = os.environ.get("DISCORD_BOT_TOKEN")
 if not token:
-    print("[ERRO] DISCORD_BOT_TOKEN não configurado!")
-    print(f"\nCrie o arquivo {env_file} com:")
-    print('DISCORD_BOT_TOKEN="seu_token_aqui"')
     sys.exit(1)
-
-print(f"[INFO] Iniciando Discord MCP Server...")
-print(f"[INFO] State dir: {state_dir}")
 
 # Executa o servidor
 from src.core.discord.server import DiscordMCPServer
@@ -68,7 +52,10 @@ server = DiscordMCPServer()
 try:
     asyncio.run(server.run(token))
 except KeyboardInterrupt:
-    print("\n[INFO] Interrompido pelo usuário")
+    pass
 except Exception as e:
-    print(f"[ERRO] {e}")
+    import sys
+    sys.stderr.write(f"[FATAL] {type(e).__name__}: {e}\n")
+    import traceback
+    traceback.print_exc(file=sys.stderr)
     sys.exit(1)

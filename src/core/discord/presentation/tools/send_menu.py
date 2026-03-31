@@ -24,11 +24,12 @@ logger = logging.getLogger(__name__)
 class MenuView(View):
     """View com menu suspenso que persiste."""
 
-    def __init__(self, options: list[dict], callback_name: str):
+    def __init__(self, select: Select, options: list[dict], callback_name: str):
         """
         Inicializa View com menu.
 
         Args:
+            select: O componente Select já configurado
             options: Lista de {label, value, description, emoji}
             callback_name: Nome do callback para debug
         """
@@ -36,39 +37,8 @@ class MenuView(View):
         self._options = options
         self._callback_name = callback_name
 
-    @discord.ui.select(
-        placeholder="Selecione uma opção...",
-        min_values=1,
-        max_values=1,
-    )
-    async def select_callback(self, interaction: discord.Interaction, select: Select):
-        """Callback quando seleção é feita."""
-        # Pega valor selecionado
-        selected_value = select.values[0]
-        selected_label = select.options[select.index].label
-
-        # Busca opção completa
-        option = next((o for o in self._options if o["value"] == selected_value), None)
-
-        # Responde
-        if option:
-            emoji = option.get("emoji", "")
-            desc = option.get("description", "")
-
-            response = f"✅ **{selected_label}** selecionado"
-            if emoji:
-                response = f"{emoji} **{selected_label}** selecionado"
-            if desc:
-                response += f"\n{desc}"
-
-            await interaction.response.send_message(response)
-        else:
-            await interaction.response.send_message(f"Seleção: {selected_label}")
-
-        logger.info(
-            f"Menu {self._callback_name}: {selected_label} "
-            f"por {interaction.user.name}"
-        )
+        # Adiciona o select à View
+        self.add_item(select)
 
 
 async def handle_send_menu(
@@ -110,40 +80,21 @@ async def handle_send_menu(
             }
 
     try:
-        # Envia menu com View customizada
-        channel = await discord_service._client.fetch_channel(int(chat_id))
-
-        view = MenuView(options, callback_name="send_menu")
-
-        # Adiciona Select à View
-        select = Select(
+        # Envia menu usando o DiscordService
+        message = await discord_service.send_menu(
+            channel_id=chat_id,
             placeholder=placeholder,
-            min_values=1,
-            max_values=1,
-            options=[
-            discord.SelectOption(
-                label=opt["label"],
-                value=opt["value"],
-                description=opt.get("description"),
-                emoji=opt.get("emoji"),
-            )
-            for opt in options
-        ])
-
-        view.add_item(select)
-
-        # Envia mensagem com o menu
-        message = await channel.send("Escolha uma opção:", view=view)
-
-        # Guarda referência da view
-        discord_service._views_by_message[message.id] = view
+            options=options
+        )
 
         return {
-            "message_id": str(message.id),
+            "message_id": str(message.id) if message else None,
             "status": "success"
         }
     except Exception as e:
         logger.error(f"Erro ao enviar menu: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             "status": "error",
             "error": str(e)
