@@ -54,10 +54,10 @@ class ButtonClickHandler(BaseHandler):
         try:
             # 1. Validar dados
             if not command.button_custom_id:
-                return HandlerResult.error("button_custom_id é obrigatório")
+                return HandlerResult.failure("button_custom_id é obrigatório")
 
             if not command.channel_id:
-                return HandlerResult.error("channel_id é obrigatório")
+                return HandlerResult.failure("channel_id é obrigatório")
 
             # 2. Converter para Domain Event
             event = command.to_event()
@@ -73,17 +73,12 @@ class ButtonClickHandler(BaseHandler):
                 f"canal={command.channel_id}"
             )
 
-            # 5. Retornar sucesso
-            return HandlerResult.success(
-                message="Botão clicado processado com sucesso",
-                data={
-                    "button_id": command.button_custom_id,
-                    "user": command.user_name,
-                    "channel_id": command.channel_id,
-                    "event_id": event.event_id,
-                }
+            # 5. Retornar sucesso (usa success com message_id como event_id)
+            return HandlerResult(
+                success=True,
+                message_id=event.event_id,
             )
 
         except Exception as e:
             logger.error(f"Erro ao processar clique de botão: {e}")
-            return HandlerResult.error(f"Erro ao processar clique: {str(e)}")
+            return HandlerResult.failure(f"Erro ao processar clique: {str(e)}")
