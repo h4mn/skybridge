@@ -18,7 +18,18 @@ import json
 import logging
 import re
 import sys
+import io
 from datetime import datetime
+
+# =============================================================================
+# FORÇAR UTF-8 NO STDOUT/STDERR (Windows cp1252 fix)
+# =============================================================================
+if hasattr(sys.stdout, 'buffer'):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'buffer'):
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+sys.stdout.reconfigure(encoding='utf-8') if hasattr(sys.stdout, 'reconfigure') else None
+sys.stderr.reconfigure(encoding='utf-8') if hasattr(sys.stderr, 'reconfigure') else None
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 

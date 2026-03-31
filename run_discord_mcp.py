@@ -6,9 +6,9 @@ Script para executar o Discord MCP Server.
 Uso:
     python run_discord_mcp.py
 
-Variaveis de ambiente (opcional - pode usar .env):
+Variáveis de ambiente (opcional - pode usar .env):
     DISCORD_BOT_TOKEN: Token do bot Discord
-    DISCORD_STATE_DIR: Diretorio de estado (padrao: ~/.claude/channels/discord)
+    DISCORD_STATE_DIR: Diretório de estado (padrao: ~/.claude/channels/discord)
 """
 import os
 import sys
@@ -16,12 +16,14 @@ import io
 from pathlib import Path
 
 # =============================================================================
-# FORCAR UTF-8 NO WINDOWS
+# FORÇAR UTF-8 NO WINDOWS
 # =============================================================================
 if hasattr(sys.stdout, 'buffer'):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 if hasattr(sys.stderr, 'buffer'):
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+sys.stdout.reconfigure(encoding='utf-8') if hasattr(sys.stdout, 'reconfigure') else None
+sys.stderr.reconfigure(encoding='utf-8') if hasattr(sys.stderr, 'reconfigure') else None
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 os.environ['PYTHONUTF8'] = '1'
 

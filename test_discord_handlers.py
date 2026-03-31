@@ -7,8 +7,21 @@ Este script inicia o bot Discord e fica aguardando interações.
 """
 import os
 import sys
+import io
 import asyncio
 from pathlib import Path
+
+# =============================================================================
+# FORÇAR UTF-8 NO WINDOWS
+# =============================================================================
+if hasattr(sys.stdout, 'buffer'):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'buffer'):
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+sys.stdout.reconfigure(encoding='utf-8') if hasattr(sys.stdout, 'reconfigure') else None
+sys.stderr.reconfigure(encoding='utf-8') if hasattr(sys.stderr, 'reconfigure') else None
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+os.environ['PYTHONUTF8'] = '1'
 
 # Adiciona src ao path
 src_path = Path(__file__).parent / "src"

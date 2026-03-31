@@ -11,7 +11,18 @@ Acesse: http://localhost:8000/docs
 """
 import os
 import sys
+import io
 from pathlib import Path
+
+# =============================================================================
+# FORÇAR UTF-8 NO STDOUT/STDERR (Windows cp1252 fix)
+# =============================================================================
+if hasattr(sys.stdout, 'buffer'):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'buffer'):
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+os.environ['PYTHONUTF8'] = '1'
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
