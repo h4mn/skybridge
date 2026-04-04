@@ -1,0 +1,3 @@
+[submodule "autokarpa"]
+	path = src/core/autokarpa
+	url = https://github.com/h4mn/autokarpa.git
