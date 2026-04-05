@@ -117,6 +117,55 @@ await send_embed(
 - [ ] **Tabelas estão em embed?**
 - [ ] Formatação está alinhada?
 
+### 2.3 Padrão Artigo - Tabelas Separadas
+
+**Quando:** Textos longos com múltiplas tabelas (artigos, relatórios, documentação).
+
+**Regra:** Separar texto das tabelas, como em artigos acadêmicos.
+
+**Estrutura:**
+
+**Mensagem 1 - Texto principal:**
+```
+## Análise de Preços
+
+O mercado apresentou comportamento diversificado nesta semana.
+BTC liderou as altas com 15% (ver 📊 Tabela 1).
+
+ETH acompanhou o movimento, porém com menor volatilidade.
+
+Para detalhes completos, consulte as tabelas abaixo.
+```
+
+**Mensagem 2 - Tabela 1 (embed):**
+```python
+await send_embed(
+    chat_id=chat_id,
+    title="📊 Tabela 1: Criptoativos - Semanal",
+    fields=[...]
+)
+```
+
+**Mensagem 3 - Tabela 2 (embed):**
+```python
+await send_embed(
+    chat_id=chat_id,
+    title="📊 Tabela 2: Variação Percentual",
+    fields=[...]
+)
+```
+
+**Vantagens:**
+- Texto fica limpo e legível
+- Cada tabela pode ser consumida independentemente
+- Mobile-friendly (embeds são compactos)
+- Fácil referenciar ("ver Tabela 1", "conforme Tabela 2")
+
+**Referências no texto:**
+- `📊 Tabela 1` ou `(ver Tabela 1 abaixo)`
+- `Conforme mostrado na 📊 Tabela 2`
+- `Ver resumo na 📊 Tabela 3`
+
 ---
 
 ## 3. Tools MCP

@@ -67,6 +67,7 @@ Você nunca abre o Toggl. `/track` é sua interface única para gerenciar tempo.
 **O que faz:**
 - Comportamento social: tom, formatação, higiene de threads
 - **Regra crítica: tabelas SEMPRE em embed** (Discord não renderiza tabelas em texto)
+- **Padrão Artigo:** textos longos com tabelas em mensagens separadas (como artigos acadêmicos)
 - Tools MCP: reply, react, embed, buttons, menus, progress
 - Componentes interativos: botões, selects, modals com decorators
 - Padrões DDD: handlers, adapters, views com estado
@@ -74,6 +75,9 @@ Você nunca abre o Toggl. `/track` é sua interface única para gerenciar tempo.
 
 **Regra Ouro:**
 > "Tabelas em texto = quebradas no Discord. Use `send_embed` com `fields`."
+
+**Padrão Artigo:**
+> "Texto com múltiplas tabelas? Separe: texto principal + embeds numerados (📊 Tabela 1, 📊 Tabela 2)"
 
 ---
 
