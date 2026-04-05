@@ -41,18 +41,16 @@ def create_discord_client() -> Client:
     intents.message_content = True  # Necessário para ler conteúdo
     intents.dm_messages = True  # DMs
     intents.guild_messages = True  # Mensagens de servidor
+    intents.reactions = True  # Reações emoji - explícito para garantir funcionamento
 
     # Client com CommandTree para slash commands
     client = Client(
         intents=intents,
     )
 
-    # Criar CommandTree para o client
+    # Anexa CommandTree ao client (global, compartilhado)
     tree = app_commands.CommandTree(client)
-
-    # Setup do logger para tree
-    import logging
-    tree.logger = logging.getLogger("discord.app_commands")
+    client._command_tree = tree  # Armazena como atributo privado
 
     return client
 

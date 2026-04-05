@@ -34,7 +34,7 @@ from mcp.types import Tool, TextContent, JSONRPCNotification, JSONRPCMessage
 
 # Discord
 from discord import Message, ChannelType, ForumChannel, Thread
-from discord.raw_models import RawMessageUpdateEvent
+from discord.raw_models import RawMessageUpdateEvent, RawReactionActionEvent
 from discord import app_commands
 
 # Locals
@@ -317,8 +317,8 @@ class DiscordMCPServer:
         self._discord_service = DiscordService(client=self.discord_client)
 
         # CommandTree para slash commands (discord.app_commands)
-        # A tree já está anexada ao client em create_discord_client()
-        self.tree = app_commands.CommandTree(self.discord_client)
+        # Usa a tree criada em create_discord_client()
+        self.tree = self.discord_client._command_tree
 
     async def send_notification(self, method: str, params: dict) -> None:
         """
@@ -390,22 +390,32 @@ class DiscordMCPServer:
 
                 # Sync commands com Discord (para aparecer na UI)
                 try:
-                    guild = self.discord_client.guilds[0] if self.discord_client.guilds else None
-                    if guild:
-                        # Sync em um guild específico (mais rápido, instantâneo)
-                        self.tree.copy_global_to(guild=guild)
-                        synced = await self.tree.sync(guild=guild)
-                        logger.info(f"Slash commands sincronizados para guild {guild.name}: {len(synced)} commands")
+                    guilds = self.discord_client.guilds
+                    if guilds:
+                        # Sync em todos os guilds (instantâneo para desenvolvimento)
+                        for guild in guilds:
+                            self.tree.copy_global_to(guild=guild)
+                            synced = await self.tree.sync(guild=guild)
+                            logger.info(f"Slash commands sincronizados para guild {guild.name}: {len(synced)} commands")
                     else:
-                        logger.warning("Nenhum guild encontrado - pulando sync de commands")
+                        # Fallback: sync global (pode levar até 1 hora para propagar)
+                        logger.warning("Nenhum guild encontrado - fazendo sync global (pode demorar até 1h)")
+                        synced = await self.tree.sync()
+                        logger.info(f"Slash commands sincronizados globalmente: {len(synced)} commands")
                 except Exception as e:
-                    logger.error(f"Erro ao sincronizar slash commands: {e}")
+                    logger.error(f"Erro ao sincronizar slash commands: {e}", exc_info=True)
 
         @self.discord_client.event
         async def on_interaction(interaction):
             """Handler para interações Discord - Client usa on_interaction."""
             try:
-                # Apenas interações de componente
+                # Application commands (slash commands) são processados pelo CommandTree
+                if interaction.type == InteractionType.application_command:
+                    # O CommandTree processa automaticamente
+                    logger.debug(f"Application command recebido: {interaction.data.get('name')}")
+                    return
+
+                # Apenas interações de componente (botões, menus)
                 if interaction.type != InteractionType.component:
                     return
 
@@ -616,6 +626,126 @@ class DiscordMCPServer:
                 import traceback
                 traceback.print_exc()
                 logger.error(f"Erro no handler on_raw_message_update: {e}")
+
+        @self.discord_client.event
+        async def on_raw_reaction_add(payload: RawReactionActionEvent):
+            """
+            Handler para detectar quando alguém adiciona reação emoji.
+
+            Notifica via push para que Claude possa ver reações em tempo real.
+
+            Correções aplicadas (2026-04-05):
+            - Fallback fetch_channel quando get_channel retorna None
+            - Obter nome real do usuário via member/guild
+            - Fix UnboundLocalError quando message fetch falha
+            - Fallback para emoji.unicode quando None
+            - Logs específicos em vez de except silencioso
+            """
+            try:
+                # Ignora reações do próprio bot
+                if self.discord_client.user and payload.user_id == self.discord_client.user.id:
+                    return
+
+                # Tenta obter canal do cache, com fallback para API
+                channel = self.discord_client.get_channel(payload.channel_id)
+                if not channel:
+                    try:
+                        channel = await self.discord_client.fetch_channel(payload.channel_id)
+                    except Exception as e:
+                        logger.warning(f"Canal {payload.channel_id} não encontrado: {e}")
+                        return
+
+                # Obter detalhes da reação
+                emoji = payload.emoji
+
+                # Pode ser emoji custom (name) ou unicode - com fallback
+                # CORREÇÃO: PartialEmoji não tem atributo 'unicode'
+                # Para emojis não-custom, name contém o caractere unicode
+                if emoji.is_custom_emoji():
+                    emoji_str = f":{emoji.name}:"  # Formato custom emoji
+                else:
+                    # Para emojis não-custom, name contém o unicode (ex: "👍")
+                    emoji_str = emoji.name or "❓"
+
+                # Inicializa variáveis para evitar UnboundLocalError
+                message = None
+                message_preview = ""
+                message_author_id = "unknown"
+                message_author_name = "Unknown"
+
+                # Obter mensagem para saber o contexto
+                try:
+                    message = await channel.fetch_message(payload.message_id)
+                    if message.content:
+                        message_preview = message.content[:100] + "..." if len(message.content) > 100 else message.content
+                    else:
+                        message_preview = "(sem conteúdo)"
+
+                    # Buscar autor da mensagem (a quem reagiram)
+                    if message.author:
+                        message_author_id = str(message.author.id)
+                        message_author_name = message.author.name if hasattr(message.author, 'name') else "Unknown"
+                except Exception as e:
+                    logger.debug(f"Não foi possível buscar mensagem {payload.message_id}: {e}")
+                    # Variáveis já inicializadas com valores default
+
+                # Obter nome do usuário que reagiu
+                reactor_name = str(payload.user_id)  # Fallback default
+                reactor_discriminator = ""
+
+                try:
+                    # Tenta obter member do guild para pegar o nome correto
+                    if hasattr(channel, 'guild') and channel.guild:
+                        member = channel.guild.get_member(payload.user_id)
+                        if member:
+                            reactor_name = member.name
+                            reactor_discriminator = f"#{member.discriminator}" if member.discriminator != "0" else ""
+                        else:
+                            # Tenta fetch se não estiver em cache
+                            try:
+                                member = await channel.guild.fetch_member(payload.user_id)
+                                reactor_name = member.name
+                                reactor_discriminator = f"#{member.discriminator}" if member.discriminator != "0" else ""
+                            except Exception:
+                                pass  # Usa user_id como fallback
+                except Exception as e:
+                    logger.debug(f"Não foi possível obter nome do usuário {payload.user_id}: {e}")
+
+                # Determinar tipo de canal
+                channel_name = getattr(channel, 'name', str(payload.channel_id))
+                interaction_type = "reaction_added"
+
+                # Se for thread, marcar especificamente
+                if isinstance(channel, Thread):
+                    interaction_type = "thread_reaction_added"
+                    # Tentar obter nome do canal pai
+                    if channel.parent and channel.parent.name:
+                        channel_name = f"{channel.parent.name} > {channel.name}"
+
+                # Formatar display name do usuário
+                reactor_display = f"{reactor_name}{reactor_discriminator}" if reactor_discriminator else reactor_name
+
+                # Formatar notificação MCP
+                # CORREÇÃO: Usar apenas os campos padrão que existem nas notificações de mensagem
+                # Campos extras podem causar rejeição pelo Claude Code
+                notification = {
+                    "content": f"[{emoji_str}] {reactor_display} reagiu {message_author_name}: \"{message_preview}\"",
+                    "meta": {
+                        "chat_id": str(payload.channel_id),
+                        "message_id": str(payload.message_id),
+                        "user_id": str(payload.user_id),
+                        "user": reactor_display,  # Nome real do usuário que reagiu
+                        "ts": datetime.now().isoformat(),
+                    },
+                }
+
+                await self.send_notification("notifications/claude/channel", notification)
+                logger.info(f"Reação {emoji_str} de {reactor_display} na mensagem {payload.message_id}")
+
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                logger.error(f"Erro no handler on_raw_reaction_add: {e}")
 
         # print removed for MCP stdio
 
