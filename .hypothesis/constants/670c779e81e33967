@@ -1,0 +1,4 @@
+# file: B:\_repositorios\skybridge\src\core\autokarpa\programs\demo-todo-list\target\domain.py
+# hypothesis_version: 6.151.10
+
+['Todo', 'done', 'pending']
