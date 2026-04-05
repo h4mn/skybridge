@@ -95,18 +95,20 @@
 
 ---
 
-**Status:** ✅ 88/88 tarefas completas (100%)
+**Status:** ✅ 90/91 tarefas completas (99%)
 
 **Mudanças Recentes (2026-04-05):**
 - ✅ Fase 8 adicionada: Slash Command Nativo Discord
 - ✅ Comando `/inbox` com autocomplete implementado
 - ✅ Integração com CommandTree do discord.py
 - ✅ Sync automático no startup do bot
+- ✅ **REFINEMENT**: Parâmetro `description` opcional adicionado
+- ✅ **REFINEMENT**: Validação flexível - título OU descrição (pelo menos um)
 
 **Notas:**
+- Task 1.6: Template (opcional, deixado para futuro)
+- Task 5.7: Atualizar documentação com novos exemplos (pendente)
 - Task 8.9: ✅ Teste requer bot rodando e LINEAR_API_KEY configurada
-- Task 1.6: Template (opcional, deixado para futuro)
-- Task 1.6: Template (opcional, deixado para futuro)
 
 **Issues criadas para validação:**
 - SKY-100: Paper Trading Hot Reload (domínio:paper)
@@ -115,17 +117,11 @@
 - SKY-103: Layout /track Windows (domínio:geral)
 - SKY-99: Teste (marcado para descartar)
 
-**Data conclusão:** 2026-04-05 (Fase 8)
+**Data conclusão:** 2026-04-05 (Fase 8 + Refinement)
 
-**Notas:**
-- Task 1.6: Template não criado (opcional, deixado para futuro)
-- Tasks 3.3-3.7, 4.13: Testes validados via criação Linear MCP
-- ✅ Todas as fases 1-7 completas
-
-**Issues criadas para validação:**
-- SKY-100: Paper Trading Hot Reload (domínio:paper)
-- SKY-101: AutoKarpa MCP Server (domínio:autokarpa)
-- SKY-102: Notificações Linear→Discord (domínio:discord)
-- SKY-99: Teste (marcado para descartar)
-
-**Data conclusão:** 2026-04-05
+**Novos comportamentos:**
+- `/inbox add` aceita apenas título, apenas descrição, ou ambos
+- Nenhum parâmetro é obrigatório individualmente
+- Validação: pelo menos título OU descrição deve ser fornecido
+- Descrição do usuário é concatenada antes dos campos estruturados
+- Sem título: usa primeiras 5 palavras da descrição como título
