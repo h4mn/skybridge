@@ -1,42 +1,203 @@
 ---
-name: discord-interaction
-description: Use quando criar bots Discord com componentes interativos (botões, menus, modais), tratar interações de usuário, ou construir UIs orientadas a eventos em Python usando discord.py
+name: sky-discord
+description: Guia completo para interação via Discord MCP - comportamento social, componentes interativos, e melhores práticas de código e comunicação. Use ao interagir em canais Discord, criar bots com UI, ou enviar mensagens via MCP.
 ---
 
-# Skill Discord Interactions
+# Sky Discord - Guia Completo
 
-## Visão Geral
-
-Interações Discord permitem UI orientada a eventos: botões, selects, modals que disparam callbacks. O decorator `@button` faz o roteamento automaticamente - sem necessidade de matching manual de `custom_id`.
-
-**Padrão core:** `View` com decorators `@button` → `on_interaction` loga → decorator trata roteamento.
+Guia unificado para interação eficaz via Discord MCP, combinando comportamento social com implementação técnica de componentes interativos.
 
 ---
 
-## Fluxo de Decisão Rápida
+## 📋 Índice Rápido
 
-```dot
-digraph interaction_flow {
-    "Precisa de UI Discord interativa?" [shape=diamond];
-    "Botões simples?" [shape=diamond];
-    "Usa @button decorator" [shape=box];
-    "Precisa de DDD/handlers?" [shape=diamond];
-    "Usa MCPButtonAdapter" [shape=box];
-    "UI complexa (modals, multi-step)?" [shape=diamond];
-    "Usa View com estado" [shape=box];
+1. **Comportamento Social** - Tom, formatação, threads
+2. **Formatação Markdown** - Regras críticas, tabelas em embeds
+3. **Tools MCP** - Quando usar reply, react, embed, etc.
+4. **Componentes Interativos** - Botões, menus, views
+5. **Padrões de Código** - DDD, handlers, decorators
+6. **Casos de Uso** - Exemplos práticos completos
 
-    "Precisa de UI Discord interativa?" -> "Botões simples?" [label="sim"];
-    "Botões simples?" -> "Usa @button decorator" [label="sim"];
-    "Botões simples?" -> "Precisa de DDD/handlers?" [label="não"];
-    "Precisa de DDD/handlers?" -> "Usa MCPButtonAdapter" [label="sim"];
-    "Precisa de DDD/handlers?" -> "UI complexa?" [label="não"];
-    "UI complexa?" -> "Usa View com estado" [label="sim"];
-}
+---
+
+## 1. Comportamento Social
+
+### 1.1 Tom e Voz
+
+**Como soar:**
+- Amigável mas profissional
+- Conciso (Discord é chat, não email)
+- Usar emojis com moderação (1-2 por mensagem)
+- Evitar jargão técnico excessivo
+
+**Como NÃO soar:**
+- Robótico ou excessivamente formal
+- Prolixo (parágrafos enormes)
+- Emoji spam
+
+### 1.2 Thread Hygiene
+
+**Regra:** Detectar mudança de assunto e sugerir nova thread.
+
+**Quando aplicar:**
+- Conversa diverge do título/original da thread
+- Mais de 3 mensagens sobre assunto diferente
+- Usuário menciona "outro assunto" ou similar
+
+**Ação:**
+```
+1. Perceber a divergência
+2. Sugerir: "Percebi que mudamos de X para Y. Quer que eu crie uma thread separada?"
+3. Se confirmar: criar thread, migrar resumo, avisar na thread original
 ```
 
+**Anti-pattern:** Deixar thread de "Arquitetura" virar "Discord MCP improvements".
+
+### 1.3 Anti-Patterns de Comunicação
+
+| Evitar | Por que |
+|--------|---------|
+| Thread hijacking | Desorganiza discussão |
+| Mensagens gigantes | Dificulta leitura no mobile |
+| Ignorar reações | Perde feedback do usuário |
+| Responder no canal errado | Confunde contexto |
+| Formatação quebrada | Prejudica legibilidade |
+
 ---
 
-## Nomes de Event Handlers (Crítico)
+## 2. Formatação Markdown (CRÍTICO)
+
+### 2.1 Regra de Ouro: Tabelas em Embeds
+
+⚠️ **O Discord NÃO renderiza tabelas markdown em mensagens comuns!**
+
+**ERRADO:**
+```python
+# Isso não funciona no Discord
+content = """
+| Ativo | Preço |
+|-------|-------|
+| BTC | 45000 |
+"""
+await reply(chat_id, text=content)  # Tabela quebrada
+```
+
+**CORRETO:**
+```python
+# Use send_embed para tabelas
+await send_embed(
+    chat_id=chat_id,
+    title="📊 Preços",
+    fields=[
+        {"name": "BTC", "value": "$45,000", "inline": True},
+        {"name": "ETH", "value": "$3,200", "inline": True},
+    ]
+)
+```
+
+**Quando usar cada formato:**
+
+| Formato | Usar para | Tool MCP |
+|---------|-----------|-----------|
+| `reply(text=...)` | Texto simples, listas, code blocks | Mensagens normais |
+| `send_embed(fields=...)` | **Tabelas**, dados estruturados | Tabelas sempre |
+| `edit_message` | Correções rápidas | Atualizações |
+
+### 2.2 Regras Gerais de Markdown
+
+**Sempre fazer:**
+- Fechar code blocks com ```
+- Títulos fora de code blocks
+- Listas com `-` ou `1.` consistente
+- **Tabelas → SEMPRE em embed**
+
+**Checklist antes de enviar:**
+- [ ] Todos os ``` estão fechados?
+- [ ] Títulos estão fora de code blocks?
+- [ ] **Tabelas estão em embed?**
+- [ ] Formatação está alinhada?
+
+---
+
+## 3. Tools MCP
+
+### 3.1 Mensagens
+
+**`reply`** - Resposta principal
+- Responder no mesmo canal/thread da mensagem recebida
+- Usar `reply_to` apenas quando responder a mensagem específica (não a mais recente)
+- Aceita `files: ["/abs/path.png"]` para anexos (máx 10, 25MB cada)
+
+**`edit_message`** - Atualizações intermediárias
+- Usar para correções rápidas de formatação
+- NÃO usar para mudar completamente o conteúdo
+- **Vantagem:** não dispara notificação push
+
+**`fetch_messages`** - Histórico
+- Usar para contexto/histórico
+- API de busca do Discord não está disponível para bots
+- **Sempre pedir permissão** antes de buscar muito histórico
+
+### 3.2 Interação Visual
+
+**`react`** - Feedback rápido
+- Usar para reconhecimento visual (✅, 👍, 🔥)
+- **NÃO usar react como resposta principal**
+
+**`send_embed`** - Mensagens estruturadas
+- **OBRIGATÓRIO para tabelas**
+- Usar para mensagens com campos, cores, footers
+- Ideal para relatórios, resumos, dados estruturados
+
+### 3.3 Componentes Interativos
+
+**`send_buttons`** - Ações com botões
+- Botões com `id`, `label`, `style` (primary/success/danger/secondary)
+- Útil para confirmações, escolhas binárias, workflows guiados
+- **Obs:** Botões persistem (timeout=None), desabilitar após interação se necessário
+
+**`send_menu`** - Dropdown de seleção
+- Usuário seleciona uma opção entre várias
+- Menu persiste (timeout=None)
+- Ideal para escolher entre múltiplas opções
+
+**`send_progress`** - Barras de progresso
+- Mostrar progresso visual com porcentagem e status
+- Usar `tracking_id` para atualizar a mesma mensagem
+- Criar na primeira chamada, updates subsequentes usam mesmo ID
+
+**`update_component`** - Atualizar componentes
+- Atualizar progress bars, desabilitar botões após interação
+- Para progress updates com tracking_id, preferir `send_progress`
+
+### 3.4 Threads
+
+**`create_thread`** - Nova thread
+- Criar quando assunto merece discussão separada
+- Nomear claramente com **emoji + título**
+- `auto_archive_duration`: 60=1h, 1440=24h, 4320=3d, 10080=7d
+
+**`list_threads`** - Listar threads
+- Listar threads ativas no canal
+- Usar `include_archived: true` para ver também as arquivadas
+
+**`rename_thread`** - Renomear thread
+- Usar para organizar ou atualizar propósito da thread
+
+**`archive_thread`** - Arquivar thread
+- Threads arquivadas ficam ocultas mas podem ser desarquivadas
+
+### 3.5 Anexos
+
+**`download_attachment`** - Baixar arquivos
+- Baixar apenas quando necessário
+- Confirmar recebimento ao usuário
+
+---
+
+## 4. Componentes Interativos (discord.py)
+
+### 4.1 Nomes de Event Handlers (CRÍTICO)
 
 | Tipo de Bot | Nome do Handler | Nota |
 |-------------|-----------------|------|
@@ -45,9 +206,7 @@ digraph interaction_flow {
 
 **⚠️ Erro comum:** Usar `on_interaction_create` com `Client` = handler nunca dispara.
 
----
-
-## Caso 1: Hello World (Botões Simples)
+### 4.2 Caso 1: Botões Simples (Hello World)
 
 **Quando:** Protótipos rápidos, ações simples, bots de arquivo único.
 
@@ -97,9 +256,7 @@ if __name__ == "__main__":
 - `on_interaction` (NÃO `on_interaction_create`) para `Client`
 - `ephemeral=True` = só usuário vê resposta
 
----
-
-## Caso 2: Domain-Driven Design (Paper Trading)
+### 4.3 Caso 2: Domain-Driven Design (Paper Trading)
 
 **Quando:** Lógica de negócio, arquitetura orientada a eventos, múltiplos handlers, camadas DDD.
 
@@ -158,9 +315,7 @@ class PaperTradingBot(Client):
 
 **Fluxo:** `Interaction` → `Command` → `Handler` → `Domain Event` → `Response`
 
----
-
-## Caso 3: UI Complexa (Select Menus + Estado)
+### 4.4 Caso 3: UI Complexa (Select Menus + Estado)
 
 **Quando:** Fluxos multi-step, opções dinâmicas, interações com estado.
 
@@ -225,7 +380,7 @@ class TradingBot(discord.Client):
 
 ---
 
-## Padrões de Resposta
+## 5. Padrões de Resposta
 
 | Padrão | Código | Quando |
 |---------|--------|--------|
@@ -250,7 +405,7 @@ async def slow_button(self, interaction, button):
 
 ---
 
-## Modals (Formulários)
+## 6. Modals (Formulários)
 
 ```python
 from discord.ui import Modal, TextInput
@@ -273,7 +428,7 @@ class TradingView(View):
 
 ---
 
-## Erros Comuns
+## 7. Erros Comuns
 
 | Erro | Sintoma | Correção |
 |------|---------|----------|
@@ -282,10 +437,11 @@ class TradingView(View):
 | Sem resposta enviada | "Esta interação falhou" | Sempre chame `response.send_message()` ou `defer()` |
 | Usar strings `custom_id` manualmente | Frágil, propenso a erros | Use decorator `@button` |
 | Misturar efêmero/público | UX confusa | Seja consistente, documente comportamento |
+| **Tabelas em texto comum** | Tabela quebrada no Discord | Use `send_embed` com fields |
 
 ---
 
-## Tipos de Componentes
+## 8. Tipos de Componentes
 
 | Tipo | Usar Quando | Import |
 |------|-------------|--------|
@@ -296,26 +452,69 @@ class TradingView(View):
 
 ---
 
-## Referência: Eventos discord.py
+## 9. Checklist de Resposta
+
+Antes de enviar mensagem em canal Discord:
+
+- [ ] Tom apropriado?
+- [ ] Formatação correta?
+- [ ] **Tabelas em embed?**
+- [ ] Assunto relevante para a thread?
+- [ ] Tamanho razoável (não gigante)?
+- [ ] Code blocks fechados?
+
+---
+
+## 10. Exemplos Práticos Completos
+
+### Thread Hygiene em ação
+
+```
+.dobrador: "Sky, e sobre as features do MCP..."
+
+Sky: "Percebi que mudamos de 'Arquitetura' para 'Discord MCP'.
+Quer que eu crie uma thread '🔧 Discord MCP Improvements'
+para continuarmos lá? Assim mantemos o histórico organizado."
+```
+
+### Formatação correta (com tabela em embed)
+
+```python
+# ERRADO - tabela em texto
+content = """
+### Preços
+
+| Ativo | Preço |
+|-------|-------|
+| BTC | $45,000 |
+| ETH | $3,200 |
+"""
+await reply(chat_id, text=content)
+
+# CORRETO - tabela em embed
+await send_embed(
+    chat_id=chat_id,
+    title="📊 Preços",
+    description="Atualizado agora",
+    fields=[
+        {"name": "BTC", "value": "$45,000", "inline": True},
+        {"name": "ETH", "value": "$3,200", "inline": True},
+    ]
+)
+```
+
+---
+
+## 11. Referência: Eventos discord.py
 
 | Handler | Dispara Quando |
 |---------|----------------|
 | `on_ready()` | Bot conectado |
 | `on_interaction()` | Qualquer interação (Client) |
 | `on_interaction_create()` | Qualquer interação (Bot) |
+| `on_raw_reaction_add()` | Reação emoji adicionada |
 | `on_raw_interaction_delete()` | Mensagem com componentes deletada |
 
 ---
 
-## Testando Interações
-
-```python
-# Teste manual - envia botão e clica
-await channel.send("Teste", view=DebugView())
-# Clica no botão no cliente Discord
-# Verifica logs no console
-```
-
----
-
-> "Boa UI é invisível - interações simplesmente funcionam" – made by Sky 🎮
+> "Boa comunicação Discord combina ética social com código sólido" – made by Sky 🚀

@@ -4,10 +4,9 @@
 
 | Skill | Descrição |
 |-------|-----------|
+| `sky-discord` | Guia completo para interação via Discord MCP - comportamento social, componentes interativos (botões, menus, modais), e melhores práticas de código e comunicação. **Inclui regra crítica: tabelas sempre em embed!** |
 | `track` | Rastreador de produtividade — decision table + inference maps. Edge cases em arquivo separado (`edge-cases.md`). Cache de project IDs em `data/state.json` |
-| `discord-interaction` | Criação de bots Discord com componentes interativos (botões, menus, modais), tratamento de interações e UIs orientadas a eventos em Python usando discord.py |
 | `utf8-check` | Detecta e diagnostica problemas de acentuação UTF-8 em scripts Python, especialmente para Google Sheets API. Use quando houver erros de encoding, caracteres corrompidos (ç, ã, é aparecendo como símbolos), ou ao trabalhar com dados que contenham acentos portugueses brasileiros. |
-| `discord-social` | Comportamento social e etiqueta do Discord MCP. Use ao interagir em canais Discord via MCP para manter tom apropriado, organizar threads, e seguir boas práticas de comunicação. |
 | `linear-sync` | Gerencia issues Linear com organização por labels e hierarquia. Use ao criar, atualizar ou buscar issues, organizar roadmap com milestones, ou sincronizar codebase com planejamento. |
 | `openspec-*` | Conjunto de skills para gerenciamento de changes OpenSpec (explore, new, continue, verify, archive, etc.) |
 | `textual-tui` | Interface TUI baseada em Textual para interações interativas |
@@ -17,6 +16,7 @@
 
 As skills são ativadas automaticamente com base em gatilhos contextuais. Por exemplo:
 
+- Mencionar "Discord", "reply", "embed", "botão" → `sky-discord`
 - Mencionar "problemas de encoding" ou "acentos estranhos" → `utf8-check`
 - Solicitar criação/exploração de changes → `openspec-*`
 - Mencionar "crie issue", "busque issues", "mova SKY-XX", "sincronize roadmap" → `linear-sync`
@@ -50,6 +50,30 @@ Você nunca abre o Toggl. `/track` é sua interface única para gerenciar tempo.
 - Fase 1: MVP Core + CRUD Toggl (Spike atual)
 - Fase 2: Histórico + Estimativas
 - Fase 3: Alpha patterns + Contexto auto
+
+---
+
+### sky-discord - Guia Completo Discord
+**Status**: 🟢 Operacional
+**Versão**: 1.0.0
+**Arquivo**: `.claude/skills/sky-discord/SKILL.md`
+
+**Especialização**: Interação eficaz via Discord MCP
+
+**Triggers:**
+- Keywords: `Discord`, `reply`, `embed`, `botão`, `menu`, `modal`
+- Context: Interações em canais Discord, criação de bots UI
+
+**O que faz:**
+- Comportamento social: tom, formatação, higiene de threads
+- **Regra crítica: tabelas SEMPRE em embed** (Discord não renderiza tabelas em texto)
+- Tools MCP: reply, react, embed, buttons, menus, progress
+- Componentes interativos: botões, selects, modals com decorators
+- Padrões DDD: handlers, adapters, views com estado
+- Anti-patterns de comunicação e código
+
+**Regra Ouro:**
+> "Tabelas em texto = quebradas no Discord. Use `send_embed` com `fields`."
 
 ---
 
