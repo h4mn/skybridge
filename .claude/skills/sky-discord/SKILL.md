@@ -161,6 +161,34 @@ await send_embed(
 - Mobile-friendly (embeds são compactos)
 - Fácil referenciar ("ver Tabela 1", "conforme Tabela 2")
 
+**Dica de formatação - Tabelas em Embed:**
+
+Para criar tabelas visuais no Discord usando fields:
+
+```python
+# Padrão: 3 colunas contínuas
+fields=[
+    # Cabeçalho
+    {"name": "📋", "value": "", "inline": True},
+    {"name": "**Tag**", "value": "", "inline": True},
+    {"name": "**ID**", "value": "", "inline": True},
+    
+    # Linhas de dados (name vazio = usa valor como coluna)
+    {"name": "", "value": "🐛", "inline": True},
+    {"name": "", "value": "Bugs", "inline": True},
+    {"name": "", "value": "`ID`", "inline": True},
+]
+```
+
+**Resultado visual:**
+```
+📋  |  **Tag**  |  **ID**
+🐛  |  Bugs     |  `ID`
+📊  |  Relatórios |  `ID`
+```
+
+**Dica:** Use `name` vazio e `value` com conteúdo para criar colunas sem rótulo de field!
+
 **Referências no texto:**
 - `📊 Tabela 1` ou `(ver Tabela 1 abaixo)`
 - `Conforme mostrado na 📊 Tabela 2`
