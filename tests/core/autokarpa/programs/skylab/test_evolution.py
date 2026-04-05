@@ -20,6 +20,7 @@ from src.core.autokarpa.programs.skylab.core.evolution import (
     EvolutionLoop,
     run_evolution,
 )
+from src.core.autokarpa.programs.skylab.quality.complexity import ComplexityResult
 
 
 class TestEvolutionLoopInit:
@@ -90,7 +91,7 @@ class TestRunIteration:
         mock_parse.return_value = []
         mock_get_results.return_value = Path("/fake/results.tsv")
         mock_pytest.return_value = {"success": True, "passed": 5, "failed": 0, "total": 5}
-        mock_complexity.return_value = {"avg": 5.0, "max": 8, "worst_function": "foo"}
+        mock_complexity.return_value = ComplexityResult(avg=5.0, max=8, worst_function="foo", functions=[])
         mock_mutation.return_value = {"score": 0.85, "killed": 42, "total": 50}
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -144,7 +145,7 @@ class TestKeepDiscardDecision:
         mock_get_results.return_value = Path("/fake/results.tsv")
         mock_hash.return_value = "abc1234"
         mock_pytest.return_value = {"success": True, "passed": 5, "failed": 0, "total": 5}
-        mock_complexity.return_value = {"avg": 5.0, "max": 8, "worst_function": "foo"}
+        mock_complexity.return_value = ComplexityResult(avg=5.0, max=8, worst_function="foo", functions=[])
         mock_mutation.return_value = {"score": 0.9, "killed": 45, "total": 50}
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -288,7 +289,7 @@ class TestRunEvolution:
         mock_parse.return_value = []
         mock_get_results.return_value = Path("/fake/results.tsv")
         mock_pytest.return_value = {"success": True, "passed": 5, "failed": 0, "total": 5}
-        mock_complexity.return_value = {"avg": 5.0, "max": 8, "worst_function": "foo"}
+        mock_complexity.return_value = ComplexityResult(avg=5.0, max=8, worst_function="foo", functions=[])
         mock_mutation.return_value = {"score": 0.8, "killed": 40, "total": 50}
 
         with tempfile.TemporaryDirectory() as tmpdir:
