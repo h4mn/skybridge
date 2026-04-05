@@ -54,7 +54,9 @@ Skylab é composto por dois papéis distintos:
 **Modos de execução:**
 1. **Standalone (Padrão):** `run_skylab("change-name")` - funciona sozinho
 2. **Com Ralph (Opcional):** Multi-sessão com persistência
-3. **Com Autogrind (Opcional):** Wrapper redundante, apenas conveniência
+3. **Com Autogrind (Opcional):** Wrapper redundante, apenas convenência
+
+> "Testes ruins são piores que nenhum teste" – made by Sky 🔬
 
 **Ponto de entrada:**
 ```python
