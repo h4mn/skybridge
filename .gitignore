@@ -91,3 +91,8 @@ apps/api/asgi.py
 
 # Arquivos gerados pelo setuptools_scm (PL001)
 src/_version.py
+
+# Skylab - resultados e diffs (não versionar)
+src/core/autokarpa/programs/skylab/results.tsv
+src/core/autokarpa/programs/skylab/results/
+src/core/autokarpa/programs/skylab/diffs/

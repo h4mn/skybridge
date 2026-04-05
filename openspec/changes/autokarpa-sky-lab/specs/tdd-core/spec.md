@@ -82,6 +82,26 @@ Skylab DEVE calcular métrica composta de saúde do código que previne overfitt
 - **THEN** code health máximo = 0.5 (mesmo com unit/PBT perfeitos)
 - **AND** Skylab penaliza fortemente testes que não matam mutants
 
+### Requirement: Mutation Testing Windows-Friendly
+O **Sistema** DEVE implementar mutation testing que funciona nativamente em Windows sem dependências externas (mutmut, WSL2, Docker).
+
+#### Scenario: Implementação em Python puro
+- **WHEN** mutation testing é executado
+- **THEN** Sistema usa implementação em Python puro (sem mutmut)
+- **AND** Suporta tipos: Arithmetic, Comparison, Logical, Boundary
+- **AND** Funciona em Windows, Linux, Mac sem configuração adicional
+
+#### Scenario: Orçamento fixo de mutants
+- **WHEN** total de mutants > 50 (MUTATION_BUDGET)
+- **THEN** Sistema amostra aleatoriamente 50 mutants
+- **AND** Previne degeneração de performance ao longo do loop
+- **AND** Timeout de 60 segundos por execution (MUTATION_TIMEOUT)
+
+#### Scenario: Cálculo de mutation score
+- **WHEN** mutation testing completa
+- **THEN** mutation score = mutants_killed / mutants_total
+- **AND** Classificação por tipo é registrada em results/components/*.json
+
 ### Requirement: Loop de evolução
 O **Sistema** DEVE coordenar o loop de evolução: Spec → TDD → Agente → Refactor → PBT → Mutation → Medição → Repete.
 

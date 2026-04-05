@@ -49,6 +49,7 @@
 - [ ] 5.3 Implementar decisão: keep se melhorou, discard se piorou
 - [ ] 5.4 Implementar git commit e git reset --hard baseado em code health
 - [ ] 5.5 Testar loop com iteração única
+- [ ] 5.6 **REFATORAR** `evolution.py` para coordenar registros independentes (components/, drift/, review) ANTES de implementar recorders.py - PRÉ-REQUISITO para task 15.1
 
 ## 6. Core - State Management
 
@@ -150,13 +151,6 @@
 - [ ] 15.5 Implementar consulta de registros: carregar por iteração, listar por tipo
 - [ ] 15.6 Criar diretórios `results/components/`, `results/drift/`, `results/review/`
 - [ ] 15.7 Testar geração completa de registros para uma iteração
-
-- [ ] 14.1 Implementar validação de escopo via `git diff --name-only`
-- [ ] 14.2 Verificar que apenas arquivos dentro de `target/` foram modificados
-- [ ] 14.3 Rejeitar mudanças que violam escopo (modificam `core/`, `testing/`, `quality/`)
-- [ ] 14.4 Implementar notificação ao agente quando escopo é violado
-- [ ] 14.5 Implementar reset nuclear: `rm -rf target/` + restore do snapshot anterior
-- [ ] 14.6 Testar validação com tentativa de modificação de arquivos do sistema
 
 ## 16. Git Integration - Branch Naming
 
