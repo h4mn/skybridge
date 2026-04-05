@@ -29,6 +29,12 @@ from .forum_tools import (
     handle_update_forum_settings, UPDATE_FORUM_SETTINGS_TOOL,
 )
 from .inbox import handle_inbox_add, TOOL_DEFINITION as INBOX_ADD_TOOL
+from .quick_react import (
+    handle_quick_react, handle_list_quick_reactions,
+    QUICK_REACT_TOOL, LIST_QUICK_REACTIONS_TOOL,
+)
+from .list_categories import handle_list_categories
+from .list_categories import LIST_CATEGORIES_TOOL
 
 __all__ = [
     "handle_reply",
@@ -57,6 +63,9 @@ __all__ = [
     "handle_delete_forum",
     "handle_update_forum_settings",
     "handle_inbox_add",
+    "handle_quick_react",
+    "handle_list_quick_reactions",
+    "handle_list_categories",
     "REPLY_TOOL",
     "SEND_EMBED_TOOL",
     "SEND_BUTTONS_TOOL",
@@ -82,6 +91,10 @@ __all__ = [
     "ARCHIVE_FORUM_TOOL",
     "DELETE_FORUM_TOOL",
     "UPDATE_FORUM_SETTINGS_TOOL",
+    "INBOX_ADD_TOOL",
+    "QUICK_REACT_TOOL",
+    "LIST_QUICK_REACTIONS_TOOL",
+    "LIST_CATEGORIES_TOOL",
 ]
 
 
@@ -113,6 +126,9 @@ TOOL_HANDLERS = {
     "delete_forum": (handle_delete_forum, DELETE_FORUM_TOOL),
     "update_forum_settings": (handle_update_forum_settings, UPDATE_FORUM_SETTINGS_TOOL),
     "inbox_add": (handle_inbox_add, INBOX_ADD_TOOL),
+    "quick_react": (handle_quick_react, QUICK_REACT_TOOL),
+    "list_quick_reactions": (handle_list_quick_reactions, LIST_QUICK_REACTIONS_TOOL),
+    "list_categories": (handle_list_categories, LIST_CATEGORIES_TOOL),
 }
 
 
@@ -145,4 +161,7 @@ def get_tool_definitions():
         DELETE_FORUM_TOOL,
         UPDATE_FORUM_SETTINGS_TOOL,
         INBOX_ADD_TOOL,
+        QUICK_REACT_TOOL,
+        LIST_QUICK_REACTIONS_TOOL,
+        LIST_CATEGORIES_TOOL,
     ]
