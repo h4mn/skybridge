@@ -14,6 +14,7 @@ from typing import Optional
 from discord import app_commands, Interaction
 
 from ..infrastructure.linear_client import create_inbox_issue, LinearClientError
+from ..infrastructure.linear_labels import LinearLabels
 
 logger = logging.getLogger(__name__)
 
@@ -29,15 +30,6 @@ CHANNEL_DOMAIN_MAP = {
     "discord-bots": "discord",
     "autokarpa": "autokarpa",
     "autokarpa-dev": "autokarpa",
-}
-
-# Labels IDs
-LABELS = {
-    "fonte:discord": "e75a8d97-1064-464b-92a7-f4ad371f191d",
-    "domínio:paper": "88e309d3-694a-469c-bed6-b9443cb3694e",
-    "domínio:discord": "d73805a8-6b4b-4c54-8ef8-daec148fbb1f",
-    "domínio:autokarpa": "b729ecd3-28d0-4320-9084-2a0264836877",
-    "domínio:geral": "01fb356c-a45f-4cb1-9a01-de5f9cbc1da5",
 }
 
 
@@ -152,10 +144,10 @@ async def inbox_command_handler(
         user_description=user_desc,
     )
 
-    # Labels (usando IDs conhecidos do Linear)
+    # Labels (centralizados em LinearLabels)
     label_ids = [
-        LABELS["fonte:discord"],
-        LABELS[f"domínio:{domain}"],
+        LinearLabels.FONTE_DISCORD,
+        LinearLabels.domain_label(domain),
     ]
 
     # Criar issue via Linear API

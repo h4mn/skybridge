@@ -6,9 +6,11 @@ Script para executar o Discord MCP Server.
 Uso:
     python run_discord_mcp.py
 
-Variáveis de ambiente (opcional - pode usar .env):
-    DISCORD_BOT_TOKEN: Token do bot Discord
-    DISCORD_STATE_DIR: Diretório de estado (padrao: ~/.claude/channels/discord)
+Variáveis de ambiente (carregadas do .env da Skybridge):
+    DISCORD_BOT_TOKEN: Token do bot Discord (obrigatório)
+    LINEAR_API_KEY: API Key do Linear para comandos /inbox
+
+NOTA: Carrega APENAS o .env da Skybridge localizado na raiz do projeto.
 """
 import os
 import sys
@@ -22,21 +24,31 @@ os.environ['PYTHONUTF8'] = '1'
 src_path = Path(__file__).parent / "src"
 sys.path.insert(0, str(src_path))
 
-# Carrega .env do diretório de estado
-state_dir = Path(os.environ.get("DISCORD_STATE_DIR", Path.home() / ".claude" / "channels" / "discord"))
-env_file = state_dir / ".env"
-
-if env_file.exists():
-    for line in env_file.read_text(encoding="utf-8").split("\n"):
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" in line:
-            key, _, value = line.partition("=")
-            key = key.strip()
-            value = value.strip()
-            if key and key not in os.environ:
-                os.environ[key] = value
+# =============================================================================
+# Carrega APENAS o .env da Skybridge
+# =============================================================================
+# O .env do projeto Skybridge contém TODAS as configurações necessárias
+# including LINEAR_API_KEY, DISCORD_BOT_TOKEN, etc.
+skybridge_env = Path(__file__).parent / ".env"
+if skybridge_env.exists():
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(skybridge_env)
+        print(f"[Discord MCP] Carregado .env da Skybridge: {skybridge_env}", file=sys.stderr)
+    except ImportError:
+        # python-dotenv não disponível, fazer parsing manual
+        for line in skybridge_env.read_text(encoding="utf-8").split("\n"):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip()
+                if key and key not in os.environ:
+                    os.environ[key] = value
+else:
+    print(f"[Discord MCP] AVISO: .env da Skybridge não encontrado em {skybridge_env}", file=sys.stderr)
 
 # Verifica token
 token = os.environ.get("DISCORD_BOT_TOKEN")

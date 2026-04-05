@@ -66,6 +66,7 @@ CREATE_ISSUE_MUTATION = """
 mutation createIssue(
     $title: String!
     $description: String!
+    $teamId: String!
     $projectId: String!
     $labelIds: [String!]
 ) {
@@ -73,6 +74,7 @@ mutation createIssue(
         input: {
             title: $title
             description: $description
+            teamId: $teamId
             projectId: $projectId
             labelIds: $labelIds
         }
@@ -98,6 +100,7 @@ class LinearClientError(Exception):
 async def create_issue(
     title: str,
     description: str,
+    team_id: str,
     project_id: str,
     label_ids: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -107,6 +110,7 @@ async def create_issue(
     Args:
         title: Título da issue
         description: Descrição em Markdown
+        team_id: ID do time (ex: "c5045b7c-63c0-4d67-8d9e-90b6988a9509")
         project_id: ID do projeto (ex: "02be2007-fd29-4f1c-8dc8-6b1d854a4a70")
         label_ids: Lista de IDs dos labels
 
@@ -137,6 +141,7 @@ async def create_issue(
         "variables": {
             "title": title,
             "description": description,
+            "teamId": team_id,
             "projectId": project_id,
             "labelIds": label_ids,
         },
@@ -157,6 +162,17 @@ async def create_issue(
             if "errors" in data:
                 error_msg = data["errors"][0].get("message", "Erro desconhecido")
                 logger.error(f"Erro GraphQL Linear: {error_msg}")
+
+                # TODO: Se erro for "Entity not found in validateAccess: labelIds",
+                #       criar script de sync para buscar labels do Linear e atualizar
+                #       os IDs hardcoded em todos os arquivos (inbox_slash.py, inbox.py, etc.)
+                #       Isso evita labels desatualizados causando erros silenciosos.
+                if "labelIds" in error_msg or "label" in error_msg.lower():
+                    logger.error(
+                        "TODO: Criar sync de labels! Os label IDs hardcoded estão "
+                        "desatualizados. Implementar: src/core/discord/scripts/sync_labels.py"
+                    )
+
                 raise LinearClientError(f"Erro Linear API: {error_msg}")
 
             # Extrair dados da issue criada
@@ -197,7 +213,7 @@ async def create_inbox_issue(
     """
     Cria uma issue no projeto Inbox.
 
-    Shortcut para create_issue com o projectId do Inbox.
+    Shortcut para create_issue com o teamId e projectId do Inbox.
 
     Args:
         title: Título da issue
@@ -207,12 +223,14 @@ async def create_inbox_issue(
     Returns:
         Dict com dados da issue criada
     """
-    # Inbox Project ID (fixo)
-    INBOX_PROJECT_ID = "02be2007-fd29-4f1c-8dc8-6b1d854a4a70"
+    # Inbox - IDs fixos
+    INBOX_TEAM_ID = "c5045b7c-63c0-4d67-8d9e-90b6988a9509"  # Skybridge
+    INBOX_PROJECT_ID = "02be2007-fd29-4f1c-8dc8-6b1d854a4a70"  # Inbox - Backlog de Ideias
 
     return await create_issue(
         title=title,
         description=description,
+        team_id=INBOX_TEAM_ID,
         project_id=INBOX_PROJECT_ID,
         label_ids=label_ids,
     )

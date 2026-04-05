@@ -1,6 +1,15 @@
 # Configuração da LINEAR_API_KEY
 
-## Opção 1: Adicionar ao settings.json (Recomendado)
+## ⚠️ Importante: Bot Discord vs Claude Code
+
+- **Claude Code** (`/inbox` no terminal): Usa **Linear MCP** (já autenticado, não precisa de config)
+- **Discord Bot** (`/inbox` no Discord): Usa **linear_client.py** GraphQL (PRECISA de `LINEAR_API_KEY`)
+
+O erro que você está vendo é do **Discord Bot**, que usa a GraphQL API diretamente.
+
+---
+
+## Solução Recomendada: `~/.claude/settings.json`
 
 Adicione ao arquivo `~/.claude/settings.json` na seção `env`:
 
@@ -14,17 +23,10 @@ Adicione ao arquivo `~/.claude/settings.json` na seção `env`:
 ```
 
 **Vantagens:**
-- ✅ Disponível para todas as ferramentas Claude Code
+- ✅ Funciona tanto para o Discord Bot quanto para ferramentas Claude Code
 - ✅ Não precisa ser reconfigurado em cada .env
 - ✅ Padrão consistente com outras APIs
-
-## Opção 2: Adicionar ao .env do projeto
-
-Adicione ao arquivo `.env`:
-
-```bash
-LINEAR_API_KEY=lin_api_xxxxxxxxxxxx
-```
+- ✅ **O bot Discord carrega automaticamente deste local**
 
 ## Como Obter a API Key do Linear
 
@@ -43,9 +45,19 @@ python -c "from src.core.discord.infrastructure.linear_client import _get_linear
 
 ## Fluxo de Leitura
 
-O código tenta ler na seguinte ordem:
+O código tenta ler na seguintem ordem:
 
 1. Variável de ambiente `LINEAR_API_KEY`
-2. Seção `env.LINEAR_API_KEY` do `~/.claude/settings.json`
+2. Seção `env.LINEAR_API_KEY` do `~/.claude/settings.json` ⭐ **Recomendado**
+
+## Solução Alternativa: `.env` do projeto
+
+Se preferir usar o `.env` do projeto (menos recomendado para o bot Discord):
+
+```bash
+LINEAR_API_KEY=lin_api_xxxxxxxxxxxx
+```
+
+**Nota:** O bot Discord pode não carregar o `.env` do projeto automaticamente. Use `settings.json` para garantir que funcione.
 
 > "A persistência é o caminho do êxito" – made by Sky 🚀

@@ -9,20 +9,22 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
+import sys
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Adicionar src ao path para importar módulos do projeto
+src_path = Path(__file__).parent.parent.parent.parent / "src"
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
+from core.discord.infrastructure.linear_labels import LinearLabels
 
 # Configurações
 INBOX_PROJECT_ID = "02be2007-fd29-4f1c-8dc8-6b1d854a4a70"  # Inbox - Backlog de Ideias
 MAX_TITLE_LENGTH = 200
 EXPIRES_DAYS = 60
-
-# Labels IDs
-LABELS = {
-    "fonte:claude-code": "546f52f0-f618-4f81-91bd-6bc77fde1fff",
-    "domínio:geral": "01fb356c-a45f-4cb1-9a01-de5f9cbc1da5",
-    "ação:implementar": "6b8cdf2d-177f-4d86-8d4d-d66f8824c7ec",
-}
 
 
 def calculate_expires_date() -> str:
@@ -124,9 +126,9 @@ def inbox_add(title: str | None = None, description: str | None = None) -> dict:
         "title": truncated_title,
         "description": structured_description,
         "labels": [
-            LABELS["fonte:claude-code"],
-            LABELS["ação:implementar"],
-            LABELS["domínio:geral"],
+            LinearLabels.FONTE_CLAUDE_CODE,
+            LinearLabels.ACAO_IMPLEMENTAR,
+            LinearLabels.DOMINIO_GERAL,
         ],
         "was_truncated": was_truncated,
     }

@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from ...application.services.discord_service import DiscordService
+from ...infrastructure.linear_labels import LinearLabels
 
 logger = logging.getLogger(__name__)
 
@@ -39,16 +40,6 @@ CHANNEL_DOMAIN_MAP = {
     "autokarpa-dev": "autokarpa",
 }
 
-# Labels IDs (obtidos via criação)
-LABELS = {
-    "fonte:discord": "e75a8d97-1064-464b-92a7-f4ad371f191d",
-    "domínio:paper": "88e309d3-694a-469c-bed6-b9443cb3694e",
-    "domínio:discord": "d73805a8-6b4b-4c54-8ef8-daec148fbb1f",
-    "domínio:autokarpa": "b729ecd3-28d0-4320-9084-2a0264836877",
-    "domínio:geral": "01fb356c-a45f-4cb1-9a01-de5f9cbc1da5",
-    "ação:implementar": "6b8cdf2d-177f-4d86-8d4d-d66f8824c7ec",
-}
-
 
 def _calculate_expires_date() -> str:
     """Calcula data de expires (hoje + 60 dias)."""
@@ -59,14 +50,14 @@ def _calculate_expires_date() -> str:
 def _detect_domain_from_channel(channel_name: str | None) -> str:
     """Detecta domínio baseado no nome do canal."""
     if not channel_name:
-        return LABELS["domínio:geral"]
+        return LinearLabels.DOMINIO_GERAL
 
     channel_lower = channel_name.lower()
     for pattern, domain_label in CHANNEL_DOMAIN_MAP.items():
         if pattern in channel_lower:
-            return LABELS[f"domínio:{domain_label}"]
+            return LinearLabels.domain_label(domain_label)
 
-    return LABELS["domínio:geral"]
+    return LinearLabels.DOMINIO_GERAL
 
 
 def _truncate_title(title: str) -> tuple[str, bool]:
@@ -193,8 +184,8 @@ async def handle_inbox_add(
         "title": truncated_title,
         "description": description,
         "labels": [
-            LABELS["fonte:discord"],
-            LABELS["ação:implementar"],
+            LinearLabels.FONTE_DISCORD,
+            LinearLabels.ACAO_IMPLEMENTAR,
             domain_label,
         ],
         "was_truncated": was_truncated,
