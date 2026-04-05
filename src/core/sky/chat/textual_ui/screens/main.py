@@ -19,11 +19,14 @@ from textual import events, work
 
 from core.sky.chat.textual_ui.widgets import (
     ChatTextArea,
-    ChatLog,
     ChatScroll,
 )
 from core.sky.chat.textual_ui.widgets.header import ChatHeader
 from core.sky.chat.logging import ChatLogger
+
+# ChatLog 2.0 - novo subsistema de log
+from core.sky.log import ChatLog, ChatLogConfig
+from core.sky.log.widgets.toolbar import LogToolbar
 from core.sky.chat.textual_ui.widgets.header.animated_verb import AnimatedVerb, EstadoLLM, conjugar_passado
 from core.sky.chat.textual_ui.widgets.content.turn import Turn, ThinkingEntry
 from core.sky.chat.textual_ui.widgets.recording_mixin import RecordingToggleMixin
@@ -161,6 +164,15 @@ class MainScreen(RecordingToggleMixin, Screen):
 
     ChatLog {
         height: 10;
+        display: none;
+    }
+
+    ChatLog.visible {
+        display: block;
+    }
+
+    LogToolbar {
+        height: 3;
     }
     """
 
@@ -208,26 +220,34 @@ class MainScreen(RecordingToggleMixin, Screen):
             id="chat_input_textarea",
             placeholder="Digite algo... (Ctrl+S para gravar)"
         )
-        yield ChatLog()
+        # ChatLog 2.0 - configuração otimizada para desenvolvimento
+        log_config = ChatLogConfig(
+            max_entries=500,           # Ring buffer menor para dev
+            buffer_when_closed=50,     # Buffer reduzido quando fechado
+            virtualization_threshold=100  # Ativa virtualização mais cedo
+        )
+        yield LogToolbar()
+        yield ChatLog(config=log_config, id="chatlog")
         yield Footer()
 
     def on_mount(self) -> None:
         _, estado_inicial = random.choice(_VERBOS_TESTE)
         self.query_one(ChatHeader).update_estado(estado_inicial)
 
-        # Inicializa ChatLogger e conecta ao ChatLog widget
-        log_widget = self.query_one(ChatLog)
+        # Inicializa ChatLogger e conecta ao novo ChatLog 2.0
+        log_widget = self.query_one("#chatlog", ChatLog)
         self._chat_logger = ChatLogger(
             session_id=f"chat_screen_{id(self)}",
-            chat_log_widget=log_widget,
+            log_consumer=log_widget,  # ChatLog 2.0 implementa LogConsumer Protocol
             verbosity="WARNING",
             show_in_ui=True
         )
 
         # Log inicia fechado (Ctrl+L para toggle)
-        log = self.query_one(ChatLog)
+        log = self.query_one("#chatlog", ChatLog)
         # Não ativa "visible" - começa fechado
-        log.evento("Tela montada", self.input)
+        # Nota: novo ChatLog 2.0 usa LogConsumer Protocol via ChatLogger
+        self._chat_logger.info("Tela montada", context={"input": self.input})
 
         textarea = self.query_one("#chat_input_textarea", ChatTextArea)
         textarea.focus()
@@ -277,7 +297,7 @@ class MainScreen(RecordingToggleMixin, Screen):
         if not texto:
             return
 
-        log = self.query_one(ChatLog)
+        log = self.query_one("#chatlog", ChatLog)
         log.evento("TextArea submetido", texto)
 
         self._abrir_turno_e_processar(texto)
@@ -291,7 +311,7 @@ class MainScreen(RecordingToggleMixin, Screen):
         """
         mensagem = event.message if hasattr(event, 'message') else None
         if mensagem:
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
             log.evento("Retry solicitado", mensagem)
             self._abrir_turno_e_processar(mensagem)
 
@@ -341,7 +361,7 @@ class MainScreen(RecordingToggleMixin, Screen):
 
         NOTA: /stt é processado pelo ChatTextArea (transcrição → texto).
         """
-        log = self.query_one(ChatLog)
+        log = self.query_one("#chatlog", ChatLog)
         log.evento("Comando detectado", f"{command.type.value}: {command.raw}")
 
         if command.type == CommandType.TTS:
@@ -368,7 +388,7 @@ class MainScreen(RecordingToggleMixin, Screen):
         self._show_voice_message(result)
 
         # Log
-        log = self.query_one(ChatLog)
+        log = self.query_one("#chatlog", ChatLog)
         state = "ativo" if self._voice_handler.tts_responses else "inativo"
         log.evento("TTS progressivo", f"Estado alterado para: {state}")
 
@@ -387,7 +407,7 @@ class MainScreen(RecordingToggleMixin, Screen):
 
         try:
             header = self.query_one(ChatHeader)
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
 
             # Verbo: inferido da mensagem
             estado_ativo = _inferir_estado(mensagem)
@@ -492,13 +512,13 @@ class MainScreen(RecordingToggleMixin, Screen):
                 self._gerar_titulo()
 
         except asyncio.CancelledError:
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
             log.evento("Cancelamento", "Turno cancelado pelo usuário")
             if turno and not turno.is_cancelled:
                 turno.set_cancelled()
         except Exception as e:
             import traceback
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
             log.error(f"Erro: {e}")
             log.error(traceback.format_exc())
             turno.set_error(str(e) if hasattr(e, '__str__') else str(type(e).__name__))
@@ -523,7 +543,7 @@ class MainScreen(RecordingToggleMixin, Screen):
 
         try:
             header = self.query_one(ChatHeader)
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
 
             # Verbo: inferido da mensagem
             estado_ativo = _inferir_estado(mensagem)
@@ -619,13 +639,13 @@ class MainScreen(RecordingToggleMixin, Screen):
                 self._gerar_titulo_task = asyncio.create_task(self._gerar_titulo())
 
         except asyncio.CancelledError:
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
             if turno:
                 log.warning("Turno cancelado pelo usuário")
                 turno.set_cancelled()
         except Exception as e:
             import traceback
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
             log.error(f"Erro: {e}")
             log.error(traceback.format_exc())
             turno.set_error(str(e) if hasattr(e, '__str__') else str(type(e).__name__))
@@ -649,7 +669,7 @@ class MainScreen(RecordingToggleMixin, Screen):
 
         try:
             header = self.query_one(ChatHeader)
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
 
             # Verbo: inferido da mensagem — fica visível durante TODO o processamento
             estado_ativo = _inferir_estado(mensagem)
@@ -773,13 +793,13 @@ class MainScreen(RecordingToggleMixin, Screen):
 
         except asyncio.CancelledError:
             # PRD-REACT-001: Usuário cancelou via Ctrl+C
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
             log.evento("Cancelamento", "Turno cancelado pelo usuário")
             if turno and not turno.is_cancelled:
                 turno.set_cancelled()
         except Exception as e:
             import traceback
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
             log.error(f"Erro: {e}")
             log.error(traceback.format_exc())
             # FIX: Passa str(e) explicitamente
@@ -833,13 +853,13 @@ class MainScreen(RecordingToggleMixin, Screen):
             # Mesmo event loop — atualiza diretamente
             header = self.query_one(ChatHeader)
             header.update_title(verbo, predicado)
-            self.query_one(ChatLog).evento("Título gerado", titulo)
+            self.query_one("#chatlog", ChatLog).evento("Título gerado", titulo)
 
         except Exception as e:
             # Falha silenciosa — título não é crítico
             # Log para debug
             try:
-                self.query_one(ChatLog).error(f"Erro ao gerar título: {e}")
+                self.query_one("#chatlog", ChatLog).error(f"Erro ao gerar título: {e}")
             except Exception:
                 pass
 
@@ -848,7 +868,8 @@ class MainScreen(RecordingToggleMixin, Screen):
     # ------------------------------------------------------------------
 
     def action_toggle_log(self) -> None:
-        log = self.query_one(ChatLog)
+        """Toggle visibilidade do ChatLog (Ctrl+L)."""
+        log = self.query_one("#chatlog", ChatLog)
         log.toggle_class("visible")
 
     def action_ciclar_verbo(self) -> None:
@@ -856,7 +877,7 @@ class MainScreen(RecordingToggleMixin, Screen):
         verbo, estado = _VERBOS_TESTE[self._verbo_idx]
         header = self.query_one(ChatHeader)
         header.update_estado(estado, f"[{self._verbo_idx + 1}/{len(_VERBOS_TESTE)}]")
-        log = self.query_one(ChatLog)
+        log = self.query_one("#chatlog", ChatLog)
         log.evento(f"Verbo #{self._verbo_idx + 1}", f"{verbo} ({estado.emocao})")
 
     def action_open_devtools(self) -> None:
@@ -885,7 +906,7 @@ class MainScreen(RecordingToggleMixin, Screen):
             self._turno_atual.set_cancelled()
 
             # Notifica o usuário
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
             log.evento("Turno cancelado", "Usuário cancelou o processamento")
 
     # ------------------------------------------------------------------
@@ -896,7 +917,7 @@ class MainScreen(RecordingToggleMixin, Screen):
         """Desativa modo voz (pressionar ESC)."""
         if self._voice_handler.is_voice_active:
             self._voice_handler.voice_mode_active = False
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
             log.evento("Modo voz", "Desativado via ESC")
 
             # Mostra toast ao usuário
@@ -914,7 +935,7 @@ class MainScreen(RecordingToggleMixin, Screen):
             self._show_voice_message("💡 Uso: /tts <texto para falar>")
             return
 
-        log = self.query_one(ChatLog)
+        log = self.query_one("#chatlog", ChatLog)
         log.evento("TTS iniciado", f'"{text[:50]}..."')
 
         # Cria turno com descritivo no lugar do comando
@@ -956,11 +977,11 @@ class MainScreen(RecordingToggleMixin, Screen):
                 "Pressione Ctrl+S para gravar (toggle)\n"
                 "Pressione ESC ou /voice para desativar"
             )
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
             log.evento("Modo voz", "Ativado")
         else:
             self._show_voice_message("🎙️ Modo voz desativado.")
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
             log.evento("Modo voz", "Desativado")
 
     def _show_voice_message(self, message: str) -> None:
@@ -1012,7 +1033,7 @@ class MainScreen(RecordingToggleMixin, Screen):
     def _log_event(self, title: str, message: str) -> None:
         """Loga evento."""
         try:
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
             log.evento(title, message)
         except Exception:
             pass
@@ -1020,7 +1041,7 @@ class MainScreen(RecordingToggleMixin, Screen):
     def _log_error(self, message: str) -> None:
         """Loga erro."""
         try:
-            log = self.query_one(ChatLog)
+            log = self.query_one("#chatlog", ChatLog)
             log.error(message)
         except Exception:
             pass

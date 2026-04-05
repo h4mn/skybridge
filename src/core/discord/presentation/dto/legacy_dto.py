@@ -35,6 +35,7 @@ class GroupPolicy(BaseModel):
 
     require_mention: bool = True
     allow_from: list[str] = Field(default_factory=list)
+    is_forum: bool = False  # True para canais de fórum
 
 
 class PendingEntry(BaseModel):

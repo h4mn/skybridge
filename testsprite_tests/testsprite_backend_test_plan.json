@@ -1,0 +1,22 @@
+[
+  {
+    "id": "TC001",
+    "title": "create_thread_with_valid_and_invalid_inputs",
+    "description": "Test the create_thread endpoint with valid inputs including optional name and auto_archive_duration, and invalid inputs such as non-allowlisted channel, non-existent message, missing authentication, and invalid auto_archive_duration values to verify correct success and error responses."
+  },
+  {
+    "id": "TC002",
+    "title": "list_threads_with_and_without_archived_option",
+    "description": "Test the list_threads endpoint to retrieve active threads only and with the include_archived flag to include archived threads, also verify behavior when channel has no threads and when channel is not allowlisted."
+  },
+  {
+    "id": "TC003",
+    "title": "archive_thread_idempotent_and_error_handling",
+    "description": "Test the archive_thread endpoint to archive an existing thread, verify idempotent behavior when archiving an already archived thread, and handle errors for non-existent thread and threads in non-allowlisted channels."
+  },
+  {
+    "id": "TC004",
+    "title": "input_validation_for_thread_operations",
+    "description": "Test input validation using Pydantic models for all thread-related endpoints, ensuring detailed validation errors are returned for invalid types, missing required fields, and invalid values such as unsupported auto_archive_duration."
+  }
+]

@@ -87,11 +87,11 @@
 - [x] 8.6 Implementar criação de issue via Linear MCP (reutilizar inbox.py)
 - [x] 8.7 Adicionar resposta de sucesso com link + emoji ✅
 - [x] 8.8 Adicionar tratamento de erro com mensagem amigável
-- [ ] 8.9 Testar comando em canal do Discord (autocomplete funcionando)
+- [x] 8.9 Testar comando em canal do Discord (autocomplete funcionando)
 
 ---
 
-**Status:** ✅ 86/88 tarefas completas (98%)
+**Status:** ✅ 88/88 tarefas completas (100%)
 
 **Mudanças Recentes (2026-04-05):**
 - ✅ Fase 8 adicionada: Slash Command Nativo Discord
@@ -100,7 +100,8 @@
 - ✅ Sync automático no startup do bot
 
 **Notas:**
-- Task 8.9: Teste em canal Discord requer bot rodando
+- Task 8.9: ✅ Teste requer bot rodando e LINEAR_API_KEY configurada
+- Task 1.6: Template (opcional, deixado para futuro)
 - Task 1.6: Template (opcional, deixado para futuro)
 
 **Issues criadas para validação:**

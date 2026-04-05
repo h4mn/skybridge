@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "discord": {
+      "command": "python",
+      "args": ["run_discord_mcp.py"],
+      "cwd": "B:\\_repositorios\\skybridge",
+      "env": {
+        "DISCORD_STATE_DIR": "C:\\Users\\hadst\\.claude\\channels\\discord",
+        "PYTHONIOENCODING": "utf-8"
+      }
+    },
+    "rescuetime": {
+      "command": "B:\\\\_repositorios\\\\rescuetime-mcp\\\\venv\\\\Scripts\\\\python.exe",
+      "args": ["-m", "rescuetime_mcp.server"],
+      "cwd": "B:\\\\_repositorios\\\\rescuetime-mcp",
+      "env": {
+        "RESCUETIME_API_KEY": "B63UJvmqz5K7P4bMpGZEyCGSALlMVonokkgC_Ytq"
+      }
+    },
+    "toggl": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@verygoodplugins/mcp-toggl@latest"],
+      "env": {
+        "TOGGL_API_TOKEN": "5cc4a817d5006d689bcd164108054591"
+      }
+    }
+  }
+}

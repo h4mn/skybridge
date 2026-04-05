@@ -307,12 +307,13 @@ def gate_dm(access: Access, sender_id: str) -> GateResult:
 
 
 def gate_group(
-    access: Access, channel_id: str, sender_id: str, is_thread: bool = False, parent_id: str | None = None
+    access: Access, channel_id: str, sender_id: str, is_thread: bool = False, parent_id: str | None = None, is_forum: bool = False
 ) -> GateResult:
     """
     Avalia acesso para canal de grupo.
 
     Threads herdam política do canal pai.
+    Canais de fórum são tratados como grupos com política específica.
 
     Args:
         access: Access atual
@@ -320,6 +321,7 @@ def gate_group(
         sender_id: ID do usuário
         is_thread: Se mensagem veio de thread
         parent_id: ID do canal pai (se thread)
+        is_forum: Se canal é um ForumChannel
 
     Returns:
         GateResult com action: 'deliver' ou 'drop'
@@ -329,6 +331,12 @@ def gate_group(
 
     policy = access.groups.get(lookup_id)
     if not policy:
+        return GateResult(action="drop")
+
+    # Para fóruns, verificar se a política está configurada para fóruns
+    if is_forum and not policy.is_forum:
+        # Política existe mas não está marcada como fórum - verificar fallback
+        # Por segurança, drop se não configurado explicitamente para fórum
         return GateResult(action="drop")
 
     # Verifica allowlist do grupo

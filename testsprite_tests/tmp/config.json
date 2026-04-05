@@ -1,0 +1,18 @@
+{
+  "status": "commited",
+  "type": "backend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:8000",
+  "backendAuthType": "public",
+  "executionArgs": {
+    "projectName": "skybridge",
+    "projectPath": "B:\\_repositorios\\skybridge",
+    "testIds": [],
+    "additionalInstruction": "",
+    "serverMode": "development",
+    "envs": {
+      "API_KEY": "sk-user-vZiAoM_mw09cKIXijdm2md-TRDgnppO4XyiduSTYHReED8FcnVcm7eJeRtw8RjGmXgiiykUusqnV712Vi-LehZZawMycAcy6ZYsdohV9Fa3Am5YBx7J0Zleaj8LJuVgxp7U"
+    }
+  },
+  "serverPort": 49801
+}

@@ -1,0 +1,22 @@
+{
+  "_comment": "Adicione este bloco ao seu .claude/settings.json",
+  "env": {
+    "DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/SEU_WEBHOOK_AQUI",
+    "PYTHONUTF8": "1"
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "task_completed|agent_finished|background_bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/skills/notifications/scripts/notify_discord.py",
+            "timeout": 10,
+            "statusMessage": "Enviando notificação para Discord..."
+          }
+        ]
+      }
+    ]
+  }
+}

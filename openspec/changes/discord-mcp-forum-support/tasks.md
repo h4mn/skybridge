@@ -1,3 +1,9 @@
+# ⚠️ ATENÇÃO: ESTA CHANGE FOI ARQUIVADA INDEVIDAMENTE
+## APENAS O LEAD PODE ARQUIVAR UMA CHANGE
+## Status: EM PROGRESSO (41/45 tasks - 91%)
+
+---
+
 ## 1. DTOs e Estruturas de Dados
 
 - [x] 1.1 Criar `src/core/discord/presentation/tools/dto/forum_dto.py` com DTOs:
@@ -37,14 +43,14 @@
 
 ## 6. Notificações de Fórum
 
-- [ ] 6.1 Adicionar handler `on_raw_forum_post()` para detectar criação de posts via Gateway
-- [ ] 6.2 Adicionar handler `on_raw_forum_comment()` para detectar comentários
-- [ ] 6.3 Implementar formatação de notificação no formato `<channel source="discord" chat_id="..." forum_post_id="..." ...>`
+- [x] 6.1 Adicionar handler `on_thread_create()` para detectar criação de posts via Gateway
+- [x] 6.2 Adicionar handler `on_raw_message_update()` para detectar comentários
+- [x] 6.3 Implementar formatação de notificação no formato `<channel source="discord" chat_id="..." forum_post_id="..." ...>`
 
 ## 7. Controle de Acesso
 
-- [ ] 7.1 Extender `access.json` schema para suportar `is_forum: boolean` em grupos
-- [ ] 7.2 Atualizar `gate_group()` em `access.py` para considerar canais de fórum
+- [x] 7.1 Extender `access.json` schema para suportar `is_forum: boolean` em grupos
+- [x] 7.2 Atualizar `gate_group()` em `access.py` para considerar canais de fórum
 
 ## 8. Testes
 
@@ -55,5 +61,5 @@
 
 ## 9. Documentação
 
-- [ ] 9.1 Atualizar `docs/spec/SPEC010-discord-ddd-migration.md` com novas tools
-- [ ] 9.2 Adicionar exemplos de uso das tools de fórum na documentação
+- [x] 9.1 Atualizar `docs/spec/SPEC010-discord-ddd-migration.md` com novas tools
+- [x] 9.2 Adicionar exemplos de uso das tools de fórum na documentação

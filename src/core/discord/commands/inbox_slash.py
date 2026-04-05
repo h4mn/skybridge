@@ -13,6 +13,8 @@ from typing import Optional
 
 from discord import app_commands, Interaction
 
+from ..infrastructure.linear_client import create_inbox_issue, LinearClientError
+
 logger = logging.getLogger(__name__)
 
 # Configurações
@@ -82,7 +84,6 @@ def build_description(
 async def inbox_command_handler(
     interaction: Interaction,
     titulo: str,
-    linear_mcp_func=None,
 ) -> None:
     """
     Handler do comando /inbox.
@@ -90,7 +91,6 @@ async def inbox_command_handler(
     Args:
         interaction: Interação do Discord
         titulo: Título da ideia
-        linear_mcp_func: Função para criar issue no Linear (opcional, para teste)
     """
     await interaction.response.defer()
 
@@ -115,19 +115,53 @@ async def inbox_command_handler(
         full_title=titulo if was_truncated else None,
     )
 
-    # TODO: Criar issue via Linear MCP
-    # Por enquanto, retorna mensagem formatada
-    response = (
-        f"✅ **Inbox entry criada!**\n\n"
-        f"**Título:** {truncated_title}\n"
-        f"**Canal:** #{channel_name if channel_name else 'N/A'}\n"
-        f"**Domínio:** {domain}\n"
-        f"**Labels:** fonte:discord, ação:implementar\n"
-        f"**Expires:** {calculate_expires_date()} ({EXPIRES_DAYS} dias)"
-    )
+    # Labels (usando IDs conhecidos do Linear)
+    label_ids = [
+        LABELS["fonte:discord"],
+        LABELS[f"domínio:{domain}"],
+    ]
+
+    # Criar issue via Linear API
+    try:
+        issue_result = await create_inbox_issue(
+            title=truncated_title,
+            description=description,
+            label_ids=label_ids,
+        )
+
+        issue_url = issue_result["url"]
+        issue_identifier = issue_result["identifier"]
+
+        response = (
+            f"✅ **Inbox entry criada!**\n\n"
+            f"**[{issue_identifier}]({issue_url})**\n"
+            f"**Canal:** #{channel_name if channel_name else 'N/A'}\n"
+            f"**Domínio:** {domain}\n"
+            f"**Labels:** fonte:discord, ação:implementar\n"
+            f"**Expires:** {calculate_expires_date()} ({EXPIRES_DAYS} dias)"
+        )
+
+        logger.info(f"/inbox usado por {interaction.user}: {truncated_title} -> {issue_identifier}")
+
+    except LinearClientError as e:
+        logger.error(f"Erro ao criar issue no Linear: {e}")
+        response = (
+            f"❌ **Erro ao criar issue no Linear**\n\n"
+            f"**Título:** {truncated_title}\n"
+            f"**Erro:** {str(e)}\n\n"
+            f"Tente novamente ou use o MCP diretamente."
+        )
+
+    except Exception as e:
+        logger.error(f"Erro ao criar issue no Linear: {e}")
+        response = (
+            f"❌ **Erro ao criar issue no Linear**\n\n"
+            f"**Título:** {truncated_title}\n"
+            f"**Erro:** {str(e)}\n\n"
+            f"Tente novamente ou use o MCP diretamente."
+        )
 
     await interaction.followup.send(response)
-    logger.info(f"/inbox usado por {interaction.user}: {truncated_title}")
 
 
 def setup_inbox_command(tree: app_commands.CommandTree) -> None:

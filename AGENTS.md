@@ -1,10 +1,11 @@
 # AGENTS.md
 
+- **Contexto do Usuário**: `C:\Users\hadst\dobrador.md` — perfil, preferências e stack técnica.
 - **Comunicação**: O idioma de comunicação do agente é em pt-br com encoding utf-8, respeitando os caracteres do idioma, considere os exemplos:
     - BOM: Esta acentuação e caracteres especiais são bons.
     - RUIM: Esta acentuacao e caracteres especiais nao sao bons.
 - **Objetivo**: unificar e evoluir a Skybridge (engine de agentes + ferramentas) a partir de evidência (snapshots/diffs).
-- **Fonte de verdade**: `docs/adr` (decisões) e `docs/prd` (entregas); `docs/spec` define contratos.
+- **Fonte de verdade principal e atual**: `openspec/` (especificação aberta); posteriormente `docs/adr` (decisões), `docs/prd` (entregas) e `docs/spec` (contratos).
 - **Regra**: comunicação externa (time/líder) sempre em resumo executivo; detalhes ficam internos.
 
 ## Sandbox do Agente

@@ -129,6 +129,11 @@ class DiscordService:
         """Define o cliente Discord."""
         self._client = client
 
+    @property
+    def client(self) -> Optional[discord.Client]:
+        """Retorna o cliente Discord (read-only)."""
+        return self._client
+
     async def send_message(
         self,
         channel_id: str,
@@ -590,6 +595,445 @@ class DiscordService:
         except Exception as e:
             print(f"Erro ao adicionar reação: {e}")
             return False
+
+    # =============================================================================
+    # FÓRUNS DISCORD
+    # =============================================================================
+
+    async def list_forum_posts(
+        self,
+        channel_id: str,
+        limit: int = 20,
+        archived: bool = False,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        Lista posts de um canal de fórum com paginação.
+
+        Args:
+            channel_id: ID do canal de fórum
+            limit: Máximo de posts a retornar
+            archived: Incluir posts arquivados
+
+        Returns:
+            Lista de posts ou None se erro
+        """
+        if not self._client:
+            raise RuntimeError("Discord client não configurado")
+
+        try:
+            from ..presentation.tools.dto.forum_dto import ForumPostDTO
+
+            channel = await self._client.fetch_channel(int(channel_id))
+            posts = []
+
+            async for thread in channel.archived_threads(limit=limit) if archived else channel.threads(limit=limit):
+                post_dto = ForumPostDTO.from_discord_thread(thread)
+                posts.append({
+                    "id": post_dto.id,
+                    "title": post_dto.title,
+                    "content": post_dto.content,
+                    "author_id": post_dto.author_id,
+                    "author_name": post_dto.author_name,
+                    "created_at": post_dto.created_at.isoformat() if post_dto.created_at else None,
+                    "archived": post_dto.archived,
+                    "locked": post_dto.locked,
+                    "total_messages": post_dto.total_messages,
+                })
+
+            return posts
+        except Exception as e:
+            print(f"Erro ao listar posts: {e}")
+            return None
+
+    async def create_forum_post(
+        self,
+        channel_id: str,
+        title: str,
+        content: str,
+        tags: Optional[List[int]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Cria um novo post em um canal de fórum.
+
+        Args:
+            channel_id: ID do canal de fórum
+            title: Título do post
+            content: Conteúdo do post
+            tags: Lista de IDs de tags a aplicar
+
+        Returns:
+            Dados do post criado ou None se erro
+        """
+        if not self._client:
+            raise RuntimeError("Discord client não configurado")
+
+        try:
+            from ..presentation.tools.dto.forum_dto import ForumPostDTO
+
+            channel = await self._client.fetch_channel(int(channel_id))
+
+            # Criar thread (post) no fórum
+            thread = await channel.create_thread(
+                name=title,
+                content=content,
+                applied_tags=tags or [],
+            )
+
+            post_dto = ForumPostDTO.from_discord_thread(thread)
+
+            return {
+                "id": post_dto.id,
+                "title": post_dto.title,
+                "content": post_dto.content,
+                "author_id": post_dto.author_id,
+                "created_at": post_dto.created_at.isoformat() if post_dto.created_at else None,
+                "url": thread.jump_url if hasattr(thread, 'jump_url') else f"https://discord.com/channels/{thread.guild.id}/{thread.id}",
+                "status": "success"
+            }
+        except Exception as e:
+            print(f"Erro ao criar post: {e}")
+            return None
+
+    async def get_forum_post(self, post_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Obtém detalhes completos de um post específico.
+
+        Args:
+            post_id: ID do post (thread)
+
+        Returns:
+            Dados do post ou None se erro
+        """
+        if not self._client:
+            raise RuntimeError("Discord client não configurado")
+
+        try:
+            from ..presentation.tools.dto.forum_dto import ForumPostDTO, ForumCommentDTO
+
+            thread = await self._client.fetch_channel(int(post_id))
+            post_dto = ForumPostDTO.from_discord_thread(thread)
+
+            # Buscar comentários
+            comments = []
+            async for msg in thread.history(limit=50):
+                if msg.author.id != thread.owner_id:  # Não duplicar o post principal
+                    comment_dto = ForumCommentDTO.from_discord_message(msg, post_id)
+                    comments.append({
+                        "id": comment_dto.id,
+                        "content": comment_dto.content,
+                        "author_id": comment_dto.author_id,
+                        "author_name": comment_dto.author_name,
+                        "created_at": comment_dto.created_at.isoformat() if comment_dto.created_at else None,
+                    })
+
+            return {
+                "id": post_dto.id,
+                "title": post_dto.title,
+                "content": post_dto.content,
+                "author_id": post_dto.author_id,
+                "author_name": post_dto.author_name,
+                "channel_id": post_dto.channel_id,
+                "created_at": post_dto.created_at.isoformat() if post_dto.created_at else None,
+                "archived": post_dto.archived,
+                "locked": post_dto.locked,
+                "comments": comments,
+                "status": "success"
+            }
+        except Exception as e:
+            print(f"Erro ao obter post: {e}")
+            return None
+
+    async def add_forum_comment(
+        self,
+        post_id: str,
+        content: str,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Adiciona um comentário a um post.
+
+        Args:
+            post_id: ID do post (thread)
+            content: Conteúdo do comentário
+
+        Returns:
+            Dados do comentário criado ou None se erro
+        """
+        if not self._client:
+            raise RuntimeError("Discord client não configurado")
+
+        try:
+            from ..presentation.tools.dto.forum_dto import ForumCommentDTO
+
+            thread = await self._client.fetch_channel(int(post_id))
+            message = await thread.send(content)
+            comment_dto = ForumCommentDTO.from_discord_message(message, post_id)
+
+            return {
+                "id": comment_dto.id,
+                "content": comment_dto.content,
+                "author_id": comment_dto.author_id,
+                "created_at": comment_dto.created_at.isoformat() if comment_dto.created_at else None,
+                "status": "success"
+            }
+        except Exception as e:
+            print(f"Erro ao adicionar comentário: {e}")
+            return None
+
+    async def list_forum_comments(
+        self,
+        post_id: str,
+        limit: int = 50,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        Lista comentários de um post.
+
+        Args:
+            post_id: ID do post (thread)
+            limit: Máximo de comentários
+
+        Returns:
+            Lista de comentários ou None se erro
+        """
+        if not self._client:
+            raise RuntimeError("Discord client não configurado")
+
+        try:
+            from ..presentation.tools.dto.forum_dto import ForumCommentDTO
+
+            thread = await self._client.fetch_channel(int(post_id))
+            comments = []
+
+            async for msg in thread.history(limit=limit):
+                if msg.author.id != thread.owner_id:  # Pular o post principal
+                    comment_dto = ForumCommentDTO.from_discord_message(msg, post_id)
+                    comments.append({
+                        "id": comment_dto.id,
+                        "content": comment_dto.content,
+                        "author_id": comment_dto.author_id,
+                        "author_name": comment_dto.author_name,
+                        "created_at": comment_dto.created_at.isoformat() if comment_dto.created_at else None,
+                    })
+
+            return comments
+        except Exception as e:
+            print(f"Erro ao listar comentários: {e}")
+            return None
+
+    async def update_forum_post(
+        self,
+        post_id: str,
+        title: Optional[str] = None,
+        content: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Edita um post existente.
+
+        Args:
+            post_id: ID do post (thread)
+            title: Novo título
+            content: Novo conteúdo
+
+        Returns:
+            Dados atualizados ou None se erro
+        """
+        if not self._client:
+            raise RuntimeError("Discord client não configurado")
+
+        try:
+            thread = await self._client.fetch_channel(int(post_id))
+
+            kwargs = {}
+            if title is not None:
+                kwargs["name"] = title
+            if content is not None:
+                kwargs["content"] = content
+
+            if not kwargs:
+                return {"status": "error", "error": "Pelo menos um campo deve ser fornecido"}
+
+            await thread.edit(**kwargs)
+
+            return {
+                "id": post_id,
+                "edited_at": discord.utils.utcnow().isoformat(),
+                "status": "success"
+            }
+        except Exception as e:
+            print(f"Erro ao atualizar post: {e}")
+            return None
+
+    async def close_forum_post(
+        self,
+        post_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Fecha um post como resolvido.
+
+        Args:
+            post_id: ID do post (thread)
+
+        Returns:
+            Status da operação ou None se erro
+        """
+        if not self._client:
+            raise RuntimeError("Discord client não configurado")
+
+        try:
+            thread = await self._client.fetch_channel(int(post_id))
+            await thread.edit(locked=True)
+
+            return {
+                "id": post_id,
+                "locked": True,
+                "status": "success"
+            }
+        except Exception as e:
+            print(f"Erro ao fechar post: {e}")
+            return None
+
+    async def create_forum(
+        self,
+        guild_id: str,
+        name: str,
+        layout: str = "classic",
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Cria um novo canal de fórum na guild.
+
+        Args:
+            guild_id: ID da guild
+            name: Nome do fórum
+            layout: Layout ("classic" ou "list")
+
+        Returns:
+            Dados do fórum criado ou None se erro
+        """
+        if not self._client:
+            raise RuntimeError("Discord client não configurado")
+
+        try:
+            guild = await self._client.fetch_guild(int(guild_id))
+            forum_channel = await guild.create_forum(name=name, layout=layout)
+
+            return {
+                "forum_id": str(forum_channel.id),
+                "forum_name": forum_channel.name,
+                "guild_id": str(guild.id),
+                "status": "success"
+            }
+        except Exception as e:
+            print(f"Erro ao criar fórum: {e}")
+            return None
+
+    async def archive_forum(
+        self,
+        forum_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Arquiva um canal de fórum.
+
+        Args:
+            forum_id: ID do canal de fórum
+
+        Returns:
+            Status da operação ou None se erro
+        """
+        if not self._client:
+            raise RuntimeError("Discord client não configurado")
+
+        try:
+            channel = await self._client.fetch_channel(int(forum_id))
+            await channel.edit(archived=True)
+
+            return {
+                "forum_id": forum_id,
+                "archived": True,
+                "status": "success"
+            }
+        except Exception as e:
+            print(f"Erro ao arquivar fórum: {e}")
+            return None
+
+    async def delete_forum(
+        self,
+        forum_id: str,
+        confirm: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Deleta um canal de fórum.
+
+        Args:
+            forum_id: ID do canal de fórum
+            confirm: Confirmação obrigatória (True)
+
+        Returns:
+            Status da operação ou None se erro
+        """
+        if not self._client:
+            raise RuntimeError("Discord client não configurado")
+
+        if not confirm:
+            return {"status": "error", "error": "confirm=True é obrigatório"}
+
+        try:
+            channel = await self._client.fetch_channel(int(forum_id))
+            await channel.delete()
+
+            return {
+                "forum_id": forum_id,
+                "deleted": True,
+                "status": "success"
+            }
+        except Exception as e:
+            print(f"Erro ao deletar fórum: {e}")
+            return None
+
+    async def update_forum_settings(
+        self,
+        forum_id: str,
+        name: Optional[str] = None,
+        layout: Optional[str] = None,
+        default_sort_order: Optional[int] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Atualiza configurações de um canal de fórum.
+
+        Args:
+            forum_id: ID do canal de fórum
+            name: Novo nome
+            layout: Novo layout
+            default_sort_order: Ordem padrão
+
+        Returns:
+            Status da operação ou None se erro
+        """
+        if not self._client:
+            raise RuntimeError("Discord client não configurado")
+
+        try:
+            channel = await self._client.fetch_channel(int(forum_id))
+
+            kwargs = {}
+            if name is not None:
+                kwargs["name"] = name
+            if layout is not None:
+                kwargs["layout_type"] = layout
+            if default_sort_order is not None:
+                kwargs["default_sort_order"] = default_sort_order
+
+            if not kwargs:
+                return {"status": "error", "error": "Pelo menos um campo deve ser fornecido"}
+
+            await channel.edit(**kwargs)
+
+            return {
+                "forum_id": forum_id,
+                "updated": list(kwargs.keys()),
+                "status": "success"
+            }
+        except Exception as e:
+            print(f"Erro ao atualizar configurações: {e}")
+            return None
 
 
 # Instância global do serviço (singleton)

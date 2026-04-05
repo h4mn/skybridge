@@ -1,0 +1,9 @@
+{
+  "enabledPlugins": {
+    "discord@claude-plugins-official": true
+  },
+  "hooks": {},
+  "env": {
+    "PYTHONUTF8": "1"
+  }
+}

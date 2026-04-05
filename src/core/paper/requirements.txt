@@ -1,0 +1,7 @@
+discord.py==2.7.1
+python-dotenv>=1.0.0
+
+# Paper Trading - Playground
+fastapi>=0.110.0
+uvicorn>=0.29.0
+yfinance>=0.2.40

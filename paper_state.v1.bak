@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "updated_at": "2026-03-27T19:03:13.192206",
+  "saldo": 249985.8,
+  "saldo_inicial": 100000.0,
+  "ordens": {
+    "5f7954ca-e231-49ab-986a-66cf93690054": {
+      "id": "5f7954ca-e231-49ab-986a-66cf93690054",
+      "ticker": "VALE3.SA",
+      "lado": "COMPRA",
+      "quantidade": 50,
+      "preco_execucao": 78.75,
+      "valor_total": 3937.5,
+      "status": "EXECUTADA",
+      "timestamp": "2026-03-27T00:18:26.347291"
+    },
+    "fefa7dcc-cbfe-44ff-914f-e8c56b539c32": {
+      "ticker": "BTC-USD",
+      "lado": "COMPRA",
+      "quantidade": 1,
+      "preco_execucao": 66498.36,
+      "valor_total": 66498.36,
+      "status": "EXECUTADA",
+      "timestamp": "2026-03-27T10:20:13.274678",
+      "ordem_id": "fefa7dcc-cbfe-44ff-914f-e8c56b539c32"
+    },
+    "b33c66e5-1313-47e9-af14-d263b5e6c070": {
+      "ticker": "PETR4.SA",
+      "lado": "COMPRA",
+      "quantidade": 100,
+      "preco_execucao": 48.42,
+      "valor_total": 4842.0,
+      "status": "EXECUTADA",
+      "timestamp": "2026-03-27T10:40:27.680533",
+      "ordem_id": "b33c66e5-1313-47e9-af14-d263b5e6c070"
+    },
+    "93ca845a-64c2-42c5-9357-e6a2a9d91c22": {
+      "id": "93ca845a-64c2-42c5-9357-e6a2a9d91c22",
+      "ticker": "VALE3.SA",
+      "lado": "VENDA",
+      "quantidade": 50,
+      "preco_execucao": 79.41,
+      "valor_total": 3970.5,
+      "status": "EXECUTADA",
+      "timestamp": "2026-03-27T11:15:57.166231"
+    },
+    "695bf0c4-7994-448f-8913-ec9c6ffeeb0d": {
+      "ticker": "PETR4.SA",
+      "lado": "VENDA",
+      "quantidade": 100,
+      "preco_execucao": 48.86,
+      "valor_total": 4886.0,
+      "status": "EXECUTADA",
+      "timestamp": "2026-03-27T12:32:41.721437",
+      "ordem_id": "695bf0c4-7994-448f-8913-ec9c6ffeeb0d"
+    },
+    "bb45d482-0f3d-4d4a-b2fc-4e164ebe8bc4": {
+      "ticker": "BTC-USD",
+      "lado": "COMPRA",
+      "quantidade": 2,
+      "preco_execucao": 65621.69,
+      "valor_total": 131243.38,
+      "status": "EXECUTADA",
+      "timestamp": "2026-03-27T14:53:46.167614",
+      "ordem_id": "bb45d482-0f3d-4d4a-b2fc-4e164ebe8bc4"
+    },
+    "26af9739-9f5e-4dd6-b9e3-35accadf5eb1": {
+      "ticker": "BTC-USD",
+      "lado": "VENDA",
+      "quantidade": 2,
+      "preco_execucao": 65811.49,
+      "valor_total": 131622.98,
+      "status": "EXECUTADA",
+      "timestamp": "2026-03-27T15:41:29.181866",
+      "ordem_id": "26af9739-9f5e-4dd6-b9e3-35accadf5eb1"
+    },
+    "0ef83cad-3bf0-446c-8b18-234d26b4b3f7": {
+      "id": "0ef83cad-3bf0-446c-8b18-234d26b4b3f7",
+      "ticker": "BTC-USD",
+      "lado": "VENDA",
+      "quantidade": 1,
+      "preco_execucao": 66027.56,
+      "valor_total": 66027.56,
+      "status": "EXECUTADA",
+      "timestamp": "2026-03-27T19:03:13.192206"
+    }
+  },
+  "posicoes": {
+    "VALE3.SA": {
+      "quantidade": 0,
+      "preco_medio": 78.75
+    },
+    "BTC-USD": {
+      "quantidade": 0,
+      "preco_medio": 65913.91333333333
+    },
+    "PETR4.SA": {
+      "quantidade": 0,
+      "preco_medio": 48.42
+    }
+  }
+}

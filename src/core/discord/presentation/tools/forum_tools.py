@@ -48,7 +48,7 @@ async def handle_create_forum(
         # Criar canal de fórum
         forum_channel = await guild.create_forum(
             name=name,
-            layout_type=layout
+            layout=layout
         )
 
         logger.info(f"Fórum criado: {forum_channel.name} ({forum_channel.id})")
@@ -117,22 +117,14 @@ async def handle_list_forum_posts(
         return {"status": "error", "error": "channel_id é obrigatório"}
 
     try:
-        channel = await discord_service._client.fetch_channel(int(channel_id))
+        posts = await discord_service.list_forum_posts(
+            channel_id=channel_id,
+            limit=limit,
+            archived=archived,
+        )
 
-        posts = []
-        async for thread in channel.archived_threads(limit=limit) if archived else channel.threads(limit=limit):
-            post_dto = ForumPostDTO.from_discord_thread(thread)
-            posts.append({
-                "id": post_dto.id,
-                "title": post_dto.title,
-                "content": post_dto.content,
-                "author_id": post_dto.author_id,
-                "author_name": post_dto.author_name,
-                "created_at": post_dto.created_at.isoformat() if post_dto.created_at else None,
-                "archived": post_dto.archived,
-                "locked": post_dto.locked,
-                "total_messages": post_dto.total_messages,
-            })
+        if posts is None:
+            return {"status": "error", "error": "Falha ao listar posts"}
 
         return {
             "posts": posts,
@@ -183,27 +175,21 @@ async def handle_create_forum_post(
         return {"status": "error", "error": "channel_id e title são obrigatórios"}
 
     try:
-        channel = await discord_service._client.fetch_channel(int(channel_id))
-
-        # Converter tag IDs para objetos
-        applied_tags = []
-        if tags:
-            available_tags = getattr(channel, "available_tags", [])
-            tag_map = {str(t.id): t for t in available_tags}
-            applied_tags = [tag_map[t] for t in tags if t in tag_map]
-
-        # Criar post (thread)
-        thread = await channel.create_thread(
-            name=title,
+        result = await discord_service.create_forum_post(
+            channel_id=channel_id,
+            title=title,
             content=content,
-            applied_tags=applied_tags
+            tags=tags,
         )
 
-        logger.info(f"Post criado: {thread.name} ({thread.id})")
+        if result is None:
+            return {"status": "error", "error": "Falha ao criar post"}
+
+        logger.info(f"Post criado: {title}")
 
         return {
-            "post_id": str(thread.id),
-            "title": thread.name,
+            "post_id": result.get("id"),
+            "title": result.get("title"),
             "channel_id": channel_id,
             "status": "success"
         }
@@ -248,23 +234,23 @@ async def handle_get_forum_post(
         return {"status": "error", "error": "post_id é obrigatório"}
 
     try:
-        thread = await discord_service._client.fetch_channel(int(post_id))
-        post_dto = ForumPostDTO.from_discord_thread(thread)
+        result = await discord_service.get_forum_post(post_id)
+
+        if result is None:
+            return {"status": "error", "error": "Falha ao obter post"}
 
         return {
             "post": {
-                "id": post_dto.id,
-                "title": post_dto.title,
-                "content": post_dto.content,
-                "author_id": post_dto.author_id,
-                "author_name": post_dto.author_name,
-                "channel_id": post_dto.channel_id,
-                "created_at": post_dto.created_at.isoformat() if post_dto.created_at else None,
-                "edited_at": post_dto.edited_at.isoformat() if post_dto.edited_at else None,
-                "archived": post_dto.archived,
-                "locked": post_dto.locked,
-                "pinned": post_dto.pinned,
-                "total_messages": post_dto.total_messages,
+                "id": result.get("id"),
+                "title": result.get("title"),
+                "content": result.get("content"),
+                "author_id": result.get("author_id"),
+                "author_name": result.get("author_name"),
+                "channel_id": result.get("channel_id"),
+                "created_at": result.get("created_at"),
+                "archived": result.get("archived"),
+                "locked": result.get("locked"),
+                "comments": result.get("comments", []),
             },
             "status": "success"
         }
@@ -307,13 +293,15 @@ async def handle_add_forum_comment(
         return {"status": "error", "error": "post_id e content são obrigatórios"}
 
     try:
-        thread = await discord_service._client.fetch_channel(int(post_id))
-        message = await thread.send(content)
+        result = await discord_service.add_forum_comment(post_id, content)
+
+        if result is None:
+            return {"status": "error", "error": "Falha ao adicionar comentário"}
 
         logger.info(f"Comentário adicionado ao post {post_id}")
 
         return {
-            "comment_id": str(message.id),
+            "comment_id": result.get("id"),
             "post_id": post_id,
             "status": "success"
         }
@@ -357,22 +345,10 @@ async def handle_list_forum_comments(
         return {"status": "error", "error": "post_id é obrigatório"}
 
     try:
-        thread = await discord_service._client.fetch_channel(int(post_id))
+        comments = await discord_service.list_forum_comments(post_id, limit)
 
-        comments = []
-        async for msg in thread.history(limit=limit):
-            # Pular a primeira mensagem (é o post principal)
-            if msg.type == 31:  # Thread starter
-                continue
-
-            comment_dto = ForumCommentDTO.from_discord_message(msg, post_id)
-            comments.append({
-                "id": comment_dto.id,
-                "content": comment_dto.content,
-                "author_id": comment_dto.author_id,
-                "author_name": comment_dto.author_name,
-                "created_at": comment_dto.created_at.isoformat() if comment_dto.created_at else None,
-            })
+        if comments is None:
+            return {"status": "error", "error": "Falha ao listar comentários"}
 
         return {
             "comments": comments,
@@ -424,25 +400,17 @@ async def handle_update_forum_post(
         return {"status": "error", "error": "title ou content devem ser fornecidos"}
 
     try:
-        thread = await discord_service._client.fetch_channel(int(post_id))
+        result = await discord_service.update_forum_post(post_id, title, content)
 
-        # Buscar a primeira mensagem (post principal)
-        async for msg in thread.history(limit=1):
-            # Editar título (nome da thread) e/ou conteúdo
-            if title:
-                await thread.edit(name=title)
-            if content:
-                await msg.edit(content=content)
+        if result is None:
+            return {"status": "error", "error": "Falha ao editar post"}
 
-            logger.info(f"Post {post_id} editado")
+        logger.info(f"Post {post_id} editado")
 
-            return {
-                "post_id": post_id,
-                "title": thread.name,
-                "status": "success"
-            }
-
-        return {"status": "error", "error": "Post não encontrado"}
+        return {
+            "post_id": post_id,
+            "status": "success"
+        }
     except Exception as e:
         logger.error(f"Erro ao editar post: {e}")
         return {"status": "error", "error": str(e)}
@@ -472,30 +440,27 @@ async def handle_close_forum_post(
 
     Args:
         discord_service: Instância do DiscordService
-        args: {post_id, locked, archived}
+        args: {post_id}
 
     Returns:
         Dict com post_id, status
     """
     post_id = args.get("post_id")
-    locked = args.get("locked", True)
-    archived = args.get("archived", False)
 
     if not post_id:
         return {"status": "error", "error": "post_id é obrigatório"}
 
     try:
-        thread = await discord_service._client.fetch_channel(int(post_id))
+        result = await discord_service.close_forum_post(post_id)
 
-        # Editar thread
-        await thread.edit(locked=locked, archived=archived)
+        if result is None:
+            return {"status": "error", "error": "Falha ao fechar post"}
 
-        logger.info(f"Post {post_id} fechado (locked={locked}, archived={archived})")
+        logger.info(f"Post {post_id} fechado")
 
         return {
             "post_id": post_id,
-            "locked": locked,
-            "archived": archived,
+            "locked": result.get("locked", True),
             "status": "success"
         }
     except Exception as e:
@@ -510,8 +475,6 @@ CLOSE_FORUM_POST_TOOL = {
         "type": "object",
         "properties": {
             "post_id": {"type": "string", "description": "Post/thread ID"},
-            "locked": {"type": "boolean", "default": True, "description": "Lock the post"},
-            "archived": {"type": "boolean", "default": False, "description": "Archive the post"},
         },
         "required": ["post_id"],
     },
@@ -542,8 +505,10 @@ async def handle_archive_forum(
         return {"status": "error", "error": "forum_id é obrigatório"}
 
     try:
-        channel = await discord_service._client.fetch_channel(int(forum_id))
-        await channel.edit(archived=True)
+        result = await discord_service.archive_forum(forum_id)
+
+        if result is None:
+            return {"status": "error", "error": "Falha ao arquivar fórum"}
 
         logger.info(f"Fórum {forum_id} arquivado")
 
@@ -597,8 +562,10 @@ async def handle_delete_forum(
         }
 
     try:
-        channel = await discord_service._client.fetch_channel(int(forum_id))
-        await channel.delete()
+        result = await discord_service.delete_forum(forum_id, confirm=True)
+
+        if result is None or result.get("status") == "error":
+            return {"status": "error", "error": "Falha ao deletar fórum"}
 
         logger.info(f"Fórum {forum_id} deletado")
 
@@ -649,28 +616,21 @@ async def handle_update_forum_settings(
         return {"status": "error", "error": "forum_id é obrigatório"}
 
     try:
-        channel = await discord_service._client.fetch_channel(int(forum_id))
+        result = await discord_service.update_forum_settings(
+            forum_id=forum_id,
+            name=name,
+            layout=layout,
+            default_sort_order=default_sort_order,
+        )
 
-        # Preparar kwargs apenas com valores fornecidos
-        kwargs = {}
-        if name is not None:
-            kwargs["name"] = name
-        if layout is not None:
-            # Discord usa layout_type, não layout
-            kwargs["layout_type"] = layout
-        if default_sort_order is not None:
-            kwargs["default_sort_order"] = default_sort_order
+        if result is None or result.get("status") == "error":
+            return {"status": "error", "error": "Falha ao atualizar configurações"}
 
-        if not kwargs:
-            return {"status": "error", "error": "Pelo menos um campo deve ser fornecido"}
-
-        await channel.edit(**kwargs)
-
-        logger.info(f"Fórum {forum_id} atualizado: {kwargs}")
+        logger.info(f"Fórum {forum_id} atualizado")
 
         return {
             "forum_id": forum_id,
-            "updated_fields": list(kwargs.keys()),
+            "updated_fields": result.get("updated", []),
             "status": "success"
         }
     except Exception as e:

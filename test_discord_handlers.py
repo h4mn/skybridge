@@ -9,7 +9,26 @@ import os
 import sys
 import io
 import asyncio
+import logging
 from pathlib import Path
+
+# Abrir arquivo de log com modo unbuffered
+LOG_FILE = open("test_discord_DIRECT.log", "w", encoding="utf-8", buffering=1)
+
+def log(msg):
+    """Escreve no arquivo e no stdout."""
+    LOG_FILE.write(f"{msg}\n")
+    LOG_FILE.flush()
+    print(msg)
+    sys.stdout.flush()
+
+# Configurar logging para sair imediatamente
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(levelname)s] %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # FORÇAR UTF-8 NO WINDOWS
@@ -45,10 +64,10 @@ if not token:
     token = os.environ.get("DISCORD_BOT_TOKEN")
 
 if not token:
-    print("[ERRO] DISCORD_BOT_TOKEN não encontrado!")
+    log("[TESTE] DISCORD_BOT_TOKEN não encontrado!")
     sys.exit(1)
 
-print("[TESTE] Iniciando Discord client...")
+log("[TESTE] Iniciando Discord client...")
 
 from discord import InteractionType
 from src.core.discord.client import create_discord_client
@@ -59,26 +78,29 @@ discord_client = create_discord_client()
 
 @discord_client.event
 async def on_ready():
-    print(f"[TESTE] === ON READY ===")
-    print(f"[TESTE] Bot conectado: {discord_client.user}")
+    logger.info(f"[TESTE] === ON READY ===")
+    logger.info(f"[TESTE] Bot conectado: {discord_client.user}")
+    sys.stdout.flush()
 
 @discord_client.event
 async def on_interaction_create(interaction):
-    print(f"[TESTE] === INTERACTION CREATE ===")
-    print(f"[TESTE] Type: {interaction.type}")
-    print(f"[TESTE] Data: {interaction.data}")
+    logger.info(f"[TESTE] === INTERACTION CREATE ===")
+    logger.info(f"[TESTE] Type: {interaction.type}")
+    logger.info(f"[TESTE] Data: {interaction.data}")
+    sys.stdout.flush()
 
     if interaction.type != InteractionType.component:
-        print(f"[TESTE] Não é component, ignorando")
+        logger.info(f"[TESTE] Não é component, ignorando")
         return
 
-    print(f"[TESTE] É COMPONENT! Custom ID: {interaction.data.get('custom_id', 'N/A')}")
+    logger.info(f"[TESTE] É COMPONENT! Custom ID: {interaction.data.get('custom_id', 'N/A')}")
+    sys.stdout.flush()
 
     try:
         await interaction.response.defer()
-        print(f"[TESTE] Defer OK!")
+        logger.info(f"[TESTE] Defer OK!")
     except Exception as e:
-        print(f"[TESTE] Erro no defer: {e}")
+        logger.error(f"[TESTE] Erro no defer: {e}")
         return
 
     # Processar
@@ -86,32 +108,37 @@ async def on_interaction_create(interaction):
     button_adapter = MCPButtonAdapter(event_publisher)
     result = await button_adapter.handle_interaction(interaction)
 
-    print(f"[TESTE] Resultado: {result}")
+    logger.info(f"[TESTE] Resultado: {result}")
+    sys.stdout.flush()
 
 async def main():
-    print("[TESTE] Fazendo login...")
+    logger.info("[TESTE] Fazendo login...")
+    sys.stdout.flush()
     try:
         await discord_client.login(token)
     except Exception as e:
-        print(f"[ERRO] Login falhou: {e}")
+        logger.error(f"[ERRO] Login falhou: {e}")
         return
 
-    print("[TESTE] Conectando ao Gateway...")
+    logger.info("[TESTE] Conectando ao Gateway...")
+    sys.stdout.flush()
     try:
         await discord_client.connect()
     except Exception as e:
-        print(f"[ERRO] Connect falhou: {e}")
+        logger.error(f"[ERRO] Connect falhou: {e}")
         return
 
-    print("[TESTE] Bot rodando! Pressione Ctrl+C para parar.")
+    logger.info("[TESTE] Bot rodando! Pressione Ctrl+C para parar.")
+    sys.stdout.flush()
 
     # Mantém rodando
     try:
         await discord_client.wait_until_ready()
-        print("[TESTE] Bot PRONTO!")
+        logger.info("[TESTE] Bot PRONTO!")
+        sys.stdout.flush()
         await asyncio.Event().wait()  # Roda para sempre
     except KeyboardInterrupt:
-        print("[TESTE] Interrompido")
+        logger.info("[TESTE] Interrompido")
     finally:
         await discord_client.close()
 
@@ -119,4 +146,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n[TESTE] Encerrado")
+        logger.info("\n[TESTE] Encerrado")

@@ -1,0 +1,5 @@
+{
+  "name": "utf8-check",
+  "description": "Detecta e diagnostica problemas de acentuação UTF-8 em scripts Python, especialmente para Google Sheets API. Use quando houver erros de encoding, caracteres corrompidos (ç, ã, é aparecendo como símbolos), ou ao trabalhar com dados que contenham acentos portugueses brasileiros. TRIGGER quando o usuário mencionar problemas de encoding, acentos estranhos, 'utf8-check', ou antes de executar scripts que manipulam texto com caracteres especiais.",
+  "version": "1.0.0"
+}

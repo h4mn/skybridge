@@ -30,6 +30,25 @@ httpx = ">=0.24.0"
 uvicorn = {extras = ["standard"], version = ">=0.23.0"}
 python-multipart = ">=0.0.6"
 
+# Discord MCP Server dependencies
+discord-py = ">=2.3.0"
+mcp = ">=1.0.0"
+pydantic = ">=2.0.0"
+pydantic-settings = ">=2.0.0"
+python-dotenv = ">=1.0.0"
+
+# Paper Trading dependencies
+requests = ">=2.31.0"
+matplotlib = ">=3.7.0"
+
+# Autokarpa Sky Lab dependencies (autokarpa-sky-lab change)
+pytest = ">=8.0"
+pytest-cov = ">=4.0"
+pytest-asyncio = ">=0.23"
+hypothesis = ">=6.100"  # Property-Based Testing
+mutmut = ">=3.5"        # Mutation Testing (version 3.5.0 verified)
+radon = ">=6.0"          # Complexity analysis
+
 [project.scripts]
 # Voice API entry point (voice-api-isolation change)
 sky-voice-api = "src.core.sky.voice.api.main:main"

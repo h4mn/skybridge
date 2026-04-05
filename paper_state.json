@@ -1,0 +1,42 @@
+{
+  "version": 3,
+  "updated_at": "2026-03-30T10:22:57.630505",
+  "saldo": 113144.15698738098,
+  "saldo_inicial": 100000.0,
+  "base_currency": "BRL",
+  "cashbook": {
+    "base_currency": "BRL",
+    "entries": {
+      "BRL": {
+        "amount": "100000",
+        "conversion_rate": "1"
+      },
+      "USD": {
+        "amount": "2513.80",
+        "conversion_rate": "5.228799819946289"
+      }
+    }
+  },
+  "ordens": {
+    "8efaea4e-3520-433f-839b-be3a2fe7e31b": {
+      "id": "8efaea4e-3520-433f-839b-be3a2fe7e31b",
+      "ticker": "AAPL",
+      "lado": "COMPRA",
+      "quantidade": 10,
+      "preco_execucao": 248.62,
+      "valor_total": 2486.2,
+      "currency": "USD",
+      "status": "EXECUTADA",
+      "timestamp": "2026-03-30T10:22:57.630505"
+    }
+  },
+  "posicoes": {
+    "AAPL": {
+      "quantidade": 10,
+      "preco_medio": 248.61999999999998,
+      "currency": "USD"
+    }
+  },
+  "portfolios": {},
+  "default_id": null
+}

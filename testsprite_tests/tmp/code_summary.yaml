@@ -1,0 +1,109 @@
+version: "2"
+type: backend
+tech_stack:
+  - Python 3.11
+  - FastAPI
+  - uvicorn
+  - SQLite
+  - Discord.py
+  - Pydantic v2
+  - MCP SDK
+  - httpx
+  - Textual (TUI)
+
+features:
+  - name: Discord MCP Server
+    description: Servidor MCP para integracao Claude Code com Discord via tools
+    files:
+      - src/core/discord/server.py
+      - src/core/discord/client.py
+      - src/core/discord/access.py
+      - src/core/discord/models.py
+      - src/core/discord/tools/*.py
+    endpoints:
+      - method: TOOL
+        path: reply
+        description: Envia mensagem para canal/thread Discord
+        auth_required: true
+      - method: TOOL
+        path: fetch_messages
+        description: Recupera historico de mensagens
+        auth_required: true
+      - method: TOOL
+        path: react
+        description: Adiciona reacao emoji
+        auth_required: true
+      - method: TOOL
+        path: edit_message
+        description: Edita mensagem do bot
+        auth_required: true
+      - method: TOOL
+        path: download_attachment
+        description: Baixa anexos para inbox local
+        auth_required: true
+      - method: TOOL
+        path: create_thread
+        description: Cria thread a partir de mensagem
+        auth_required: true
+      - method: TOOL
+        path: list_threads
+        description: Lista threads ativas
+        auth_required: true
+      - method: TOOL
+        path: archive_thread
+        description: Arquiva thread
+        auth_required: true
+    depends_on:
+      - Discord Bot Token
+      - access.json configuration
+
+  - name: Skybridge API Server
+    description: Servidor FastAPI principal com WebUI e integracoes
+    files:
+      - apps/server/main.py
+      - src/runtime/bootstrap/app.py
+      - src/runtime/delivery/routes.py
+    endpoints:
+      - method: GET
+        path: /api/health
+        description: Health check endpoint
+        auth_required: false
+      - method: GET
+        path: /api/workspaces
+        description: Lista workspaces disponiveis
+        auth_required: false
+      - method: POST
+        path: /api/webhooks/github
+        description: Recebe webhooks do GitHub
+        auth_required: true
+      - method: POST
+        path: /api/webhooks/trello
+        description: Recebe webhooks do Trello
+        auth_required: true
+    depends_on:
+      - Environment configuration
+
+  - name: Kanban Integration
+    description: Integracao com Trello para gestao de tarefas
+    files:
+      - src/core/kanban/application/trello_service.py
+      - src/core/kanban/application/trello_sync_service.py
+      - src/core/kanban/domain/database.py
+    depends_on:
+      - Trello API credentials
+
+  - name: Webhook Processor
+    description: Processa webhooks do GitHub com fila de jobs
+    files:
+      - src/core/webhooks/application/webhook_processor.py
+      - src/runtime/background/webhook_worker.py
+    depends_on:
+      - GitHub webhook signature validation
+
+known_limitations:
+  - issue: Discord MCP usa stdio transport, nao HTTP
+    location: src/core/discord/server.py
+    impact: Nao pode ser testado via HTTP direto, requer MCP client
+  - issue: Testes de integracao requerem Discord bot token valido
+    location: tests/unit/core/discord_mcp/
+    impact: Alguns testes podem falhar sem credenciais reais
