@@ -28,6 +28,7 @@ from .forum_tools import (
     handle_delete_forum, DELETE_FORUM_TOOL,
     handle_update_forum_settings, UPDATE_FORUM_SETTINGS_TOOL,
 )
+from .inbox import handle_inbox_add, TOOL_DEFINITION as INBOX_ADD_TOOL
 
 __all__ = [
     "handle_reply",
@@ -55,6 +56,7 @@ __all__ = [
     "handle_archive_forum",
     "handle_delete_forum",
     "handle_update_forum_settings",
+    "handle_inbox_add",
     "REPLY_TOOL",
     "SEND_EMBED_TOOL",
     "SEND_BUTTONS_TOOL",
@@ -110,6 +112,7 @@ TOOL_HANDLERS = {
     "archive_forum": (handle_archive_forum, ARCHIVE_FORUM_TOOL),
     "delete_forum": (handle_delete_forum, DELETE_FORUM_TOOL),
     "update_forum_settings": (handle_update_forum_settings, UPDATE_FORUM_SETTINGS_TOOL),
+    "inbox_add": (handle_inbox_add, INBOX_ADD_TOOL),
 }
 
 
@@ -141,4 +144,5 @@ def get_tool_definitions():
         ARCHIVE_FORUM_TOOL,
         DELETE_FORUM_TOOL,
         UPDATE_FORUM_SETTINGS_TOOL,
+        INBOX_ADD_TOOL,
     ]
