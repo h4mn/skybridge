@@ -77,9 +77,40 @@
 - [x] 7.3 Revisar e ajustar labels/mapeamentos conforme uso real
 - [x] 7.4 Arquivar change no OpenSpec (marcar como completo)
 
+## 8. Slash Command Nativo Discord (BÔNUS)
+
+- [x] 8.1 Criar módulo `src/core/discord/commands/slash_commands.py`
+- [x] 8.2 Implementar comando `/inbox` com app_commands (discord.py)
+- [x] 8.3 Adicionar subcomando `/inbox add <título>` com autocomplete
+- [x] 8.4 Implementar registro automático no startup do bot
+- [x] 8.5 Adicionar validação: título é obrigatório (no Discord)
+- [x] 8.6 Implementar criação de issue via Linear MCP (reutilizar inbox.py)
+- [x] 8.7 Adicionar resposta de sucesso com link + emoji ✅
+- [x] 8.8 Adicionar tratamento de erro com mensagem amigável
+- [ ] 8.9 Testar comando em canal do Discord (autocomplete funcionando)
+
 ---
 
-**Status:** ✅ 78/79 tarefas completas (99%)
+**Status:** ✅ 86/88 tarefas completas (98%)
+
+**Mudanças Recentes (2026-04-05):**
+- ✅ Fase 8 adicionada: Slash Command Nativo Discord
+- ✅ Comando `/inbox` com autocomplete implementado
+- ✅ Integração com CommandTree do discord.py
+- ✅ Sync automático no startup do bot
+
+**Notas:**
+- Task 8.9: Teste em canal Discord requer bot rodando
+- Task 1.6: Template (opcional, deixado para futuro)
+
+**Issues criadas para validação:**
+- SKY-100: Paper Trading Hot Reload (domínio:paper)
+- SKY-101: AutoKarpa MCP Server (domínio:autokarpa)
+- SKY-102: Notificações Linear→Discord (domínio:discord)
+- SKY-103: Layout /track Windows (domínio:geral)
+- SKY-99: Teste (marcado para descartar)
+
+**Data conclusão:** 2026-04-05 (Fase 8)
 
 **Notas:**
 - Task 1.6: Template não criado (opcional, deixado para futuro)

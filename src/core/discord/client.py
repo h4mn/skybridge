@@ -19,6 +19,7 @@ from discord import (
     DMChannel,
     Thread,
     InteractionType,
+    app_commands,
 )
 
 from .access import load_access
@@ -34,16 +35,24 @@ def create_discord_client() -> Client:
     Cria cliente Discord configurado com intents necessários.
 
     Returns:
-        Client configurado
+        Client configurado com CommandTree para slash commands
     """
     intents = Intents.default()
     intents.message_content = True  # Necessário para ler conteúdo
     intents.dm_messages = True  # DMs
     intents.guild_messages = True  # Mensagens de servidor
 
+    # Client com CommandTree para slash commands
     client = Client(
         intents=intents,
     )
+
+    # Criar CommandTree para o client
+    tree = app_commands.CommandTree(client)
+
+    # Setup do logger para tree
+    import logging
+    tree.logger = logging.getLogger("discord.app_commands")
 
     return client
 

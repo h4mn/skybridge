@@ -33,7 +33,9 @@ from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent, JSONRPCNotification, JSONRPCMessage
 
 # Discord
-from discord import Message, ChannelType
+from discord import Message, ChannelType, ForumChannel, Thread
+from discord.raw_models import RawMessageUpdateEvent
+from discord import app_commands
 
 # Locals
 from .access import (
@@ -314,6 +316,10 @@ class DiscordMCPServer:
         # CRIA instância do DiscordService com o client (não usa singleton)
         self._discord_service = DiscordService(client=self.discord_client)
 
+        # CommandTree para slash commands (discord.app_commands)
+        # A tree já está anexada ao client em create_discord_client()
+        self.tree = app_commands.CommandTree(self.discord_client)
+
     async def send_notification(self, method: str, params: dict) -> None:
         """
         Envia notificação MCP para Claude Code.
@@ -373,6 +379,27 @@ class DiscordMCPServer:
         async def on_ready():
             if self.discord_client.user:
                 logger.info(f"Discord gateway conectado como {self.discord_client.user}")
+
+                # Setup slash commands
+                try:
+                    from .commands.inbox_slash import setup_inbox_command
+                    setup_inbox_command(self.tree)
+                    logger.info("Slash commands registrados localmente")
+                except Exception as e:
+                    logger.warning(f"Não foi possível registrar slash commands: {e}")
+
+                # Sync commands com Discord (para aparecer na UI)
+                try:
+                    guild = self.discord_client.guilds[0] if self.discord_client.guilds else None
+                    if guild:
+                        # Sync em um guild específico (mais rápido, instantâneo)
+                        self.tree.copy_global_to(guild=guild)
+                        synced = await self.tree.sync(guild=guild)
+                        logger.info(f"Slash commands sincronizados para guild {guild.name}: {len(synced)} commands")
+                    else:
+                        logger.warning("Nenhum guild encontrado - pulando sync de commands")
+                except Exception as e:
+                    logger.error(f"Erro ao sincronizar slash commands: {e}")
 
         @self.discord_client.event
         async def on_interaction(interaction):
@@ -483,6 +510,112 @@ class DiscordMCPServer:
                 import traceback
                 traceback.print_exc()
                 logger.error(f"Erro no handler de interação DDD: {e}")
+
+        @self.discord_client.event
+        async def on_thread_create(thread: Thread):
+            """
+            Handler para detectar novos posts em fóruns Discord.
+
+            Quando alguém cria um post em um fórum, o Discord cria uma Thread.
+            Este handler detecta isso e envia notificação MCP.
+            """
+            try:
+                # Verificar se o parent é um ForumChannel
+                if not thread.parent or not isinstance(thread.parent, ForumChannel):
+                    return
+
+                # Obter autor
+                author_id = str(thread.owner.id) if thread.owner else "unknown"
+                author_name = thread.owner.name if thread.owner else "unknown"
+
+                # Formatar notificação MCP
+                notification = {
+                    "content": f"[forum post] {thread.name} (criado em #{thread.parent.name})",
+                    "meta": {
+                        "chat_id": str(thread.id),
+                        "message_id": str(thread.id),
+                        "user": author_name,
+                        "user_id": author_id,
+                        "ts": datetime.now().isoformat(),
+                        "interaction_type": "forum_post_created",
+                        "forum_channel_id": str(thread.parent.id),
+                        "forum_post_id": str(thread.id),
+                        "post_title": thread.name,
+                    },
+                }
+
+                await self.send_notification("notifications/claude/channel", notification)
+                logger.info(f"Novo post criado no fórum {thread.parent.name}: {thread.name}")
+
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                logger.error(f"Erro no handler on_thread_create: {e}")
+
+        @self.discord_client.event
+        async def on_raw_message_update(payload: RawMessageUpdateEvent):
+            """
+            Handler para detectar novos comentários em posts de fórum.
+
+            No Discord, comentários em posts são atualizações de mensagem
+            dentro de uma Thread que pertence a um ForumChannel.
+            """
+            try:
+                # Verificar se é uma mensagem em um thread de fórum
+                channel = self.discord_client.get_channel(payload.channel_id)
+                if not channel:
+                    return
+
+                # Verificar se o canal é uma thread com parent ForumChannel
+                if not hasattr(channel, 'parent') or not channel.parent:
+                    return
+
+                if not isinstance(channel.parent, ForumChannel):
+                    return
+
+                # Ignorar se não tem mensagem (pode ser apenas atualização de estado)
+                if not payload.data.get('content'):
+                    return
+
+                # Obter detalhes da mensagem
+                message_id = str(payload.message_id)
+                author_id = payload.data.get('author', {}).get('id', 'unknown')
+                author_name = payload.data.get('author', {}).get('username', 'unknown')
+                content = payload.data.get('content', '')
+
+                # Verificar anexos
+                has_attachments = False
+                attachment_count = 0
+                if 'attachments' in payload.data:
+                    attachments = payload.data.get('attachments', [])
+                    attachment_count = len([a for a in attachments if a])
+                    has_attachments = attachment_count > 0
+
+                # Formatar notificação MCP
+                notification = {
+                    "content": f"[forum comment] em {channel.name}",
+                    "meta": {
+                        "chat_id": str(payload.channel_id),
+                        "message_id": message_id,
+                        "user": author_name,
+                        "user_id": str(author_id),
+                        "ts": datetime.now().isoformat(),
+                        "interaction_type": "forum_comment_added",
+                        "forum_channel_id": str(channel.parent.id),
+                        "forum_post_id": str(payload.channel_id),
+                        "comment_id": message_id,
+                        "has_attachments": str(has_attachments),
+                        "attachment_count": str(attachment_count),
+                    },
+                }
+
+                await self.send_notification("notifications/claude/channel", notification)
+                logger.info(f"Novo comentário no post {channel.name} do fórum {channel.parent.name}")
+
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                logger.error(f"Erro no handler on_raw_message_update: {e}")
 
         # print removed for MCP stdio
 
