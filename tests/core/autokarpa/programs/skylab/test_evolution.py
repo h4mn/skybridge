@@ -180,13 +180,13 @@ class TestCrashHandling:
     @patch("src.core.autokarpa.programs.skylab.core.evolution.parse_specs")
     @patch("src.core.autokarpa.programs.skylab.core.evolution.get_results_path")
     @patch("src.core.autokarpa.programs.skylab.core.evolution.write_results_tsv")
-    def test_crash_registra_status_crash(self, mock_write, mock_get_results, mock_parse, mock_load):
+    def test_run_iteration_retorna_status_crash(self, mock_write, mock_get_results, mock_parse, mock_load):
         """
-        DOC: spec.md - Crash durante execução deve registrar status "crash".
+        DOC: spec.md - Crash durante execução deve retornar status "crash".
 
         Dado: iteração levanta exceção
         Quando: exceção ocorre
-        Então: git reset é chamado e status = "crash" é registrado
+        Então: run_iteration() retorna status "crash"
         """
         # Setup mocks
         mock_load.return_value = {
@@ -209,15 +209,12 @@ class TestCrashHandling:
                 agent_func=crashing_agent,
             )
 
-            with patch.object(loop, "_git_reset_hard") as mock_reset:
-                result = loop.run_iteration(0)
+            result = loop.run_iteration(0)
 
-                # Verificar que reset foi chamado
-                mock_reset.assert_called_once()
-
-                # Verificar resultado tem status crash
-                assert result.status == "crash"
-                assert "crash" in result.description.lower()
+            # Verificar resultado tem status crash
+            assert result.status == "crash"
+            assert "crash" in result.description.lower()
+            assert result.code_health == 0.0
 
 
 class TestGitIntegration:
