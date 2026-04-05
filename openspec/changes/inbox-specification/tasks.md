@@ -13,7 +13,7 @@
 
 - [x] 2.1 Criar módulo `src/core/discord/presentation/tools/inbox.py`
 - [x] 2.2 Implementar handler `/inbox add <título>`
-- [x] 2.3 Adicionar validação: título é obrigatório
+- [x] 2.3 Adicionar validação: título OU descrição é obrigatório (pelo menos um)
 - [x] 2.4 Adicionar validação: título > 200 caracteres é truncado
 - [x] 2.5 Implementar criação de issue via Linear MCP
 - [x] 2.6 Implementar descrição estruturada (Fonte, Inspiração, Ação, Expires)
@@ -24,6 +24,8 @@
 - [x] 2.11 Adicionar feedback de sucesso: link para issue + emoji ✅
 - [x] 2.12 Adicionar tratamento de erro com mensagem amigável
 - [x] 2.13 Adicionar logging para debug de erros
+- [x] 2.14 Adicionar parâmetro `descrição` opcional ao slash command
+- [x] 2.15 Implementar concatenação: descrição do usuário + descrição estruturada
 
 ## 3. Integração com Discord MCP
 
@@ -40,7 +42,7 @@
 - [x] 4.1 Criar diretório `.claude/skills/inbox/`
 - [x] 4.2 Criar `skill.md` com definição do comando `/inbox`
 - [x] 4.3 Implementar handler que usa Linear MCP (`mcp__plugin_linear_linear__save_issue`)
-- [x] 4.4 Implementar validação: título é obrigatório
+- [x] 4.4 Implementar validação: título OU descrição é obrigatório (pelo menos um)
 - [x] 4.5 Implementar validação: título > 200 caracteres é truncado
 - [x] 4.6 Implementar criação de issue no projeto "Inbox"
 - [x] 4.7 Implementar descrição estruturada (Fonte, Inspiração, Ação, Expires)
@@ -50,6 +52,8 @@
 - [x] 4.11 Adicionar feedback de sucesso: link para issue + emoji ✅
 - [x] 4.12 Adicionar tratamento de erro com mensagem amigável
 - [x] 4.13 Testar comando via Claude Code
+- [x] 4.14 Adicionar parâmetro `description` ao `skill.md` (opcional, sem limite de caracteres)
+- [x] 4.15 Implementar concatenação: descrição do usuário + descrição estruturada
 
 ## 5. Documentação
 
