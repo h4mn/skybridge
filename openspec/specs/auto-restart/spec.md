@@ -1,9 +1,8 @@
-# Spec: Auto-Restart
+# auto-restart Specification
 
-Capability para detecção e correção automática de conflitos entre apps Toggl (Desktop/Chrome) e MCP.
-
-## ADDED Requirements
-
+## Purpose
+TBD - created by archiving change document-track-productivity-system. Update Purpose after archive.
+## Requirements
 ### Requirement: Verificação de consistência
 O sistema SHALL verificar consistência entre estado local (state.json) e realidade do Toggl antes de cada ação.
 
@@ -59,3 +58,4 @@ O sistema SHALL identificar possíveis causas de parada inesperada.
 ---
 
 > "Auto-recuperação é melhor que auto-piedade" – made by Sky [restart]
+

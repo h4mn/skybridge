@@ -1,9 +1,8 @@
-# Spec: Pomodoro Scheduler
+# pomodoro-scheduler Specification
 
-Capability para gerenciamento de ciclos Pomodoro 50+10 (trabalho + pausa) otimizado para trabalho com IA.
-
-## ADDED Requirements
-
+## Purpose
+TBD - created by archiving change document-track-productivity-system. Update Purpose after archive.
+## Requirements
 ### Requirement: Lógica de retomada
 O sistema SHALL retomar timer automaticamente quando break terminou E ciclo completo foi trabalhado.
 
@@ -77,3 +76,4 @@ O sistema SHALL calcular cotas de produtividade baseadas em tempo trabalhado.
 ---
 
 > "Contexto é caro, então estica o ciclo. 50+10 > 25+5 com IA" – made by Sky [pomodoro]
+

@@ -1,9 +1,8 @@
-# Spec: Performance Cache
+# performance-cache Specification
 
-Capability para cache local que otimiza performance da skill /track para < 30s.
-
-## ADDED Requirements
-
+## Purpose
+TBD - created by archiving change document-track-productivity-system. Update Purpose after archive.
+## Requirements
 ### Requirement: Cache de state local
 O sistema SHALL manter cache local em state.json para evitar chamadas MCP pesadas.
 
@@ -72,6 +71,19 @@ O sistema SHALL garantir resposta em < 30s para todas as operações.
 - **THEN** tempo < 1s
 - **AND** apenas state.json é lido (sem chamada MCP)
 
+### Requirement: Histórico de tarefas
+O sistema SHALL manter histórico de tarefas concluídas para análise de precisão.
+
+#### Scenario: Tarefa concluída registrada
+- **WHEN** timer é parado após conclusão de tarefa
+- **THEN** history.json armazena entrada com: id, projeto, fase, duracao
+- **AND** calcula: estimativa_cotas vs real_cotas = precisao%
+
+#### Scenario: Análise de padrões
+- **WHEN** history.json tem múltiplas entradas
+- **THEN** sistema pode identificar alpha/beta patterns
+- **AND** sugerir: "Tags 'implementacao' correlacionam com -30% tempo"
+
 ### Requirement: Sincronização bidirecional
 O sistema SHALL manter sincronia entre cache e API Toggl.
 
@@ -88,3 +100,4 @@ O sistema SHALL manter sincronia entre cache e API Toggl.
 ---
 
 > "Cache local é a diferença entre 3min e 30s" – made by Sky [performance]
+

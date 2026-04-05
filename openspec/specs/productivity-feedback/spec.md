@@ -1,9 +1,8 @@
-# Spec: Productivity Feedback
+# productivity-feedback Specification
 
-Capability para feedback estruturado de produtividade com cálculo de cotas e integração RescueTime.
-
-## ADDED Requirements
-
+## Purpose
+TBD - created by archiving change document-track-productivity-system. Update Purpose after archive.
+## Requirements
 ### Requirement: Calculadora de cotas
 O sistema SHALL calcular cotas de produtividade baseadas em tempo trabalhado.
 
@@ -89,7 +88,17 @@ O sistema SHALL rastrear precisão de estimativas vs realidade.
 #### Scenario: Estimativa precisa
 - **WHEN** tarefa estimada em 2 cotas leva 2 cotas
 - **THEN** precisão = 100%
-- **AND** sistema registra: "Estimativa precisa"
+- **AND** sistema registra em history.json: "precisao": 100
+
+#### Scenario: Estimativa registrada
+- **WHEN** tarefa é concluída
+- **THEN** history.json armazena: estimativa_cotas, real_cotas, precisao%
+- **AND** dados são persistidos para análise de padrões futuros
+
+#### Scenario: Meta de precisão
+- **WHEN** precisão média < 80%
+- **THEN** sistema sugere: "Revise método de estimativa"
+- **AND** recomenda: "Use referências históricas de history.json"
 
 #### Scenario: Estimativa otimista
 - **WHEN** tarefa estimada em 2 cotas leva 4 cotas
@@ -105,3 +114,4 @@ O sistema SHALL rastrear precisão de estimativas vs realidade.
 ---
 
 > "Cotas são a moeda do seu tempo. Gaste com sabedoria" – made by Sky [feedback]
+

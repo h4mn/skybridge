@@ -1,9 +1,8 @@
-# Spec: Toggl CRUD
+# toggl-crud Specification
 
-Capability para operações CRUD completas de time entries no Toggl via MCP.
-
-## ADDED Requirements
-
+## Purpose
+TBD - created by archiving change document-track-productivity-system. Update Purpose after archive.
+## Requirements
 ### Requirement: Iniciar timer
 O sistema SHALL iniciar um novo timer no Toggl com projeto, tags e descrição fornecidos.
 
@@ -67,3 +66,4 @@ O sistema SHALL modificar descrição e tags de uma entry existente.
 ---
 
 > "CRUD completo é liberdade de gerenciar seu tempo" – made by Sky [toggl]
+
