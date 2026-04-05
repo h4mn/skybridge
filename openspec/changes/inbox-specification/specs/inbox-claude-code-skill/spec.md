@@ -14,10 +14,10 @@ O sistema SHALL capturar uma ideia através do comando `/inbox add <título>` no
 - **AND** issue status é "Inbox Entry"
 - **AND** issue contém descrição estruturada com campos Fonte, Inspiração, Ação sugerida, Expires
 
-#### Scenario: Captura sem título
+#### Scenario: Captura sem título nem descrição
 
-- **WHEN** usuário executa `/inbox add` sem fornecer título
-- **THEN** sistema retorna mensagem de erro solicitando título
+- **WHEN** usuário executa `/inbox add` sem fornecer título nem descrição
+- **THEN** sistema retorna mensagem de erro solicitando pelo menos título ou descrição
 - **AND** nenhuma issue é criada
 
 #### Scenario: Captura com título muito longo
@@ -26,6 +26,20 @@ O sistema SHALL capturar uma ideia através do comando `/inbox add <título>` no
 - **THEN** sistema trunca título para 200 caracteres
 - **AND** cria issue com título truncado
 - **AND** título completo é preservado no corpo da descrição
+
+#### Scenario: Captura apenas com descrição (sem título)
+
+- **WHEN** usuário executa `/inbox add description:"Texto longo da ideia..."`
+- **THEN** sistema cria issue com título gerado das primeiras 5 palavras da descrição
+- **AND** descrição completa fornecida é incluída no corpo da issue
+- **AND** campos estruturados são adicionados após a descrição do usuário
+
+#### Scenario: Captura com título e descrição
+
+- **WHEN** usuário executa `/inbox add Título description:"Contexto adicional..."`
+- **THEN** sistema cria issue com título fornecido
+- **AND** descrição do usuário aparece antes dos campos estruturados
+- **AND** campos estruturados (Fonte, Ação, Expires) são mantidos
 
 ### Requirement: Preencher metadados automaticamente
 

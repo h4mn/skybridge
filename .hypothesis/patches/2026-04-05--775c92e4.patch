@@ -1,0 +1,15 @@
+From HEAD Mon Sep 17 00:00:00 2001
+From: Hypothesis 6.151.10 <no-reply@hypothesis.works>
+Date: Sun, 05 Apr 2026 19:35:40
+Subject: [PATCH] Hypothesis: add explicit examples
+
+---
+--- ./workspace\core\tmp_path\test_ba5ebb84\tests\test_failing.py
++++ ./workspace\core\tmp_path\test_ba5ebb84\tests\test_failing.py
+@@ -4,5 +4,6 @@
+ 
+ @settings(max_examples=100)
+ @given(st.integers())
++@example(x=-1).via("discovered failure")
+ def test_always_positive(x):
+     assert x >= 0  # Falha para negativos

@@ -2,7 +2,7 @@
 """
 Inbox Skill - Captura rápida de ideias para o Linear
 
-Uso: /inbox add <título>
+Uso: /inbox add <título> ou /inbox add description:<texto>
 """
 
 from __future__ import annotations
@@ -43,48 +43,78 @@ def truncate_title(title: str) -> tuple[str, bool]:
     return title, False
 
 
-def build_description(title: str, was_truncated: bool, full_title: str | None = None) -> str:
-    """Constroi descrição estruturada da issue."""
-    parts = ["**Fonte:** Claude Code"]
+def build_description(title: str, was_truncated: bool, full_title: str | None = None, user_description: str | None = None) -> str:
+    """Constroi descrição estruturada da issue.
+
+    Args:
+        title: Título da ideia
+        was_truncated: Se o título foi truncado
+        full_title: Título completo (se foi truncado)
+        user_description: Descrição opcional fornecida pelo usuário
+
+    Returns:
+        Descrição estruturada em Markdown
+    """
+    parts = []
+
+    # Descrição do usuário (se fornecida)
+    if user_description:
+        parts.append(user_description.strip())
+        parts.append("\n---")
+
+    # Fonte
+    parts.append("**Fonte:** Claude Code")
 
     # Preservar título completo se foi truncado
     if was_truncated and full_title:
         parts.append(f"\n**Título completo:** {full_title}")
 
-    parts.append("\n---")
     parts.append("\n**Ação sugerida:** Implementar | Pesquisar | Arquivar | Descartar")
     parts.append(f"\n**Expires:** {calculate_expires_date()} ({EXPIRES_DAYS} dias)")
 
     return "\n".join(parts)
 
 
-def inbox_add(title: str) -> dict:
+def inbox_add(title: str | None = None, description: str | None = None) -> dict:
     """
     Adiciona uma ideia ao Inbox via Linear MCP.
 
     Args:
-        title: Título da ideia
+        title: Título da ideia (opcional se description for fornecido)
+        description: Descrição adicional da ideia (opcional, sem limite de caracteres)
 
     Returns:
         Dict com status e dados da issue criada
     """
-    # Validação
-    if not title or not title.strip():
+    # Validação: pelo menos título ou descrição
+    has_title = title and title.strip()
+    has_description = description and description.strip()
+
+    if not has_title and not has_description:
         return {
             "status": "error",
-            "error": "Título é obrigatório. Use: /inbox add <título>"
+            "error": "Pelo menos título ou descrição é obrigatório. Use: /inbox add <título> ou /inbox add description:<texto>"
         }
 
-    title = title.strip()
+    # Processar título
+    title = title.strip() if has_title else ""
+    truncated_title = ""
+    was_truncated = False
 
-    # Truncar se necessário
-    truncated_title, was_truncated = truncate_title(title)
+    if has_title:
+        truncated_title, was_truncated = truncate_title(title)
+    else:
+        # Se não há título, usar primeiras palavras da descrição
+        desc_words = description.strip().split()[:5]
+        truncated_title = "Inbox: " + " ".join(desc_words) + ("..." if len(description.strip().split()) > 5 else "")
 
     # Construir descrição
-    description = build_description(
+    user_desc = description.strip() if has_description else None
+    structured_description = build_description(
         title=truncated_title,
         was_truncated=was_truncated,
         full_title=title if was_truncated else None,
+        user_description=user_desc,
     )
 
     # Retornar dados para criação via Linear MCP
@@ -92,7 +122,7 @@ def inbox_add(title: str) -> dict:
         "status": "ready",
         "project_id": INBOX_PROJECT_ID,
         "title": truncated_title,
-        "description": description,
+        "description": structured_description,
         "labels": [
             LABELS["fonte:claude-code"],
             LABELS["ação:implementar"],
@@ -108,7 +138,7 @@ def handle_inbox_command(args: dict) -> str:
     Handler principal da skill /inbox.
 
     Args:
-        args: Dict com 'action' e 'title'
+        args: Dict com 'action', 'title' e 'description'
 
     Returns:
         Mensagem de resposta
@@ -116,12 +146,13 @@ def handle_inbox_command(args: dict) -> str:
     action = args.get("action", "")
 
     if action != "add":
-        return f"❌ Ação '{action}' não suportada. Use: /inbox add <título>"
+        return f"❌ Ação '{action}' não suportada. Use: /inbox add <título> ou /inbox add description:<texto>"
 
-    title = args.get("title", "")
+    title = args.get("title")
+    description = args.get("description")
 
     # Preparar dados para Linear MCP
-    result = inbox_add(title)
+    result = inbox_add(title=title, description=description)
 
     if result["status"] == "error":
         return f"❌ {result['error']}"
@@ -140,3 +171,4 @@ def handle_inbox_command(args: dict) -> str:
 if __name__ == "__main__":
     # Teste local
     print(handle_inbox_command({"action": "add", "title": "Teste de ideia"}))
+    print(handle_inbox_command({"action": "add", "description": "Ideia completa sem título"}))

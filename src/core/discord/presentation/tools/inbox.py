@@ -86,9 +86,26 @@ def _build_description(
     channel_name: str | None,
     was_truncated: bool,
     full_title: str | None = None,
+    user_description: str | None = None,
 ) -> str:
-    """Constroi descrição estruturada da issue."""
+    """Constroi descrição estruturada da issue.
+
+    Args:
+        title: Título da ideia
+        channel_name: Nome do canal Discord
+        was_truncated: Se o título foi truncado
+        full_title: Título completo (se foi truncado)
+        user_description: Descrição opcional fornecida pelo usuário
+
+    Returns:
+        Descrição estruturada em Markdown
+    """
     parts = []
+
+    # Descrição do usuário (se fornecida)
+    if user_description:
+        parts.append(user_description.strip())
+        parts.append("\n---")
 
     # Fonte
     if channel_name:
@@ -100,7 +117,6 @@ def _build_description(
     if was_truncated and full_title:
         parts.append(f"\n**Título completo:** {full_title}")
 
-    parts.append("\n---")
     parts.append("\n**Ação sugerida:** Implementar | Pesquisar | Arquivar | Descartar")
     parts.append(f"\n**Expires:** {_calculate_expires_date()} ({EXPIRES_DAYS} dias)")
 
@@ -118,23 +134,35 @@ async def handle_inbox_add(
 
     Args:
         discord_service: Instância do DiscordService
-        args: Argumentos do tool (title, channel_id)
+        args: Argumentos do tool (title, description, channel_id)
 
     Returns:
         Dict com dados estruturados para criação da issue Linear
     """
-    title = args.get("title", "").strip()
+    title = args.get("title", "").strip() if args.get("title") else ""
+    user_description = args.get("description", "").strip() if args.get("description") else ""
     channel_id = args.get("channel_id")
 
-    # Validação: título é obrigatório
-    if not title:
+    # Validação: pelo menos título ou descrição
+    has_title = bool(title)
+    has_description = bool(user_description)
+
+    if not has_title and not has_description:
         return {
             "status": "error",
-            "error": "Título é obrigatório. Use: /inbox add <título>"
+            "error": "Pelo menos título ou descrição é obrigatório. Use: /inbox add <título> ou /inbox add description:<texto>"
         }
 
     # Truncar título se necessário
-    truncated_title, was_truncated = _truncate_title(title)
+    truncated_title = ""
+    was_truncated = False
+
+    if has_title:
+        truncated_title, was_truncated = _truncate_title(title)
+    else:
+        # Se não há título, usar primeiras palavras da descrição
+        desc_words = user_description.split()[:5]
+        truncated_title = "Inbox: " + " ".join(desc_words) + ("..." if len(user_description.split()) > 5 else "")
 
     # Obter nome do canal
     channel_name = None
@@ -155,6 +183,7 @@ async def handle_inbox_add(
         channel_name=channel_name,
         was_truncated=was_truncated,
         full_title=title if was_truncated else None,
+        user_description=user_description if has_description else None,
     )
 
     # Retornar dados estruturados para criação via Linear MCP
@@ -186,13 +215,17 @@ TOOL_DEFINITION = {
         "properties": {
             "title": {
                 "type": "string",
-                "description": "Título da ideia (obrigatório, máximo 200 caracteres)"
+                "description": "Título da ideia (opcional se description for fornecido, máximo 200 caracteres)"
+            },
+            "description": {
+                "type": "string",
+                "description": "Descrição adicional da ideia (opcional, sem limite de caracteres)"
             },
             "channel_id": {
                 "type": "string",
                 "description": "ID do canal (opcional, usado para detectar domínio automaticamente)"
             },
         },
-        "required": ["title"],
+        "required": [],
     },
 }

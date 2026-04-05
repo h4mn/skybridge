@@ -9,7 +9,10 @@ params:
     description: The action to perform (add is the only supported action)
     required: true
   - name: title
-    description: The title of the idea (required for add action)
+    description: The title of the idea (optional if description is provided)
+    required: false
+  - name: description
+    description: Additional context for the idea (no character limit, optional if title is provided)
     required: false
 ---
 
@@ -25,14 +28,15 @@ Skill para capturar ideias rapidamente e criar issues no projeto "Inbox" do Line
 
 ## Comportamento
 
-1. **Validação**: O título é obrigatório
+1. **Validação**: Pelo menos título OU descrição é obrigatório (ambos opcionais individualmente)
 2. **Truncamento**: Títulos > 200 caracteres são truncados (título completo preservado na descrição)
-3. **Labels automáticas**:
+3. **Descrição opcional**: Texto adicional sem limite de caracteres
+4. **Labels automáticas**:
    - `fonte:claude-code`
    - `ação:implementar`
    - `domínio:geral` (padrão)
-4. **Expires**: Calculado como hoje + 60 dias
-5. **Projeto**: Inbox - Backlog de Ideias
+5. **Expires**: Calculado como hoje + 60 dias
+6. **Projeto**: Inbox - Backlog de Ideias
 
 ## Descrição Estruturada
 

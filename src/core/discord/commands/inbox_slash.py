@@ -65,18 +65,39 @@ def build_description(
     channel_name: Optional[str],
     was_truncated: bool,
     full_title: Optional[str] = None,
+    user_description: Optional[str] = None,
 ) -> str:
-    """Constroi descrição estruturada da issue."""
-    parts = [f"**Fonte:** Discord #{channel_name}" if channel_name else "**Fonte:** Discord"]
+    """Constroi descrição estruturada da issue.
 
+    Args:
+        title: Título da ideia
+        channel_name: Nome do canal Discord
+        was_truncated: Se o título foi truncado
+        full_title: Título completo (se foi truncado)
+        user_description: Descrição opcional fornecida pelo usuário
+
+    Returns:
+        Descrição estruturada em Markdown
+    """
+    parts = []
+
+    # Descrição do usuário (se fornecida)
+    if user_description:
+        parts.append(user_description.strip())
+        parts.append("\n---")
+
+    # Fonte
+    if channel_name:
+        parts.append(f"**Fonte:** Discord #{channel_name}")
+    else:
+        parts.append("**Fonte:** Discord")
+
+    # Preservar título completo se foi truncado
     if was_truncated and full_title:
         parts.append(f"\n**Título completo:** {full_title}")
 
-    parts.extend([
-        "\n---",
-        "\n**Ação sugerida:** Implementar | Pesquisar | Arquivar | Descartar",
-        f"\n**Expires:** {calculate_expires_date()} ({EXPIRES_DAYS} dias)",
-    ])
+    parts.append("\n**Ação sugerida:** Implementar | Pesquisar | Arquivar | Descartar")
+    parts.append(f"\n**Expires:** {calculate_expires_date()} ({EXPIRES_DAYS} dias)")
 
     return "\n".join(parts)
 
@@ -84,6 +105,7 @@ def build_description(
 async def inbox_command_handler(
     interaction: Interaction,
     titulo: str,
+    descricao: Optional[str] = None,
 ) -> None:
     """
     Handler do comando /inbox.
@@ -91,28 +113,43 @@ async def inbox_command_handler(
     Args:
         interaction: Interação do Discord
         titulo: Título da ideia
+        descricao: Descrição opcional da ideia
     """
     await interaction.response.defer()
 
-    # Validação
-    if not titulo or not titulo.strip():
-        await interaction.followup.send("❌ **Título é obrigatório!**")
+    # Validação: pelo menos título ou descrição
+    has_title = titulo and titulo.strip()
+    has_description = descricao and descricao.strip()
+
+    if not has_title and not has_description:
+        await interaction.followup.send("❌ **Pelo menos título ou descrição é obrigatório!**")
         return
 
-    titulo = titulo.strip()
-    was_truncated = len(titulo) > MAX_TITLE_LENGTH
-    truncated_title = titulo[:MAX_TITLE_LENGTH] if was_truncated else titulo
+    # Processar título
+    titulo = titulo.strip() if has_title else ""
+    was_truncated = False
+    truncated_title = ""
+
+    if has_title:
+        was_truncated = len(titulo) > MAX_TITLE_LENGTH
+        truncated_title = titulo[:MAX_TITLE_LENGTH] if was_truncated else titulo
+    else:
+        # Se não há título, usar primeiras palavras da descrição
+        desc_words = descricao.strip().split()[:5]
+        truncated_title = "Inbox: " + " ".join(desc_words) + ("..." if len(descricao.strip().split()) > 5 else "")
 
     # Detectar domínio
     channel_name = interaction.channel.name if interaction.channel else None
     domain = detect_domain_from_channel(channel_name)
 
     # Construir descrição
+    user_desc = descricao.strip() if has_description else None
     description = build_description(
         title=truncated_title,
         channel_name=channel_name,
         was_truncated=was_truncated,
         full_title=titulo if was_truncated else None,
+        user_description=user_desc,
     )
 
     # Labels (usando IDs conhecidos do Linear)
@@ -176,12 +213,14 @@ def setup_inbox_command(tree: app_commands.CommandTree) -> None:
         description="Capturar ideia no Inbox - cria issue no Linear"
     )
     @app_commands.describe(
-        titulo="Título da ideia (obrigatório, máximo 200 caracteres)"
+        titulo="Título da ideia (opcional se descrição for fornecido, máximo 200 caracteres)",
+        descricao="Descrição adicional da ideia (opcional, sem limite de caracteres)"
     )
     async def inbox(
         interaction: Interaction,
         titulo: str,
+        descricao: Optional[str] = None,
     ):
-        await inbox_command_handler(interaction, titulo)
+        await inbox_command_handler(interaction, titulo, descricao)
 
     logger.info("Comando /inbox registrado na CommandTree")
