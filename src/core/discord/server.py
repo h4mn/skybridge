@@ -711,8 +711,12 @@ class DiscordMCPServer:
                 except Exception as e:
                     logger.debug(f"Não foi possível obter nome do usuário {payload.user_id}: {e}")
 
-                # Determinar tipo de canal
+                # Determinar tipo de canal e categoria
                 channel_name = getattr(channel, 'name', str(payload.channel_id))
+                category_name = None
+                if hasattr(channel, 'category') and channel.category:
+                    category_name = channel.category.name
+
                 interaction_type = "reaction_added"
 
                 # Se for thread, marcar especificamente
@@ -728,8 +732,12 @@ class DiscordMCPServer:
                 # Formatar notificação MCP
                 # CORREÇÃO: Usar apenas os campos padrão que existem nas notificações de mensagem
                 # Campos extras podem causar rejeição pelo Claude Code
+
+                # Formatar prefixo com categoria (se houver)
+                category_prefix = f"[{category_name}] " if category_name else ""
+
                 notification = {
-                    "content": f"[{emoji_str}] {reactor_display} reagiu {message_author_name}: \"{message_preview}\"",
+                    "content": f"{category_prefix}[{emoji_str}] {reactor_display} reagiu {message_author_name}: \"{message_preview}\"",
                     "meta": {
                         "chat_id": str(payload.channel_id),
                         "message_id": str(payload.message_id),
