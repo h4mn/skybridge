@@ -77,12 +77,12 @@
 
 ## 11. Documentação
 
-- [ ] 11.1 Criar `doc/skylab/META-EVOLUÇÃO.md` com guia completo
-- [ ] 11.2 Documentar arquitetura em 3 camadas
-- [ ] 11.3 Documentar fluxo de meta-evolução passo a passo
-- [ ] 11.4 Documentar critérios de entrada (intenção, baseline, Code Health)
-- [ ] 11.5 Documentar mecanismos de segurança (recursão limitada, teste duplo, rollback)
-- [ ] 11.6 Adicionar exemplos de uso
+- [x] 11.1 Criar `doc/skylab/META-EVOLUÇÃO.md` com guia completo
+- [x] 11.2 Documentar arquitetura em 3 camadas
+- [x] 11.3 Documentar fluxo de meta-evolução passo a passo
+- [x] 11.4 Documentar critérios de entrada (intenção, baseline, Code Health)
+- [x] 11.5 Documentar mecanismos de segurança (recursão limitada, teste duplo, rollback)
+- [x] 11.6 Adicionar exemplos de uso
 
 ## 12. Integração e E2E
 
@@ -94,7 +94,7 @@
 
 ---
 
-**Progresso: 45/56 tasks (80%)**
+**Progresso: 51/56 tasks (91%)**
 
 ### Status dos Issues Críticos:
 
