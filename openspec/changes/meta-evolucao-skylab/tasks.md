@@ -69,7 +69,7 @@
 
 ## 10. Testes - Self-Hosting Session
 
-- [ ] 10.1 Adicionar testes em `test_self_hosting_session.py` (parcial - imports problemáticos)
+- [x] 10.1 Adicionar testes em `test_self_hosting_session.py` - 8 testes criados ✅
 - [x] 10.2 Testar criação de branch isolado
 - [x] 10.3 Testar baseline capture
 - [x] 10.4 Testar limite de recursão (N=1, N=2, N=3 permitidos, N=4 bloqueado)
@@ -94,7 +94,7 @@
 
 ---
 
-**Progresso: 54/56 tasks (96%)**
+**Progresso: 55/56 tasks (98%)**
 
 ### Status dos Issues Críticos:
 
@@ -106,18 +106,22 @@
 - ✅ CRITICAL #7: testing/quality/ bloqueados em meta-mode
 - ✅ CRITICAL #8: Limite de recursão N≤3
 
-### Pendências (2 tasks):
+### Única Pendência:
 
-1. **Task 10.1:** Completar test_self_hosting_session.py (imports resolvidos, apenas estrutura)
-2. **Task 12.2:** Executar meta-evolução em main (N=2)
+1. **Task 12.2:** Executar meta-evolução em main (N=2) - requer execução real em main branch
 
 ### Problemas Resolvidos:
 
 - ✅ Task #2: Code Health - 6 testes PBT adicionados com Hypothesis
 - ✅ Task #3: Métricas zeradas - testes Hypothesis criados para PBT
+- ✅ Task 10.1: test_self_hosting_session.py - 8 testes criados
 
 ### Commits da Sessão:
 
 - Iteration 13: PBT com Hypothesis (6 testes)
 - Iteration 14: Rollback validation (3 testes)
 - Iteration 15: Documentação RESULTADOS.md
+- Iteration 16: Update progress 54/56
+- Iteration 17: Session tests (8 testes)
+
+### Testes Totais: 32/32 passing ✅
