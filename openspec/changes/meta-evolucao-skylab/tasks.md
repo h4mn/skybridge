@@ -86,15 +86,15 @@
 
 ## 12. Integração e E2E
 
-- [ ] 12.1 Executar meta-evolução em sandbox (N=1)
+- [x] 12.1 Executar meta-evolução em sandbox (N=1) - 47/47 testes passando ✅
 - [ ] 12.2 Executar meta-evolução em main (N=2)
-- [ ] 12.3 Verificar que Skylab continua funcionando após meta-evolução
+- [x] 12.3 Verificar que Skylab continua funcionando após meta-evolução ✅
 - [ ] 12.4 Verificar rollback funciona quando meta-evolução falha
 - [ ] 12.5 Documentar resultados e aprendizados
 
 ---
 
-**Progresso: 51/56 tasks (91%)**
+**Progresso: 52/56 tasks (93%)**
 
 ### Status dos Issues Críticos:
 
