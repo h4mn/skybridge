@@ -2,8 +2,23 @@
   "enabledPlugins": {
     "discord@claude-plugins-official": true
   },
-  "hooks": {},
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "task_completed|agent_finished|background_bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/skills/notifications/scripts/notify_discord.py",
+            "timeout": 10,
+            "statusMessage": "Enviando notificação para Discord..."
+          }
+        ]
+      }
+    ]
+  },
   "env": {
-    "PYTHONUTF8": "1"
+    "PYTHONUTF8": "1",
+    "DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/1489630918468702379/RQ-I31Bcu26TzTAF1PUVEP44lIm1SZ8vmD0RmD_wou414Go8HaAKHwAOBfOPO3_P0bmz"
   }
 }

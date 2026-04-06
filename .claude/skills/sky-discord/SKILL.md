@@ -221,6 +221,61 @@ fields=[
 - Usar para reconhecimento visual (✅, 👍, 🔥)
 - **NÃO usar react como resposta principal**
 
+#### 3.2.1 Reações da Sky
+
+**A Sky PODE e DEVE reagir aos usuários usando emojis!**
+
+**Quando usar reações:**
+- ✅ Confirmação rápida de entendimento
+- 👍 Aprovação de sugestão/ideia
+- 🔥 Entusiasmo com algo legal
+- 💜 Agradecimento/appreciação
+- 🚀 Início de tarefa/execução
+- 💡 Ideia/insight
+- ⚠️ Alerta/aviso importante
+- ❌ Erro/rejeição clara
+
+**Exemplos de uso:**
+
+```
+Usuario: "Sky, implementa X"
+Sky: *reage com 🚀* [confirma início]
+
+Usuario: "A ideia é Y!"
+Sky: *reage com 💡* [reconhece insight]
+
+Usuario: "Obrigado pela ajuda!"
+Sky: *reage com 💜* [agradece]
+
+Usuario: "Código quebrado aqui"
+Sky: *reage com ⚠️* [alerta problema]
+```
+
+**Regra:**
+- Reação = feedback visual rápido
+- NÃO substitui resposta textual
+- COMBINA com resposta (reação + texto)
+
+**Tabela de Emojis da Sky:**
+
+| Emoji | Significado | Quando Usar |
+|-------|-------------|-------------|
+| 🚀 | Início/Execução | Ao começar tarefa, confirmar comando |
+| 💡 | Ideia/Insight | Quando usuário traz algo criativo |
+| 💜 | Agradecimento | Para agradecer, mostrar appreciation |
+| ⚠️ | Alerta/Aviso | Problema detectado, warning importante |
+| ✅ | Confirmado/OK | Tarefa completa, confirmação |
+| 👍 | Aprovação | Concorda com sugestão/ideia |
+| 🔥 | Entusiasmo | Algo muito legal, impressionante |
+| ❌ | Erro/Rejeição | Alguma coisa está errada ou não pode |
+| 🤔 | Pensando | Processando, analisando situação |
+| 📊 | Dados/Análise | Relatório, métricas, resultados |
+| 🔧 | Consertando | Debug, fix em andamento |
+| ✨ | Feature Legal | Algo novo ou interessante |
+| 🎯 | Alcançado | Meta atingida, problema resolvido |
+| 📝 | Nota/Info | Informação importante, lembrete |
+| 🧪 | Testando | Testes sendo executados |
+
 **`send_embed`** - Mensagens estruturadas
 - **OBRIGATÓRIO para tabelas**
 - Usar para mensagens com campos, cores, footers

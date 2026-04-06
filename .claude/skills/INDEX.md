@@ -11,6 +11,7 @@
 | `openspec-*` | Conjunto de skills para gerenciamento de changes OpenSpec (explore, new, continue, verify, archive, etc.) |
 | `textual-tui` | Interface TUI baseada em Textual para interações interativas |
 | `autogrind` | Trabalho autônomo contínuo em ciclos (Overview→Understand→Plan→Work→Reflect) até stop signal explícito. Genérico — escopo passado como argumento (`/autogrind <escopo>`) |
+| `prompt` | Prompt Engineer - Transforma intenção bruta em prompts estruturados prontos para agentes e executa comandos como `/ralph-loop` com o prompt melhorado. Estrutura: papel, tarefa, contexto, restrições, saída, completion. |
 
 ## Como Usar
 
@@ -20,6 +21,7 @@ As skills são ativadas automaticamente com base em gatilhos contextuais. Por ex
 - Mencionar "problemas de encoding" ou "acentos estranhos" → `utf8-check`
 - Solicitar criação/exploração de changes → `openspec-*`
 - Mencionar "crie issue", "busque issues", "mova SKY-XX", "sincronize roadmap" → `linear-sync`
+- Pedir para criar/melhorar prompts, "cria um prompt para", "escreve /prompt" → `prompt`
 
 ### /track - Rastreador de Produtividade
 **Status**: 🟡 Em desenvolvimento (Spike Fase 1)
@@ -78,6 +80,41 @@ Você nunca abre o Toggl. `/track` é sua interface única para gerenciar tempo.
 
 **Padrão Artigo:**
 > "Texto com múltiplas tabelas? Separe: texto principal + embeds numerados (📊 Tabela 1, 📊 Tabela 2)"
+
+---
+
+### prompt - Prompt Engineer
+**Status**: 🟢 Operacional
+**Versão**: 1.0.0
+**Arquivo**: `.claude/skills/prompt/skill.md`
+
+**Especialização**: Transformar intenção bruta em prompts estruturados
+
+**Triggers**:
+- Keywords: `cria um prompt`, `melhora esse prompt`, `escreve /prompt`, `quero um prompt que faça X`
+- Context: Intenção bruta que deve se tornar instrução estruturada de agente
+- Ralph Loop: quando usuário quer executar `/ralph-loop` com input bem elaborado
+
+**O que faz:**
+- Extrai 4 eixos: Objetivo, Contexto, Restrições, Critério de sucesso
+- Constrói prompt estruturado: papel, tarefa, contexto, restrições, saída, completion
+- Infere parâmetros de execução: `--max-iterations` e `--completion-promise`
+- Executa comando com prompt melhorado (ex: `/ralph-loop`)
+
+**Princípios obrigatórios:**
+- Positivo antes de negativo nas restrições
+- Critério de parada explícito e mensurável
+- Formato de saída concreto
+- Uma tarefa por prompt
+- Verbos de ação precisos
+
+**Tabela de complexidade:**
+| Complexidade | max-iterations | completion-promise |
+|--------------|----------------|-------------------|
+| 1 objetivo, escopo fechado | 3 | artefato esperado descrito objetivamente |
+| 2–3 objetivos, escopo médio | 5 | todos os objetivos verificáveis em sequência |
+| Multi-etapa, refatoração profunda | 8 | critério de qualidade + artefato final |
+| Experimental / exploratório | 10 | "sistema estável e testado" |
 
 ---
 
