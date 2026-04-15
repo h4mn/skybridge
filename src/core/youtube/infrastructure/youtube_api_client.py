@@ -166,7 +166,7 @@ class YouTubeAPIClient:
                     "video_id": video_id,
                     "title": snippet["title"],
                     "description": snippet.get("description", ""),
-                    "channel": snippet["videoOwnerChannelName"],
+                    "channel": snippet.get("videoOwnerChannelName", "Canal desconhecido"),
                     "channel_id": snippet.get("videoOwnerChannelId", ""),
                     "thumbnail": snippet.get("thumbnails", {}).get(
                         "default", {}
