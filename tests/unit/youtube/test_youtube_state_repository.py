@@ -22,7 +22,8 @@ def temp_db():
     db_path = tempfile.mktemp(suffix=".db")
     repo = YouTubeStateRepository(db_path=db_path)
     yield repo
-    # Cleanup
+    # Cleanup - fecha conexão antes de deletar
+    repo.close()
     Path(db_path).unlink(missing_ok=True)
 
 
@@ -68,7 +69,7 @@ class TestYouTubeStateRepository:
     def test_init_creates_schema(self, temp_db):
         """Testa que init cria schema do banco."""
         # Verifica se tabelas foram criadas
-        tables = temp_db.execute(
+        tables = temp_db.conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).fetchall()
 
@@ -218,7 +219,7 @@ class TestYouTubeStateRepository:
         stats = temp_db.get_playlist_stats("LL")
 
         assert stats["total_videos"] == 5
-        assert stats["pending_notification"] == 3
+        assert stats["pending"] == 3
         assert stats["notified"] == 2
 
     def test_get_all_videos_by_playlist(self, temp_db):

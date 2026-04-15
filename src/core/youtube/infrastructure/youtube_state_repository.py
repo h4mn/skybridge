@@ -184,7 +184,7 @@ class YouTubeStateRepository:
                     status = COALESCE(excluded.status, video_state.status),
                     thumbnail = COALESCE(excluded.thumbnail, video_state.thumbnail),
                     description = COALESCE(excluded.description, video_state.description),
-                    updated_at = ?
+                    updated_at = excluded.updated_at
                 """,
                 (
                     video.video_id, video.title, video.channel,
@@ -416,9 +416,19 @@ class YouTubeStateRepository:
         if row is None:
             return None
 
+        # Helper para parse de datetime
+        def parse_datetime(value):
+            if value is None:
+                return None
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, str):
+                return datetime.fromisoformat(value)
+            return None
+
         return PlaylistSyncState(
             playlist_id=row["playlist_id"],
-            last_sync_at=datetime.fromisoformat(row["last_sync_at"]),
+            last_sync_at=parse_datetime(row["last_sync_at"]),
             total_videos=row["total_videos"],
             new_videos_found=row["new_videos_found"],
             error_message=row["error_message"]
@@ -437,7 +447,7 @@ class YouTubeStateRepository:
             """
             SELECT
                 COUNT(*) as total_videos,
-                SUM(CASE WHEN synced_at IS NULL THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN notified_at IS NULL THEN 1 ELSE 0 END) as pending,
                 SUM(CASE WHEN synced_at IS NOT NULL THEN 1 ELSE 0 END) as synced,
                 SUM(CASE WHEN notified_at IS NOT NULL THEN 1 ELSE 0 END) as notified,
                 SUM(CASE WHEN transcribed_at IS NOT NULL THEN 1 ELSE 0 END) as transcribed
@@ -497,16 +507,26 @@ class YouTubeStateRepository:
         Returns:
             VideoState
         """
+        def parse_datetime(value):
+            """Parse datetime de string ISO ou retorna datetime object."""
+            if value is None:
+                return None
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, str):
+                return datetime.fromisoformat(value)
+            return None
+
         return VideoState(
             video_id=row["video_id"],
             title=row["title"],
             channel=row["channel"],
             duration_seconds=row["duration_seconds"],
             playlist_id=row["playlist_id"],
-            added_at=datetime.fromisoformat(row["added_at"]) if row["added_at"] else None,
-            synced_at=datetime.fromisoformat(row["synced_at"]) if row["synced_at"] else None,
-            notified_at=datetime.fromisoformat(row["notified_at"]) if row["notified_at"] else None,
-            transcribed_at=datetime.fromisoformat(row["transcribed_at"]) if row["transcribed_at"] else None,
+            added_at=parse_datetime(row["added_at"]),
+            synced_at=parse_datetime(row["synced_at"]),
+            notified_at=parse_datetime(row["notified_at"]),
+            transcribed_at=parse_datetime(row["transcribed_at"]),
             status=row["status"],
             thumbnail=row["thumbnail"],
             description=row["description"]
