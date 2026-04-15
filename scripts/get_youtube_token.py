@@ -2,7 +2,7 @@
 """Script para obter OAuth Token do YouTube.
 
 Uso:
-    1. Configure CLIENT_ID e CLIENT_SECRET abaixo
+    1. Configure YOUTUBE_CLIENT_ID e YOUTUBE_CLIENT_SECRET no .env
     2. Rode: python scripts/get_youtube_token.py
     3. Autorize no browser
     4. Copie o token impresso
@@ -11,19 +11,23 @@ Uso:
 import os
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Carregar .env do projeto
+project_root = Path(__file__).parent.parent
+load_dotenv(project_root / ".env")
 
 # Add project root to path
-project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 
-# Configure aqui OU use variáveis de ambiente
+# Lê do .env
 CLIENT_CONFIG = {
     "installed": {
-        "client_id": os.getenv("YOUTUBE_CLIENT_ID", "SEU_CLIENT_ID_AQUI"),
-        "client_secret": os.getenv("YOUTUBE_CLIENT_SECRET", "SEU_CLIENT_SECRET_AQUI"),
+        "client_id": os.getenv("YOUTUBE_CLIENT_ID", ""),
+        "client_secret": os.getenv("YOUTUBE_CLIENT_SECRET", ""),
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
         "token_uri": "https://oauth2.googleapis.com/token",
         "redirect_uris": ["http://localhost:8080"]
@@ -38,12 +42,22 @@ SCOPES = [
 def get_token():
     """Obtém access token via OAuth 2.0 flow."""
 
+    client_id = CLIENT_CONFIG["installed"]["client_id"]
+    client_secret = CLIENT_CONFIG["installed"]["client_secret"]
+
     # Validar configuração
-    if CLIENT_CONFIG["installed"]["client_id"] == "SEU_CLIENT_ID_AQUI":
-        print("❌ Configure CLIENT_ID e CLIENT_SECRET no script!")
-        print("\nOu use variáveis de ambiente:")
-        print("  export YOUTUBE_CLIENT_ID=seu_id")
-        print("  export YOUTUBE_CLIENT_SECRET=seu_secret")
+    if not client_id or client_id == "your_client_id_here":
+        print("❌ Configure YOUTUBE_CLIENT_ID no .env!")
+        print("\nEdite B:/_repositorios/skybridge/.env:")
+        print("  YOUTUBE_CLIENT_ID=seu_client_id")
+        print("  YOUTUBE_CLIENT_SECRET=seu_client_secret")
+        return None
+
+    if not client_secret or client_secret == "your_client_secret_here":
+        print("❌ Configure YOUTUBE_CLIENT_SECRET no .env!")
+        print("\nEdite B:/_repositorios/skybridge/.env:")
+        print("  YOUTUBE_CLIENT_ID=seu_client_id")
+        print("  YOUTUBE_CLIENT_SECRET=seu_client_secret")
         return None
 
     # Criar OAuth flow
@@ -68,7 +82,7 @@ def get_token():
     print("="*60)
     print(f"\n🔑 Access Token:\n{credentials.token}\n")
     print(f"🔄 Refresh Token:\n{credentials.refresh_token}\n")
-    print(f"⏰ Expira em: {credentials.expiry} segundos\n")
+    print(f"⏰ Expira em: {credentials.expiry}\n")
     print("="*60)
     print("\nUse o access_token para testar:")
     print("  export GOOGLE_OAUTH_TOKEN='seu_token_aqui'")
