@@ -14,6 +14,7 @@ from typing import Optional
 
 from ..infrastructure.yt_dlp_adapter import YtDlpAdapter
 from ..infrastructure.transcription_adapter import TranscriptionAdapter, TranscriptionResult
+from ..infrastructure.youtube_state_repository import YouTubeStateRepository, VideoState
 
 
 @dataclass
@@ -26,6 +27,7 @@ class TranscriptResult:
     duration_seconds: float = 0.0
     audio_path: Optional[Path] = None
     created_at: datetime = None
+    transcribed_at: Optional[datetime] = None
 
     def __post_init__(self):
         if self.created_at is None:
@@ -37,9 +39,10 @@ class YoutubeTranscriptService:
     Serviço de transcrição de vídeos YouTube.
 
     Orquestra:
-    1. Download de áudio (yt-dlp + rate-limit)
-    2. Transcrição (faster-whisper local)
-    3. Salvamento em arquivo
+    1. Verifica estado (SQLite)
+    2. Download de áudio (yt-dlp + rate-limit)
+    3. Transcrição (faster-whisper local)
+    4. Salvamento em arquivo + atualização de estado
 
     Uso:
         service = YoutubeTranscriptService()
@@ -53,7 +56,9 @@ class YoutubeTranscriptService:
         self,
         output_path: Path = Path("data/transcricoes"),
         yt_dlp: Optional[YtDlpAdapter] = None,
-        analyzer: Optional[TranscriptionAdapter] = None
+        analyzer: Optional[TranscriptionAdapter] = None,
+        state_repo: Optional[YouTubeStateRepository] = None,
+        state_db_path: str = "data/youtube_copilot.db"
     ):
         """
         Inicializa serviço.
@@ -62,50 +67,102 @@ class YoutubeTranscriptService:
             output_path: Diretório padrão para transcrições
             yt_dlp: Adaptador yt-dlp (opcional)
             analyzer: Adaptador de transcrição (opcional)
+            state_repo: Repositório de estado (opcional)
+            state_db_path: Caminho para banco de estado (opcional)
         """
         self._output_path = output_path
         self._output_path.mkdir(parents=True, exist_ok=True)
 
+        # Setup do State Repository se necessário
+        if state_repo is None:
+            from ..infrastructure.youtube_state_setup import setup_youtube_state
+            setup_youtube_state(state_db_path)
+            state_repo = YouTubeStateRepository(db_path=state_db_path)
+
         # Dependências
         self._yt_dlp = yt_dlp or YtDlpAdapter(download_path=output_path / "audio")
         self._analyzer = analyzer or TranscriptionAdapter()
+        self._state_repo = state_repo
 
     async def transcribe_video(
         self,
         url: str,
-        output_path: Optional[Path] = None
+        output_path: Optional[Path] = None,
+        force: bool = False
     ) -> TranscriptResult:
         """
         Transcreve vídeo YouTube completo.
 
         Fluxo:
-        1. Baixa áudio (yt-dlp + rate-limit)
-        2. Transcreve (faster-whisper)
-        3. Salva em arquivo
+        1. Verifica estado (se já transcrito e !force, retorna resultado)
+        2. Baixa áudio (yt-dlp + rate-limit)
+        3. Transcreve (faster-whisper)
+        4. Salva em arquivo + marca como transcrito no estado
 
         Args:
             url: URL do vídeo YouTube
             output_path: Caminho para salvar transcrição (opcional)
+            force: Força nova transcrição mesmo se já existe (default: False)
 
         Returns:
             TranscriptResult com texto e metadados
         """
-        # 1. Determinar output_path
+        # Extrair video_id
+        video_id = await self._yt_dlp.extract_video_id(url)
+
+        # 1. Verificar estado (se já transcrito e !force, retorna)
+        if not force:
+            existing = self._state_repo.get_video(video_id)
+            if existing and existing.transcribed_at and output_path and Path(output_path).exists():
+                # Já transcrito, retorna resultado existente
+                with open(output_path, 'r', encoding='utf-8') as f:
+                    text = f.read()
+
+                return TranscriptResult(
+                    text=text,
+                    language=existing.status,
+                    confidence=1.0,
+                    output_path=Path(output_path),
+                    duration_seconds=existing.duration_seconds,
+                    transcribed_at=existing.transcribed_at
+                )
+
+        # 2. Determinar output_path
         if output_path is None:
-            video_id = await self._yt_dlp.extract_video_id(url)
             output_path = self._output_path / f"{video_id}.txt"
 
         # Criar diretórios pai
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # 2. Download áudio (com rate-limit)
+        # 3. Obter metadados do vídeo
+        try:
+            metadata = await self._yt_dlp.get_metadata(url)
+        except Exception:
+            metadata = None
+
+        # 4. Adicionar ao estado se não existe
+        if not self._state_repo.get_video(video_id) and metadata:
+            video_state = VideoState(
+                video_id=video_id,
+                title=metadata.title,
+                channel=metadata.channel,
+                duration_seconds=metadata.duration_seconds,
+                playlist_id="manual",  # Transcrição manual
+                added_at=datetime.now()
+            )
+            self._state_repo.save_video(video_state)
+
+        # 5. Download áudio (com rate-limit)
         audio_path = await self._yt_dlp.download_audio_only(url)
 
-        # 3. Transcrever
+        # 6. Transcrever
         transcription = await self._analyzer.transcribe(audio_path)
 
-        # 4. Salvar transcrição em arquivo
+        # 7. Salvar transcrição em arquivo
         self._save_transcription(transcription, output_path)
+
+        # 8. Marcar como transcrito no estado
+        self._state_repo.mark_as_transcribed(video_id)
 
         return TranscriptResult(
             text=transcription.text,
@@ -113,7 +170,8 @@ class YoutubeTranscriptService:
             confidence=transcription.confidence,
             output_path=output_path,
             duration_seconds=transcription.duration_seconds,
-            audio_path=audio_path
+            audio_path=audio_path,
+            transcribed_at=datetime.now()
         )
 
     def _save_transcription(
@@ -128,9 +186,11 @@ class YoutubeTranscriptService:
             transcription: Resultado da transcrição
             output_path: Caminho para salvar
         """
+        from datetime import datetime
+
         content = f"""# Transcrição YouTube
 
-Data: {transcription.created_at.strftime('%Y-%m-%d %H:%M:%S')}
+Data: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 Idioma: {transcription.language}
 Confiança: {transcription.confidence:.2%}
 
