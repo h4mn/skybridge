@@ -202,6 +202,71 @@ class YtDlpAdapter:
 
         return output_path
 
+    async def download_audio_only(self, url: str) -> Path:
+        """
+        Baixa apenas o áudio para transcrição (MP3/M4A).
+
+        Usa rate-limit para evitar HTTP 429:
+        - Formato: melhor áudio (MP3/M4A/OPUS)
+        - Rate-limit: 500K (proteção contra bloqueio)
+        - Tamanho típico: 1-3MB para 10min
+
+        Returns:
+            Path para o arquivo de áudio baixado
+        """
+        video_id = await self.extract_video_id(url)
+        output_path = self._download_path / f"{video_id}.mp3"
+
+        # Se já existe MP3, retorna
+        if output_path.exists():
+            return output_path
+
+        # Baixar melhor áudio com rate-limit
+        cmd = [
+            "yt-dlp",
+            "--rate-limit", "500K",  # Proteção contra 429
+            "--extract-audio",       # Extrai só áudio
+            "--audio-format", "mp3", # Converte para MP3
+            "--audio-quality", "0",  # Melhor qualidade
+            "-o", str(output_path),
+            "--no-playlist",
+            url,
+        ]
+
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stdout, stderr = await proc.communicate()
+
+        if proc.returncode != 0:
+            # Fallback: tentar M4A se MP3 falhar
+            output_path_fallback = self._download_path / f"{video_id}.m4a"
+            cmd_fallback = [
+                "yt-dlp",
+                "--rate-limit", "500K",
+                "--extract-audio",
+                "--audio-format", "m4a",
+                "-o", str(output_path_fallback),
+                "--no-playlist",
+                url,
+            ]
+            proc_fallback = await asyncio.create_subprocess_exec(
+                *cmd_fallback,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout_fallback, stderr_fallback = await proc_fallback.communicate()
+
+            if proc_fallback.returncode != 0:
+                raise RuntimeError(f"Audio download failed: {stderr.decode()}")
+
+            return output_path_fallback
+
+        return output_path
+
     def _parse_upload_date(self, date_str: Optional[str]) -> Optional[str]:
         """Converte YYYYMMDD para datetime."""
         if not date_str:

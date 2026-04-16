@@ -28,15 +28,16 @@ class TranscriptSegment:
 
 @dataclass
 class Transcript:
-    """Transcrição completa de um vídeo."""
-    video_id: str
-    segments: List[TranscriptSegment]
-    language: str = "auto"
-    full_text: Optional[str] = None
+    """Transcrição completa de um vídeo - versão simplificada."""
+    text: str
+    language: str = "unknown"
+    confidence: float = 0.0
+    video_id: Optional[str] = None
+    segments: List[TranscriptSegment] = None
 
     def __post_init__(self):
-        if self.full_text is None:
-            self.full_text = " ".join(s.text for s in self.segments)
+        if self.segments is None:
+            self.segments = []
 
     @property
     def duration(self) -> float:

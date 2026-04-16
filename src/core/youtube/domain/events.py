@@ -13,11 +13,22 @@ class VideoProcessedEvent:
     title: str
     downloaded: bool
     transcribed: bool
-    timestamp: datetime = None
+    occurred_at: datetime = None
 
     def __post_init__(self):
-        if self.timestamp is None:
-            self.timestamp = datetime.now()
+        if self.occurred_at is None:
+            self.occurred_at = datetime.now()
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Converte o evento para dicionário."""
+        return {
+            "video_id": self.video_id,
+            "url": self.url,
+            "title": self.title,
+            "downloaded": self.downloaded,
+            "transcribed": self.transcribed,
+            "occurred_at": self.occurred_at.isoformat() if self.occurred_at else None
+        }
 
 
 @dataclass

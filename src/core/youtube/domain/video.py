@@ -12,8 +12,16 @@ class VideoId:
     value: str
 
     def __post_init__(self):
-        if not self.value or len(self.value) < 11:
-            raise ValueError(f"Invalid VideoId: {self.value}")
+        if not self.value:
+            raise ValueError("Video ID não pode ser vazio")
+
+    def __eq__(self, other):
+        if not isinstance(other, VideoId):
+            return False
+        return self.value == other.value
+
+    def __hash__(self):
+        return hash(self.value)
 
 
 @dataclass(frozen=True)
@@ -49,7 +57,7 @@ class Video:
         self.indexed_at = datetime.now()
 
     @property
-    def is_indexed(self) -> bool:
+    def indexed(self) -> bool:
         """Retorna se o vídeo está indexado."""
         return self.indexed_at is not None
 
