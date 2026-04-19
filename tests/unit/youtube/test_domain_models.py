@@ -15,14 +15,14 @@ class TestVideoId:
 
     def test_create_video_id(self):
         """Testa criação de VideoId."""
-        from src.core.youtube.domain.video import VideoId
+        from src.core.youtube import VideoId
 
         video_id = VideoId("abc123")
         assert video_id.value == "abc123"
 
     def test_video_id_equality(self):
         """Testa igualdade de VideoId."""
-        from src.core.youtube.domain.video import VideoId
+        from src.core.youtube import VideoId
 
         id1 = VideoId("abc123")
         id2 = VideoId("abc123")
@@ -34,14 +34,14 @@ class TestVideoId:
 
     def test_video_id_invalid_empty(self):
         """Testa que VideoId vazio levanta erro."""
-        from src.core.youtube.domain.video import VideoId
+        from src.core.youtube import VideoId
 
         with pytest.raises(ValueError, match="Video ID não pode ser vazio"):
             VideoId("")
 
     def test_video_id_invalid_none(self):
         """Testa que VideoId None levanta erro."""
-        from src.core.youtube.domain.video import VideoId
+        from src.core.youtube import VideoId
 
         with pytest.raises(ValueError, match="Video ID não pode ser vazio"):
             VideoId(None)
@@ -53,7 +53,7 @@ class TestVideoMetadata:
 
     def test_create_video_metadata(self):
         """Testa criação de VideoMetadata."""
-        from src.core.youtube.domain.video import VideoMetadata
+        from src.core.youtube import VideoMetadata
 
         metadata = VideoMetadata(
             title="Test Video",
@@ -69,7 +69,7 @@ class TestVideoMetadata:
 
     def test_video_metadata_defaults(self):
         """Testa valores padrão de VideoMetadata."""
-        from src.core.youtube.domain.video import VideoMetadata
+        from src.core.youtube import VideoMetadata
 
         metadata = VideoMetadata(
             title="Test",
@@ -87,7 +87,7 @@ class TestVideo:
 
     def test_create_video(self):
         """Testa criação de Video."""
-        from src.core.youtube.domain.video import Video, VideoId, VideoMetadata
+        from src.core.youtube import Video, VideoId, VideoMetadata
 
         video_id = VideoId("abc123")
         metadata = VideoMetadata(
@@ -112,7 +112,7 @@ class TestVideo:
 
     def test_mark_as_indexed(self):
         """Testa marcar vídeo como indexado."""
-        from src.core.youtube.domain.video import Video, VideoId, VideoMetadata
+        from src.core.youtube import Video, VideoId, VideoMetadata
 
         video = Video(
             video_id=VideoId("abc123"),
@@ -137,7 +137,7 @@ class TestTranscript:
 
     def test_create_transcript(self):
         """Testa criação de Transcript."""
-        from src.core.youtube.domain.transcript import Transcript
+        from src.core.youtube import Transcript
 
         transcript = Transcript(
             text="Este é o texto da transcrição.",
@@ -151,7 +151,7 @@ class TestTranscript:
 
     def test_transcript_defaults(self):
         """Testa valores padrão de Transcript."""
-        from src.core.youtube.domain.transcript import Transcript
+        from src.core.youtube import Transcript
 
         transcript = Transcript(text="Texto")
 
@@ -165,7 +165,7 @@ class TestVideoProcessedEvent:
 
     def test_create_event(self):
         """Testa criação de VideoProcessedEvent."""
-        from src.core.youtube.domain.events import VideoProcessedEvent
+        from src.core.youtube import VideoProcessedEvent
 
         event = VideoProcessedEvent(
             video_id="abc123",
@@ -184,7 +184,7 @@ class TestVideoProcessedEvent:
 
     def test_event_to_dict(self):
         """Testa converter evento para dict."""
-        from src.core.youtube.domain.events import VideoProcessedEvent
+        from src.core.youtube import VideoProcessedEvent
 
         event = VideoProcessedEvent(
             video_id="abc123",

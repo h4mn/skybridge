@@ -21,7 +21,7 @@ class TestYoutubeTranscriptServiceState:
 
     def test_init_creates_state_repository(self, tmp_path):
         """Testa que cria State Repository."""
-        from src.core.youtube.application.youtube_transcript_service import YoutubeTranscriptService
+        from src.core.youtube import YoutubeTranscriptService
 
         service = YoutubeTranscriptService(output_path=tmp_path)
 
@@ -31,8 +31,8 @@ class TestYoutubeTranscriptServiceState:
     @pytest.mark.asyncio
     async def test_transcribe_marks_as_transcribed(self, tmp_path):
         """Testa que marca vídeo como transcrito após sucesso."""
-        from src.core.youtube.application.youtube_transcript_service import YoutubeTranscriptService
-        from src.core.youtube.infrastructure.youtube_state_repository import VideoState
+        from src.core.youtube import YoutubeTranscriptService
+        from src.core.youtube import VideoState
 
         service = YoutubeTranscriptService(output_path=tmp_path)
 
@@ -78,8 +78,8 @@ class TestYoutubeTranscriptServiceState:
     @pytest.mark.asyncio
     async def test_transcribe_skips_if_already_transcribed(self, tmp_path):
         """Testa que pula transcrição se já foi transcrito."""
-        from src.core.youtube.application.youtube_transcript_service import YoutubeTranscriptService
-        from src.core.youtube.infrastructure.youtube_state_repository import VideoState
+        from src.core.youtube import YoutubeTranscriptService
+        from src.core.youtube import VideoState
 
         service = YoutubeTranscriptService(output_path=tmp_path)
 
@@ -130,7 +130,7 @@ class TestYoutubeTranscriptServiceState:
     @pytest.mark.asyncio
     async def test_transcribe_adds_video_to_state(self, tmp_path):
         """Testa que adiciona vídeo ao estado se não existir."""
-        from src.core.youtube.application.youtube_transcript_service import YoutubeTranscriptService
+        from src.core.youtube import YoutubeTranscriptService
 
         service = YoutubeTranscriptService(output_path=tmp_path)
 
@@ -180,12 +180,12 @@ class TestYoutubeTranscriptServiceState:
     @pytest.mark.asyncio
     async def test_transcribe_force_overwrites_transcribed(self, tmp_path):
         """Testa que force=True transcreve mesmo se já transcrito."""
-        from src.core.youtube.application.youtube_transcript_service import YoutubeTranscriptService
+        from src.core.youtube import YoutubeTranscriptService
 
         service = YoutubeTranscriptService(output_path=tmp_path)
 
         # Adicionar vídeo já transcrito
-        from src.core.youtube.infrastructure.youtube_state_repository import VideoState
+        from src.core.youtube import VideoState
         old_date = datetime(2024, 1, 1, 12, 0, 0)
         existing_state = VideoState(
             video_id="abc123",

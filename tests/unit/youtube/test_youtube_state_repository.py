@@ -9,11 +9,7 @@ import tempfile
 from pathlib import Path
 from datetime import datetime, timedelta
 
-from src.core.youtube.infrastructure.youtube_state_repository import (
-    YouTubeStateRepository,
-    VideoState,
-    PlaylistSyncState
-)
+from src.core.youtube import YouTubeStateRepository, VideoState, PlaylistSyncState
 
 
 @pytest.fixture

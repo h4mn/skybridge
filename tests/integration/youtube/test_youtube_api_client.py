@@ -5,7 +5,7 @@ DOC: src/core/youtube/infrastructure/youtube_api_client.py
 
 import pytest
 import os
-from src.core.youtube.infrastructure.youtube_api_client import YouTubeAPIClient
+from src.core.youtube import YouTubeAPIClient
 
 
 @pytest.mark.integration

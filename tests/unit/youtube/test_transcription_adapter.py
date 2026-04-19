@@ -19,7 +19,7 @@ class TestTranscriptionAdapter:
 
     def test_init_creates_model_dir(self, tmp_path):
         """Testa que cria diretório para modelos."""
-        from src.core.youtube.infrastructure.transcription_adapter import TranscriptionAdapter
+        from src.core.youtube import TranscriptionAdapter
 
         model_dir = tmp_path / "models"
         adapter = TranscriptionAdapter(model_dir=model_dir)
@@ -29,7 +29,7 @@ class TestTranscriptionAdapter:
     @pytest.mark.asyncio
     async def test_transcribe_audio_with_faster_whisper(self):
         """Testa transcrição com faster-whisper (principal)."""
-        from src.core.youtube.infrastructure.transcription_adapter import TranscriptionAdapter
+        from src.core.youtube import TranscriptionAdapter
 
         adapter = TranscriptionAdapter()
 
@@ -56,7 +56,7 @@ class TestTranscriptionAdapter:
     @pytest.mark.asyncio
     async def test_transcribe_fallback_to_zai_on_error(self):
         """Testa fallback para zai-analyze-video quando faster-whisper falha."""
-        from src.core.youtube.infrastructure.transcription_adapter import TranscriptionAdapter
+        from src.core.youtube import TranscriptionAdapter
 
         adapter = TranscriptionAdapter()
 
@@ -77,7 +77,7 @@ class TestTranscriptionAdapter:
     @pytest.mark.asyncio
     async def test_transcribe_with_language_detection(self):
         """Testa detecção automática de idioma."""
-        from src.core.youtube.infrastructure.transcription_adapter import TranscriptionAdapter
+        from src.core.youtube import TranscriptionAdapter
 
         adapter = TranscriptionAdapter()
 
@@ -106,7 +106,7 @@ class TestTranscriptionResult:
 
     def test_create_transcription_result(self):
         """Testa criação de resultado de transcrição."""
-        from src.core.youtube.infrastructure.transcription_adapter import TranscriptionResult
+        from src.core.youtube import TranscriptionResult
 
         result = TranscriptionResult(
             text="Texto da transcrição",
@@ -124,7 +124,7 @@ class TestTranscriptionResult:
 
     def test_transcription_result_defaults(self):
         """Testa valores padrão."""
-        from src.core.youtube.infrastructure.transcription_adapter import TranscriptionResult
+        from src.core.youtube import TranscriptionResult
 
         result = TranscriptionResult(
             text="Texto",
@@ -147,7 +147,7 @@ class TestTranscriptionAdapterIntegration:
     @pytest.mark.asyncio
     async def test_real_transcription_with_audio_file(self, tmp_path):
         """Teste real com arquivo de áudio (se existir)."""
-        from src.core.youtube.infrastructure.transcription_adapter import TranscriptionAdapter
+        from src.core.youtube import TranscriptionAdapter
 
         adapter = TranscriptionAdapter(model_size="tiny")  # Modelo menor
 

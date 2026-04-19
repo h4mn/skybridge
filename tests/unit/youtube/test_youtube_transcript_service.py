@@ -18,7 +18,7 @@ class TestYoutubeTranscriptService:
 
     def test_init_creates_dependencies(self, tmp_path):
         """Testa que cria dependências."""
-        from src.core.youtube.application.youtube_transcript_service import YoutubeTranscriptService
+        from src.core.youtube import YoutubeTranscriptService
 
         service = YoutubeTranscriptService(output_path=tmp_path)
 
@@ -29,7 +29,7 @@ class TestYoutubeTranscriptService:
     @pytest.mark.asyncio
     async def test_transcribe_video_complete_flow(self, tmp_path):
         """Testa fluxo completo: download áudio + transcrição."""
-        from src.core.youtube.application.youtube_transcript_service import YoutubeTranscriptService
+        from src.core.youtube import YoutubeTranscriptService
 
         service = YoutubeTranscriptService(output_path=tmp_path)
 
@@ -64,7 +64,7 @@ class TestYoutubeTranscriptService:
     @pytest.mark.asyncio
     async def test_transcribe_video_uses_output_path(self, tmp_path):
         """Testa que usa o output_path fornecido."""
-        from src.core.youtube.application.youtube_transcript_service import YoutubeTranscriptService
+        from src.core.youtube import YoutubeTranscriptService
 
         service = YoutubeTranscriptService(output_path=tmp_path)
 
@@ -95,7 +95,7 @@ class TestYoutubeTranscriptService:
     @pytest.mark.asyncio
     async def test_transcribe_video_creates_parent_dirs(self, tmp_path):
         """Testa que cria diretórios pai se não existirem."""
-        from src.core.youtube.application.youtube_transcript_service import YoutubeTranscriptService
+        from src.core.youtube import YoutubeTranscriptService
 
         service = YoutubeTranscriptService(output_path=tmp_path)
 
@@ -129,7 +129,7 @@ class TestTranscriptResult:
 
     def test_create_result(self):
         """Testa criação de resultado."""
-        from src.core.youtube.application.youtube_transcript_service import TranscriptResult
+        from src.core.youtube import TranscriptResult
 
         result = TranscriptResult(
             text="Texto da transcrição",

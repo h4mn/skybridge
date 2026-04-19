@@ -20,7 +20,7 @@ class TestSetupYouTubeState:
 
     def test_setup_creates_database(self, tmp_path):
         """Testa que setup cria banco e tabelas."""
-        from src.core.youtube.infrastructure.youtube_state_setup import setup_youtube_state
+        from src.core.youtube import setup_youtube_state
 
         db_path = tmp_path / "test.db"
 
@@ -47,7 +47,7 @@ class TestSetupYouTubeState:
 
     def test_setup_is_idempotent(self, tmp_path):
         """Testa que setup pode ser chamado múltiplas vezes."""
-        from src.core.youtube.infrastructure.youtube_state_setup import setup_youtube_state
+        from src.core.youtube import setup_youtube_state
 
         db_path = tmp_path / "test.db"
 
@@ -76,7 +76,7 @@ class TestSetupYouTubeState:
 
     def test_setup_force_recreate_drops_data(self, tmp_path):
         """Testa que force_recreate reinicia o banco."""
-        from src.core.youtube.infrastructure.youtube_state_setup import setup_youtube_state
+        from src.core.youtube import setup_youtube_state
 
         db_path = tmp_path / "test.db"
 
@@ -110,7 +110,7 @@ class TestVerifyYouTubeState:
 
     def test_verify_nonexistent_database(self, tmp_path):
         """Testa verificação de banco inexistente."""
-        from src.core.youtube.infrastructure.youtube_state_setup import verify_youtube_state
+        from src.core.youtube import verify_youtube_state
 
         db_path = tmp_path / "nao_existe.db"
 
@@ -121,7 +121,7 @@ class TestVerifyYouTubeState:
 
     def test_verify_valid_database(self, tmp_path):
         """Testa verificação de banco válido."""
-        from src.core.youtube.infrastructure.youtube_state_setup import setup_youtube_state, verify_youtube_state
+        from src.core.youtube import setup_youtube_state, verify_youtube_state
 
         db_path = tmp_path / "test.db"
 
@@ -136,7 +136,7 @@ class TestVerifyYouTubeState:
 
     def test_verify_counts_records(self, tmp_path):
         """Testa contagem de registros."""
-        from src.core.youtube.infrastructure.youtube_state_setup import setup_youtube_state, verify_youtube_state
+        from src.core.youtube import setup_youtube_state, verify_youtube_state
 
         db_path = tmp_path / "test.db"
 
@@ -167,7 +167,7 @@ class TestGetYouTubeStatePath:
 
     def test_get_default_path(self):
         """Testa retorna caminho padrão."""
-        from src.core.youtube.infrastructure.youtube_state_setup import get_youtube_state_path
+        from src.core.youtube import get_youtube_state_path
 
         path = get_youtube_state_path()
 
@@ -175,7 +175,7 @@ class TestGetYouTubeStatePath:
 
     def test_get_path_from_env(self, monkeypatch):
         """Testa lê caminho da variável de ambiente."""
-        from src.core.youtube.infrastructure.youtube_state_setup import get_youtube_state_path
+        from src.core.youtube import get_youtube_state_path
 
         monkeypatch.setenv("YOUTUBE_STATE_DB", "custom/path.db")
 

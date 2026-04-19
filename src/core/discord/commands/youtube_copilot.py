@@ -17,15 +17,7 @@ from discord import Embed
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from src.core.youtube.application.youtube_commands import (
-    YouTubeCommandHandler,
-    YouTubeQueryHandler,
-    SyncResult,
-    StatusResult,
-    StatsResult,
-    PlaylistListResult,
-    VideoListResult
-)
+from src.core.youtube import YouTubeCommandHandler, YouTubeQueryHandler, SyncResult, StatusResult, StatsResult, PlaylistListResult, VideoListResult
 
 load_dotenv()
 

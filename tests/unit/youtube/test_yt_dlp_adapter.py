@@ -15,7 +15,7 @@ class TestYtDlpAdapter:
 
     def test_init_creates_download_path(self, tmp_path):
         """Testa que cria diretório de download."""
-        from src.core.youtube.infrastructure.yt_dlp_adapter import YtDlpAdapter
+        from src.core.youtube import YtDlpAdapter
 
         download_dir = tmp_path / "youtube"
         adapter = YtDlpAdapter(download_dir)
@@ -26,7 +26,7 @@ class TestYtDlpAdapter:
     @pytest.mark.asyncio
     async def test_extract_video_id(self):
         """Testa extração de ID de vídeo."""
-        from src.core.youtube.infrastructure.yt_dlp_adapter import YtDlpAdapter
+        from src.core.youtube import YtDlpAdapter
 
         adapter = YtDlpAdapter(Path("data/youtube"))
 
@@ -44,7 +44,7 @@ class TestYtDlpAdapter:
     @pytest.mark.asyncio
     async def test_extract_video_id_invalid_url(self):
         """Testa que URL inválida levanta erro."""
-        from src.core.youtube.infrastructure.yt_dlp_adapter import YtDlpAdapter
+        from src.core.youtube import YtDlpAdapter
 
         adapter = YtDlpAdapter(Path("data/youtube"))
 
@@ -54,7 +54,7 @@ class TestYtDlpAdapter:
     @pytest.mark.asyncio
     async def test_get_metadata(self):
         """Testa buscar metadados do vídeo."""
-        from src.core.youtube.infrastructure.yt_dlp_adapter import YtDlpAdapter
+        from src.core.youtube import YtDlpAdapter
         from unittest.mock import AsyncMock
 
         adapter = YtDlpAdapter(Path("data/youtube"))
@@ -77,7 +77,7 @@ class TestYtDlpAdapter:
     @pytest.mark.asyncio
     async def test_download_lightweight(self):
         """Testa download em formato leve."""
-        from src.core.youtube.infrastructure.yt_dlp_adapter import YtDlpAdapter
+        from src.core.youtube import YtDlpAdapter
 
         adapter = YtDlpAdapter(Path("data/youtube"))
 
@@ -95,7 +95,7 @@ class TestYtDlpAdapter:
     @pytest.mark.asyncio
     async def test_download_video(self):
         """Testa download completo."""
-        from src.core.youtube.infrastructure.yt_dlp_adapter import YtDlpAdapter
+        from src.core.youtube import YtDlpAdapter
 
         adapter = YtDlpAdapter(Path("data/youtube"))
 
@@ -113,7 +113,7 @@ class TestYtDlpAdapter:
     @pytest.mark.asyncio
     async def test_download_audio_only(self):
         """Testa download apenas áudio (MP3) para transcrição."""
-        from src.core.youtube.infrastructure.yt_dlp_adapter import YtDlpAdapter
+        from src.core.youtube import YtDlpAdapter
 
         adapter = YtDlpAdapter(Path("data/youtube"))
 
@@ -149,7 +149,7 @@ class TestYtDlpAdapterIntegration:
     @pytest.mark.asyncio
     async def test_real_extract_video_id(self):
         """Teste real com yt-dlp (se instalado)."""
-        from src.core.youtube.infrastructure.yt_dlp_adapter import YtDlpAdapter
+        from src.core.youtube import YtDlpAdapter
 
         adapter = YtDlpAdapter(Path("data/youtube"))
         result = await adapter.extract_video_id("https://youtube.com/watch?v=dQw4w9WgXcQ")
