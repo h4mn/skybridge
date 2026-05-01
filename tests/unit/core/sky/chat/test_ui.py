@@ -9,7 +9,7 @@ import pytest
 from io import StringIO
 from unittest.mock import Mock
 
-from src.core.sky.chat.ui import (
+from src.core.sky.chat.legacy_ui import (
     ChatUI,
     ChatMetrics,
 )

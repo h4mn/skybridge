@@ -18,7 +18,7 @@ from textual.widget import Widget
 
 from core.sky.chat.textual_ui.dom.node import DOMNode
 from core.sky.chat.textual_ui.dom.registry import SkyTextualDOM
-from core.sky.chat.textual_ui.dom.mixin import SkyWidgetMixin
+from core.sky.chat.textual_ui.dom.mixin import SkyWidgetMixin, is_dom_widget
 from core.sky.chat.textual_ui.dom.watcher import ReactiveWatcher
 from core.sky.chat.textual_ui.dom.tracer import EventType, EventEntry, EventTracer
 from core.sky.chat.textual_ui.dom.snapshot import DOMSnapshot, create_snapshot, diff_snapshots
@@ -28,6 +28,7 @@ __all__ = [
     "DOMNode",
     "SkyTextualDOM",
     "SkyWidgetMixin",
+    "is_dom_widget",
     "ReactiveWatcher",
     "EventType",
     "EventEntry",

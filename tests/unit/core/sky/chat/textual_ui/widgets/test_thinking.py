@@ -10,12 +10,12 @@ import pytest
 from datetime import datetime
 from unittest.mock import patch, AsyncMock
 
-from src.core.sky.chat.textual_ui.widgets.thinking import (
+from src.core.sky.chat.textual_ui.widgets.content.thinking import (
     ThinkingIndicator,
     ThinkingPanel,
-    ThinkingEntryWidget,
 )
-from src.core.sky.chat.textual_ui.widgets.turn import ThinkingEntry
+from src.core.sky.chat.textual_ui.widgets.content.agentic_loop.tool_call import SimpleEntryWidget
+from src.core.sky.chat.textual_ui.widgets.content.turn import ThinkingEntry
 
 
 class TestThinkingIndicatorInit:
@@ -315,7 +315,7 @@ __all__ = [
     "TestThinkingPanelInit",
     "TestThinkingPanelAddEntry",
     "TestThinkingPanelCollapsed",
-    "TestThinkingEntryWidget",
+    "TestSimpleEntryWidget",
 ]
 
 
@@ -433,14 +433,14 @@ class TestThinkingPanelCollapsed:
         assert panel.collapsed is True
 
 
-class TestThinkingEntryWidget:
+class TestSimpleEntryWidget:
     """
-    Testa ThinkingEntryWidget.
+    Testa SimpleEntryWidget (antigo ThinkingEntryWidget).
     """
 
     def test_init_com_entry(self):
         """
-        QUANDO ThinkingEntryWidget é criado
+        QUANDO SimpleEntryWidget é criado
         ENTÃO armazena a entrada
         """
         # Arrange
@@ -451,7 +451,7 @@ class TestThinkingEntryWidget:
         )
 
         # Act
-        widget = ThinkingEntryWidget(entry)
+        widget = SimpleEntryWidget(entry)
 
         # Assert
         assert widget.entry is entry
@@ -462,7 +462,7 @@ class TestThinkingEntryWidget:
         ENTÃO ícone correto é usado
         """
         # Arrange
-        icones = ThinkingEntryWidget.ICONS
+        icones = SimpleEntryWidget.ICONS
 
         # Assert
         assert icones["thought"] == "💭"

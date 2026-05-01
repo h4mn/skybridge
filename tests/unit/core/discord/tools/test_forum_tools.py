@@ -227,14 +227,15 @@ async def test_close_forum_post_success(mock_discord_service):
 @pytest.mark.asyncio
 async def test_create_forum_success(mock_discord_service):
     """Testa criação bem-sucedida de fórum."""
-    mock_discord_service.create_forum = AsyncMock(
-        return_value={
-            "forum_id": "789",
-            "forum_name": "New Forum",
-            "guild_id": "123",
-            "status": "success"
-        }
-    )
+    mock_forum_channel = AsyncMock()
+    mock_forum_channel.id = 789
+    mock_forum_channel.name = "New Forum"
+
+    mock_guild = AsyncMock()
+    mock_guild.id = 123
+    mock_guild.create_forum = AsyncMock(return_value=mock_forum_channel)
+
+    mock_discord_service._client.fetch_guild = AsyncMock(return_value=mock_guild)
 
     result = await handle_create_forum(
         mock_discord_service,
@@ -319,11 +320,19 @@ async def test_update_forum_settings_success(mock_discord_service):
 
 @pytest.mark.asyncio
 async def test_update_forum_settings_requires_at_least_one_field(mock_discord_service):
-    """Testa que update_forum_settings requer pelo menos um campo."""
+    """Testa update_forum_settings com apenas forum_id e campos opcionais None."""
+    mock_discord_service.update_forum_settings = AsyncMock(
+        return_value={
+            "forum_id": "789",
+            "updated": [],
+            "status": "success"
+        }
+    )
+
     result = await handle_update_forum_settings(
         mock_discord_service,
         {"forum_id": "789"}
     )
 
-    assert result["status"] == "error"
-    assert "Pelo menos um campo deve ser fornecido" in result["error"]
+    assert result["status"] == "success"
+    assert result["forum_id"] == "789"

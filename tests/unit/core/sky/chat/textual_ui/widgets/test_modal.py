@@ -9,7 +9,7 @@ DOC: openspec/changes/sky-chat-textual-ui/design.md - Modal para confirmações
 import pytest
 from unittest.mock import Mock, patch
 
-from src.core.sky.chat.textual_ui.widgets.modal import ConfirmModal
+from src.core.sky.chat.textual_ui.widgets.common.modal import ConfirmModal
 
 
 class TestConfirmModalInit:

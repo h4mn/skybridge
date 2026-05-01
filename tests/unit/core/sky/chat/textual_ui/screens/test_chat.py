@@ -7,8 +7,8 @@ DOC: openspec/changes/fix-header-predicado-frase-completa/specs/titulo-completo-
 
 import pytest
 
-from src.core.sky.chat.textual_ui.widgets.animated_verb import EstadoLLM
-from src.core.sky.chat.textual_ui.screens.chat import _VERBOS_TESTE
+from src.core.sky.chat.textual_ui.widgets.header.animated_verb import EstadoLLM
+from src.core.sky.chat.textual_ui.screens.main import _VERBOS_TESTE
 
 
 class TestVerbosTeste:

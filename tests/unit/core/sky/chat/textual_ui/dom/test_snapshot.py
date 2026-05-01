@@ -110,7 +110,7 @@ class TestEventTracer:
         assert entry.event_type == EventType.MOUNT
         assert entry.widget_dom_id == "test"
 
-    def test_capture_event adiciona_ao_buffer(self):
+    def test_capture_event_adiciona_ao_buffer(self):
         """capture_event adiciona ao buffer."""
         tracer = EventTracer(buffer_size=5)
         tracer.capture_event(EventType.MOUNT)

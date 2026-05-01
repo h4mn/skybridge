@@ -30,11 +30,14 @@ Uso:
 """
 
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from enum import Enum
 
-import discord
-from discord import Embed, Color
+# Lazy imports para evitar colisao de namespace com tests/unit/core/discord/
+# durante coleta do pytest. discord.py e importado apenas quando necessario.
+if TYPE_CHECKING:
+    import discord
+    from discord import Embed, Color
 
 # Adicionar caminho do projeto
 import sys
@@ -85,7 +88,7 @@ class DiscordService:
     métodos de alto nível que abstraem a complexidade do discord.py.
     """
 
-    def __init__(self, client: Optional[discord.Client] = None):
+    def __init__(self, client=None):
         """
         Inicializa o serviço.
 
@@ -93,7 +96,7 @@ class DiscordService:
             client: Instância do cliente Discord (opcional para testes)
         """
         self._client = client
-        self._views_by_message: Dict[int, discord.ui.View] = {}
+        self._views_by_message: Dict[int, Any] = {}
         self._progress_trackers: Dict[str, str] = {}  # tracking_id -> message_id
 
     def is_ready(self) -> bool:
@@ -125,12 +128,12 @@ class DiscordService:
         except asyncio.TimeoutError:
             return False
 
-    def set_client(self, client: discord.Client):
+    def set_client(self, client):
         """Define o cliente Discord."""
         self._client = client
 
     @property
-    def client(self) -> Optional[discord.Client]:
+    def client(self):
         """Retorna o cliente Discord (read-only)."""
         return self._client
 
@@ -139,7 +142,7 @@ class DiscordService:
         channel_id: str,
         content: str,
         reply_to: Optional[str] = None,
-    ) -> Optional[discord.Message]:
+    ) -> Optional[Any]:
         """
         Envia uma mensagem simples para um canal.
 
@@ -151,6 +154,8 @@ class DiscordService:
         Returns:
             Mensagem enviada ou None se erro
         """
+        import discord as _discord
+
         if not self._client:
             raise RuntimeError("Discord client não configurado")
 
@@ -158,7 +163,7 @@ class DiscordService:
             channel = await self._client.fetch_channel(int(channel_id))
             reference = None
             if reply_to:
-                reference = discord.MessageReference(
+                reference = _discord.MessageReference(
                     message_id=int(reply_to),
                     channel_id=int(channel_id),
                     fail_if_not_exists=False,
@@ -177,7 +182,7 @@ class DiscordService:
         color: int = 3447003,  # Azul padrão
         fields: Optional[List[EmbedField]] = None,
         footer: Optional[str] = None
-    ) -> Optional[discord.Message]:
+    ) -> Optional[Any]:
         """
         Envia um embed para um canal.
 
@@ -192,13 +197,15 @@ class DiscordService:
         Returns:
             Mensagem enviada ou None se erro
         """
+        from discord import Embed as _Embed
+
         if not self._client:
             raise RuntimeError("Discord client não configurado")
 
         try:
             channel = await self._client.fetch_channel(int(channel_id))
 
-            embed = Embed(title=title, description=description, color=color)
+            embed = _Embed(title=title, description=description, color=color)
 
             if fields:
                 for field in fields:
@@ -221,7 +228,7 @@ class DiscordService:
         self,
         buttons: List[ButtonConfig],
         timeout: Optional[float] = None
-    ) -> discord.ui.View:
+    ) -> Any:
         """
         Cria uma View Discord com botões.
 
@@ -236,12 +243,14 @@ class DiscordService:
         Returns:
             View configurada com botões e callbacks
         """
+        import discord as _discord
+
         # View customizada com callback genérico
-        class DDDView(discord.ui.View):
+        class DDDView(_discord.ui.View):
             def __init__(self, timeout: Optional[float] = None):
                 super().__init__(timeout=timeout)
 
-            async def _handle_button_click(self, interaction: discord.Interaction, button):
+            async def _handle_button_click(self, interaction: _discord.Interaction, button):
                 """
                 Callback genérico para todos os botões.
 
@@ -266,14 +275,14 @@ class DiscordService:
 
         for btn_config in buttons:
             style_map = {
-                "primary": discord.ButtonStyle.primary,
-                "success": discord.ButtonStyle.success,
-                "danger": discord.ButtonStyle.danger,
-                "secondary": discord.ButtonStyle.secondary,
+                "primary": _discord.ButtonStyle.primary,
+                "success": _discord.ButtonStyle.success,
+                "danger": _discord.ButtonStyle.danger,
+                "secondary": _discord.ButtonStyle.secondary,
             }
-            style = style_map.get(btn_config.style, discord.ButtonStyle.primary)
+            style = style_map.get(btn_config.style, _discord.ButtonStyle.primary)
 
-            button = discord.ui.Button(
+            button = _discord.ui.Button(
                 label=btn_config.label,
                 style=style,
                 custom_id=btn_config.custom_id,
@@ -290,18 +299,20 @@ class DiscordService:
         placeholder: str,
         options: List[dict],
         timeout: Optional[float] = None
-    ) -> discord.ui.View:
+    ) -> Any:
         """
         Cria uma View Discord com menu Select.
 
         Mesmo padrão dos botões que funcionam: classe interna + add_item.
         """
+        import discord as _discord
+
         # View customizada (igual DDDView dos botões)
-        class SelectView(discord.ui.View):
+        class SelectView(_discord.ui.View):
             def __init__(self, timeout: Optional[float] = None):
                 super().__init__(timeout=timeout)
 
-            async def _handle_select(self, interaction: discord.Interaction, select):
+            async def _handle_select(self, interaction: _discord.Interaction, select):
                 """Callback genérico para Select - apenas defer."""
                 try:
                     await interaction.response.defer()
@@ -312,7 +323,7 @@ class DiscordService:
 
         # Cria os SelectOptions
         select_options = [
-            discord.SelectOption(
+            _discord.SelectOption(
                 label=opt["label"],
                 value=opt["value"],
                 description=opt.get("description"),
@@ -322,7 +333,7 @@ class DiscordService:
         ]
 
         # Cria o Select
-        select = discord.ui.Select(
+        select = _discord.ui.Select(
             placeholder=placeholder,
             min_values=1,
             max_values=1,
@@ -342,7 +353,7 @@ class DiscordService:
         channel_id: str,
         placeholder: str,
         options: List[dict],
-    ) -> Optional[discord.Message]:
+    ) -> Optional[Any]:
         """
         Envia menu suspenso (Select) para canal Discord.
 
@@ -354,6 +365,8 @@ class DiscordService:
         Returns:
             Mensagem enviada ou None se erro
         """
+        from discord import Embed as _Embed
+
         if not self._client:
             raise RuntimeError("Discord client não configurado")
 
@@ -367,7 +380,7 @@ class DiscordService:
             view = self.create_select_view(placeholder, options, timeout=None)
 
             # Envia com embed (como send_buttons que funciona)
-            embed = Embed(title="Selecione uma opção", description=placeholder)
+            embed = _Embed(title="Selecione uma opção", description=placeholder)
             msg = await channel.send(embed=embed, view=view)
 
             self._views_by_message[msg.id] = view
@@ -385,7 +398,7 @@ class DiscordService:
         description: Optional[str] = None,
         buttons: Optional[List[ButtonConfig]] = None,
         embed_data: Optional[dict] = None
-    ) -> Optional[discord.Message]:
+    ) -> Optional[Any]:
         """
         Envia um embed com botões interativos.
 
@@ -399,6 +412,8 @@ class DiscordService:
         Returns:
             Mensagem enviada ou None se erro
         """
+        from discord import Embed as _Embed
+
         if not self._client:
             raise RuntimeError("Discord client não configurado")
 
@@ -415,9 +430,9 @@ class DiscordService:
 
             # Criar embed
             if embed_data:
-                embed = Embed.from_dict(embed_data)
+                embed = _Embed.from_dict(embed_data)
             else:
-                embed = Embed(title=title, description=description, color=3447003)
+                embed = _Embed(title=title, description=description, color=3447003)
 
             # Criar view com botões
             view = self.create_view(buttons, timeout=None)
@@ -442,7 +457,7 @@ class DiscordService:
         total: int,
         status: Optional[str] = None,
         tracking_id: Optional[str] = None
-    ) -> Optional[discord.Message]:
+    ) -> Optional[Any]:
         """
         Envia ou atualiza indicador de progresso.
 
@@ -457,6 +472,8 @@ class DiscordService:
         Returns:
             Mensagem enviada/editada ou None se erro
         """
+        from discord import Embed as _Embed
+
         if not self._client:
             raise RuntimeError("Discord client não configurado")
 
@@ -471,7 +488,7 @@ class DiscordService:
                 description += f"\n{status}"
 
             channel = await self._client.fetch_channel(int(channel_id))
-            embed = Embed(
+            embed = _Embed(
                 title=f"⏳ {title}",
                 description=description,
                 color=16776960  # Amarelo
@@ -507,7 +524,7 @@ class DiscordService:
         message_id: str,
         content: Optional[str] = None,
         embed: Optional[dict] = None
-    ) -> Optional[discord.Message]:
+    ) -> Optional[Any]:
         """
         Edita uma mensagem existente.
 
@@ -520,6 +537,8 @@ class DiscordService:
         Returns:
             Mensagem editada ou None se erro
         """
+        from discord import Embed as _Embed
+
         if not self._client:
             raise RuntimeError("Discord client não configurado")
 
@@ -531,7 +550,7 @@ class DiscordService:
             if content is not None:
                 kwargs["content"] = content
             if embed is not None:
-                kwargs["embed"] = Embed.from_dict(embed)
+                kwargs["embed"] = _Embed.from_dict(embed)
 
             msg = await message.edit(**kwargs)
             return msg
@@ -543,7 +562,7 @@ class DiscordService:
         self,
         channel_id,
         limit: int = 20,
-    ) -> List[discord.Message]:
+    ) -> List[Any]:
         """
         Busca histórico de mensagens de um canal.
 
@@ -552,14 +571,14 @@ class DiscordService:
             limit: Número máximo de mensagens (1-100)
 
         Returns:
-            Lista de discord.Message em ordem cronológica reversa
+            Lista de mensagens em ordem cronológica reversa
         """
         if not self._client:
             raise RuntimeError("Discord client não configurado")
 
         try:
             channel = await self._client.fetch_channel(int(str(channel_id)))
-            messages: List[discord.Message] = []
+            messages: List[Any] = []
             async for msg in channel.history(limit=limit):
                 messages.append(msg)
             return messages
@@ -836,6 +855,8 @@ class DiscordService:
         Returns:
             Dados atualizados ou None se erro
         """
+        import discord as _discord
+
         if not self._client:
             raise RuntimeError("Discord client não configurado")
 
@@ -855,7 +876,7 @@ class DiscordService:
 
             return {
                 "id": post_id,
-                "edited_at": discord.utils.utcnow().isoformat(),
+                "edited_at": _discord.utils.utcnow().isoformat(),
                 "status": "success"
             }
         except Exception as e:
@@ -1040,7 +1061,7 @@ class DiscordService:
 discord_service = DiscordService()
 
 
-def get_discord_service(client: Optional[discord.Client] = None) -> DiscordService:
+def get_discord_service(client=None) -> DiscordService:
     """
     Retorna a instância do Discord Service.
 

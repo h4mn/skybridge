@@ -7,7 +7,7 @@ DOC: openspec/changes/sky-chat-textual-ui-fix/specs/animated-verb/spec.md
 
 import pytest
 
-from src.core.sky.chat.textual_ui.widgets.animated_verb import (
+from src.core.sky.chat.textual_ui.widgets.header.animated_verb import (
     EstadoLLM,
     _PALETAS,
     _PALETA_FALLBACK,

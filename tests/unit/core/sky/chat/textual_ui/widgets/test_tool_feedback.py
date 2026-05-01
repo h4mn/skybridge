@@ -9,7 +9,7 @@ DOC: openspec/changes/sky-chat-textual-ui/design.md - Tool feedback para execuç
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 
-from src.core.sky.chat.textual_ui.widgets.tool_feedback import (
+from src.core.sky.chat.textual_ui.widgets.content.agentic_loop.tool_feedback import (
     ToolFeedback,
     ToolStatus,
     ToolInfo,

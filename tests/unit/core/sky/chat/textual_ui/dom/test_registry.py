@@ -3,11 +3,42 @@
 Testes unitários de SkyTextualDOM Registry.
 """
 
+import threading
+from unittest.mock import MagicMock, PropertyMock
+
 import pytest
 from textual.widgets import Static
 
 from core.sky.chat.textual_ui.dom.registry import SkyTextualDOM
 from core.sky.chat.textual_ui.dom.node import DOMNode
+
+
+def _make_widget(label: str = "Test") -> Static:
+    """
+    Cria um Static() com atributos exigidos por DOMNode._refresh_state().
+
+    DOMNode._refresh_state() acessa widget.is_visible, widget.has_focus,
+    widget.region, widget.id, widget.classes e widget.disabled. Esses
+    atributos exigem que o widget esteja montado em um app Textual, o que
+    nao acontece em testes unitarios. Usamos type() patch para properties.
+    """
+    widget = Static(label)
+
+    # region (property sem setter) - precisa de type-level patch
+    mock_region = MagicMock()
+    mock_region.x = 0
+    mock_region.y = 0
+    mock_region.width = 80
+    mock_region.height = 24
+    type(widget).region = PropertyMock(return_value=mock_region)
+
+    # is_visible (property sem setter)
+    type(widget).is_visible = PropertyMock(return_value=True)
+
+    # has_focus (property sem setter)
+    type(widget).has_focus = PropertyMock(return_value=False)
+
+    return widget
 
 
 @pytest.fixture(autouse=True)
@@ -33,7 +64,7 @@ class TestSkyTextualDOM:
     def test_register_widget_simples(self):
         """register() cria DOMNode para widget."""
         dom = SkyTextualDOM()
-        widget = Static("Test")
+        widget = _make_widget("Test")
 
         node = dom.register(widget)
 
@@ -44,7 +75,7 @@ class TestSkyTextualDOM:
     def test_register_com_dom_id_customizado(self):
         """register() aceita dom_id customizado."""
         dom = SkyTextualDOM()
-        widget = Static("Test")
+        widget = _make_widget("Test")
 
         node = dom.register(widget, dom_id="meu_id")
 
@@ -53,8 +84,8 @@ class TestSkyTextualDOM:
     def test_register_com_parent(self):
         """register() vincula parent e children."""
         dom = SkyTextualDOM()
-        parent = Static("Parent")
-        child = Static("Child")
+        parent = _make_widget("Parent")
+        child = _make_widget("Child")
 
         parent_node = dom.register(parent)
         child_node = dom.register(child, parent=parent)
@@ -65,7 +96,7 @@ class TestSkyTextualDOM:
     def test_unregister_remove_node(self):
         """unregister() remove node do registro."""
         dom = SkyTextualDOM()
-        widget = Static("Test")
+        widget = _make_widget("Test")
         node = dom.register(widget)
 
         result = dom.unregister(node.dom_id)
@@ -76,9 +107,9 @@ class TestSkyTextualDOM:
     def test_unregister_remove_descendants(self):
         """unregister() remove recursivamente descendants."""
         dom = SkyTextualDOM()
-        root = Static("Root")
-        child1 = Static("Child1")
-        child2 = Static("Child2")
+        root = _make_widget("Root")
+        child1 = _make_widget("Child1")
+        child2 = _make_widget("Child2")
 
         root_node = dom.register(root)
         child1_node = dom.register(child1, parent=root)
@@ -94,7 +125,7 @@ class TestSkyTextualDOM:
     def test_get_retorna_node_por_id(self):
         """get() retorna node por dom_id."""
         dom = SkyTextualDOM()
-        widget = Static("Test")
+        widget = _make_widget("Test")
         node = dom.register(widget, dom_id="test_id")
 
         result = dom.get("test_id")
@@ -112,8 +143,8 @@ class TestSkyTextualDOM:
     def test_query_por_classe(self):
         """query() busca por nome de classe."""
         dom = SkyTextualDOM()
-        w1 = Static("A")
-        w2 = Static("B")
+        w1 = _make_widget("A")
+        w2 = _make_widget("B")
 
         dom.register(w1, dom_id="static_1")
         dom.register(w2, dom_id="static_2")
@@ -126,7 +157,7 @@ class TestSkyTextualDOM:
     def test_query_por_id(self):
         """query() busca por ID com #."""
         dom = SkyTextualDOM()
-        w = Static("Test")
+        w = _make_widget("Test")
         dom.register(w, dom_id="meu_widget")
 
         results = dom.query("#meu_widget")
@@ -137,7 +168,7 @@ class TestSkyTextualDOM:
     def test_query_por_attr_valor(self):
         """query() busca por attr/value."""
         dom = SkyTextualDOM()
-        w = Static("Test")
+        w = _make_widget("Test")
         node = dom.register(w)
         node.state["custom"] = "value"
 
@@ -149,8 +180,8 @@ class TestSkyTextualDOM:
     def test_query_composta_classe_attr(self):
         """query() busca com classe + attr."""
         dom = SkyTextualDOM()
-        w1 = Static("A")
-        w2 = Static("B")
+        w1 = _make_widget("A")
+        w2 = _make_widget("B")
 
         n1 = dom.register(w1, dom_id="s1")
         n2 = dom.register(w2, dom_id="s2")
@@ -174,8 +205,8 @@ class TestSkyTextualDOM:
     def test_tree_retorna_string_formatada(self):
         """tree() retorna árvore formatada."""
         dom = SkyTextualDOM()
-        root = Static("Root")
-        child = Static("Child")
+        root = _make_widget("Root")
+        child = _make_widget("Child")
 
         dom.register(root, dom_id="root")
         dom.register(child, parent=root, dom_id="child")
@@ -218,17 +249,15 @@ class TestSkyTextualDOM:
 class TestThreadSafety:
     """Testes de thread-safety."""
 
-    def test_register_concorrente(self, threading_pool):
+    def test_register_concorrente(self):
         """Múltiplas threads podem registrar simultaneamente."""
-        import threading
-
         dom = SkyTextualDOM()
         errors = []
         nodes = []
 
         def register_widget(i):
             try:
-                w = Static(f"Widget{i}")
+                w = _make_widget(f"Widget{i}")
                 node = dom.register(w, dom_id=f"w{i}")
                 nodes.append(node.dom_id)
             except Exception as e:

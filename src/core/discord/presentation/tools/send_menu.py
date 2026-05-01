@@ -11,34 +11,17 @@ DOC: DDD Migration - Presentation Layer
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-import discord
-from discord.ui import View, Select
+# Lazy imports para evitar colisao de namespace com tests/unit/core/discord/
+# durante coleta do pytest. discord.py e importado apenas quando necessario.
+if TYPE_CHECKING:
+    import discord
+    from discord.ui import View, Select
 
 from ...application.services.discord_service import DiscordService
 
 logger = logging.getLogger(__name__)
-
-
-class MenuView(View):
-    """View com menu suspenso que persiste."""
-
-    def __init__(self, select: Select, options: list[dict], callback_name: str):
-        """
-        Inicializa View com menu.
-
-        Args:
-            select: O componente Select já configurado
-            options: Lista de {label, value, description, emoji}
-            callback_name: Nome do callback para debug
-        """
-        super().__init__(timeout=None)  # Nunca expira
-        self._options = options
-        self._callback_name = callback_name
-
-        # Adiciona o select à View
-        self.add_item(select)
 
 
 async def handle_send_menu(

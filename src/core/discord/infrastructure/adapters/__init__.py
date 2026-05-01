@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Infrastructure Adapters - Adaptadores de infraestrutura Discord."""
+"""
+Infrastructure Adapters - Adaptadores de infraestrutura Discord.
 
-from .discord_adapter import DiscordAdapter, create_discord_adapter
+NOTA: discord_adapter depende de discord.py e nao e importado no nivel do
+modulo para evitar colisao de namespace durante coleta do pytest.
+Importar diretamente do submodulo:
+    from src.core.discord.infrastructure.adapters.discord_adapter import DiscordAdapter
+"""
+
 from .mcp_adapter import MCPAdapter, create_mcp_adapter
 
 __all__ = [
-    "DiscordAdapter",
-    "create_discord_adapter",
     "MCPAdapter",
     "create_mcp_adapter",
 ]
