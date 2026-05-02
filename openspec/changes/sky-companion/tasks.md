@@ -1,16 +1,16 @@
 ## 1. Infraestrutura do Mod (C#)
 
-- [ ] 1.1 Configurar HttpServer com porta configurável via BepInEx ConfigEntry (default 17234) — ref: spec `game-state-provider`, design D1
-- [ ] 1.2 Implementar GET /state retornando JSON com terraform, posição do jogador, inventário — ref: spec `game-state-provider` req 1
-- [ ] 1.3 Implementar GET /events retornando fila de eventos significativos — ref: spec `game-state-provider` req 2
-- [ ] 1.4 Implementar POST /action aceitando comandos (show_message, set_animation, move) — ref: spec `game-state-provider` req 3
+- [x] 1.1 Configurar HttpServer com porta configurável via BepInEx ConfigEntry (default 17234) — ref: spec `game-state-provider`, design D1
+- [x] 1.2 Implementar GET /state retornando JSON com terraform, posição do jogador, inventário — ref: spec `game-state-provider` req 1
+- [x] 1.3 Implementar GET /events retornando fila de eventos significativos — ref: spec `game-state-provider` req 2
+- [x] 1.4 Implementar POST /action aceitando comandos (show_message, set_animation, move) — ref: spec `game-state-provider` req 3
 - [ ] 1.5 Escrever testes unitários para HttpServer (validação de rotas, JSON serialization, porta configurável)
 
 ## 2. EventFilter e Eventos Significativos
 
-- [ ] 2.1 Implementar EventFilter no mod C# que mantém fila de significant_events — ref: design D7
-- [ ] 2.2 Adicionar detection de milestone de terraformação como evento significativo — ref: spec `game-state-provider` req 2
-- [ ] 2.3 Adicionar detection de morte do jogador como evento significativo
+- [x] 2.1 Implementar EventFilter no mod C# que mantém fila de significant_events — ref: design D7
+- [x] 2.2 Adicionar detection de milestone de terraformação como evento significativo — ref: spec `game-state-provider` req 2
+- [x] 2.3 Adicionar detection de morte do jogador como evento significativo
 - [ ] 2.4 Escrever testes para EventFilter (thresholds, tipos de evento, fila FIFO)
 
 ## 3. Modelo 3D — Borboleta Evolutiva
@@ -31,10 +31,10 @@
 
 ## 5. Chat /skychat
 
-- [ ] 5.1 Implementar handler de input que captura /skychat <mensagem> — ref: spec `companion-chat` req 1
-- [ ] 5.2 Enfileirar mensagem como evento tipo "skychat" no EventFilter — ref: spec `companion-chat` req 1
+- [x] 5.1 Implementar handler de input que captura /skychat <mensagem> — ref: spec `companion-chat` req 1
+- [x] 5.2 Enfileirar mensagem como evento tipo "skychat" no EventFilter — ref: spec `companion-chat` req 1
 - [ ] 5.3 Exibir confirmação visual no jogo ao capturar comando
-- [ ] 5.4 Validar comando vazio (exibir "Uso: /skychat <mensagem>") — ref: spec `companion-chat` req 1
+- [x] 5.4 Validar comando vazio (exibir "Uso: /skychat <mensagem>") — ref: spec `companion-chat` req 1
 - [ ] 5.5 Conectar POST /action type "show_message" ao balão de fala — ref: spec `companion-chat` req 2
 
 ## 6. DestinationStrategy — Movimentação
