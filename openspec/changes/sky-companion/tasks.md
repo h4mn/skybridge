@@ -47,29 +47,29 @@
 
 ## 7. Channel MCP (Python)
 
-- [ ] 7.1 Criar planet-crafter-channel.py com MCP Server via stdio — ref: design D4, spec `channel-mcp-companion`
-- [ ] 7.2 Declarar capability experimental claude/channel na inicialização — ref: spec `channel-mcp-companion` req 3
-- [ ] 7.3 Implementar polling de GET /events a cada 10s com JSONRPCNotification — ref: spec `channel-mcp-companion` req 1
-- [ ] 7.4 Implementar throttling de 30s entre notificações (agrupar eventos) — ref: spec `channel-mcp-companion` req 2
-- [ ] 7.5 Implementar reconexão automática ao mod (log + retry) — ref: spec `channel-mcp-companion` req 4
-- [ ] 7.6 Implementar tool send_companion_message(text) → POST /action — ref: spec `companion-tools` req 1
-- [ ] 7.7 Implementar tool move_companion_to(strategy, params) → POST /action — ref: spec `companion-tools` req 2
-- [ ] 7.8 Implementar tool set_companion_animation(animation) → POST /action — ref: spec `companion-tools` req 3
-- [ ] 7.9 Implementar tool get_game_state() → GET /state — ref: spec `companion-tools` req 4
-- [ ] 7.10 Escrever testes para o Channel MCP (mock HTTP, throttling, capability declaration)
+- [x] 7.1 Criar planet-crafter-channel.py com MCP Server via stdio — ref: design D4, spec `channel-mcp-companion`
+- [x] 7.2 Declarar capability experimental claude/channel na inicialização — ref: spec `channel-mcp-companion` req 3
+- [x] 7.3 Implementar polling de GET /events a cada 10s com JSONRPCNotification — ref: spec `channel-mcp-companion` req 1
+- [x] 7.4 Implementar throttling de 30s entre notificações (agrupar eventos) — ref: spec `channel-mcp-companion` req 2
+- [x] 7.5 Implementar reconexão automática ao mod (log + retry) — ref: spec `channel-mcp-companion` req 4
+- [x] 7.6 Implementar tool send_companion_message(text) → POST /action — ref: spec `companion-tools` req 1
+- [x] 7.7 Implementar tool move_companion_to(strategy, params) → POST /action — ref: spec `companion-tools` req 2
+- [x] 7.8 Implementar tool set_companion_animation(animation) → POST /action — ref: spec `companion-tools` req 3
+- [x] 7.9 Implementar tool get_game_state() → GET /state — ref: spec `companion-tools` req 4
+- [x] 7.10 Escrever testes para o Channel MCP (mock HTTP, throttling, capability declaration)
 
 ## 8. Sessão de Jogatina
 
-- [ ] 8.1 Implementar criação de sessão ao primeiro polling bem-sucedido — ref: spec `companion-session` req 1
-- [ ] 8.2 Implementar registro de eventos na sessão (milestone, skychat, note) — ref: spec `companion-session` req 2
-- [ ] 8.3 Implementar tool add_session_note(text) — ref: spec `companion-session` req 3
-- [ ] 8.4 Implementar encerramento de sessão após 60s de indisponibilidade — ref: spec `companion-session` req 4
-- [ ] 8.5 Implementar tool get_session_summary() — ref: spec `companion-session` req 5
-- [ ] 8.6 Escrever testes para gerenciamento de sessão
+- [x] 8.1 Implementar criação de sessão ao primeiro polling bem-sucedido — ref: spec `companion-session` req 1
+- [x] 8.2 Implementar registro de eventos na sessão (milestone, skychat, note) — ref: spec `companion-session` req 2
+- [x] 8.3 Implementar tool add_session_note(text) — ref: spec `companion-session` req 3
+- [x] 8.4 Implementar encerramento de sessão após 60s de indisponibilidade — ref: spec `companion-session` req 4
+- [x] 8.5 Implementar tool get_session_summary() — ref: spec `companion-session` req 5
+- [x] 8.6 Escrever testes para gerenciamento de sessão
 
 ## 9. Configuração e Integração
 
-- [ ] 9.1 Adicionar entrada do channel no .mcp.json do skybridge
+- [x] 9.1 Adicionar entrada do channel no .mcp.json do skybridge
 - [ ] 9.2 Validar integração E2E: mod rodando → channel conectado → Claude Code recebe notificações
 - [ ] 9.3 Validar integração E2E: /skychat → notificação → resposta via tool → balão no jogo
 - [ ] 9.4 Documentar setup: como instalar o mod, configurar o channel, usar no Claude Code

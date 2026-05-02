@@ -35,7 +35,15 @@
     },
     "glitchtip": {
       "command": "python",
-      "args": ["B:/_repositorios/skybridge/apps/mcp/glitchtip.py"],
+      "args": ["B:/_repositorios/skybridge/apps/mcp_servers/glitchtip.py"],
+      "cwd": "B:/_repositorios/skybridge",
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      }
+    },
+    "planet-crafter": {
+      "command": "python",
+      "args": ["-m", "apps.mcp_servers.planet_crafter_companion"],
       "cwd": "B:/_repositorios/skybridge",
       "env": {
         "PYTHONIOENCODING": "utf-8"
