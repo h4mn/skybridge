@@ -32,6 +32,14 @@
         "SKY_MEMORY_PATH": "B:/_repositorios/sky-memory",
         "PYTHONIOENCODING": "utf-8"
       }
+    },
+    "glitchtip": {
+      "command": "python",
+      "args": ["B:/_repositorios/skybridge/apps/mcp/glitchtip.py"],
+      "cwd": "B:/_repositorios/skybridge",
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      }
     }
   }
 }
