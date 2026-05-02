@@ -164,8 +164,8 @@ O Discord Channel MCP (`discord_channel_mcp.py`) é a referência de implementa�
 ┌──────────────────────────────────────────────────────────────┐
 │  planet-crafter-channel.py (MCP Server via stdio)            │
 │                                                              │
-│  Channel: polling /state a cada 3s                           │
-│    detecta mudança → JSONRPCNotification → Claude Code       │
+│  Channel: polling GET /events a cada 10s (throttle 30s)     │
+│    eventos filtrados → JSONRPCNotification → Claude Code     │
 │                                                              │
 │  Tools:                                                      │
 │    send_companion_message(text) → POST /action               │
@@ -183,7 +183,7 @@ O Discord Channel MCP (`discord_channel_mcp.py`) é a referência de implementa�
 
 | Risco | Mitigação |
 |-------|-----------|
-| Polling consome CPU | Intervalo de 3s é suficiente; Planet Crafter muda devagar |
+| Polling consome CPU | Intervalo de 10s com throttle de 30s é suficiente; Planet Crafter muda devagar |
 | AssetBundle de modelo 3D pode falhar em versões diferentes do Unity | Fallback para primitive shape; testar com versão específica do jogo |
 | `HttpListener` pode ter conflito de porta | Detectar porta em uso e logar erro claro |
 | Chat `/skychat` pode conflitar com outros mods de comando | Verificar como akarnokd resolve em `FeatCommandConsole` |

@@ -245,6 +245,57 @@ class TestAutoReconnect:
 
         mock_write.send.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_poll_success_starts_session(self):
+        """RED: polling bem-sucedido inicia sessão via session_manager."""
+        from apps.mcp_servers.planet_crafter_companion import EventPoller, CompanionSessionManager
+
+        mock_write = AsyncMock()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = [{"type": "milestone", "description": "Test"}]
+        mock_resp.raise_for_status = MagicMock()
+
+        mock_http = AsyncMock()
+        mock_http.get.return_value = mock_resp
+
+        session_mgr = CompanionSessionManager()
+        assert not session_mgr.is_active
+
+        poller = EventPoller(
+            base_url="http://localhost:17234",
+            write_stream=mock_write,
+            http_client=mock_http,
+            session_manager=session_mgr,
+        )
+        await poller.poll_once()
+
+        assert session_mgr.is_active
+
+    @pytest.mark.asyncio
+    async def test_poll_failure_tracks_consecutive_failures(self):
+        """RED: polling falho notifica session_manager.on_poll_failure."""
+        from apps.mcp_servers.planet_crafter_companion import EventPoller, CompanionSessionManager
+
+        mock_write = AsyncMock()
+        mock_http = AsyncMock()
+        mock_http.get.side_effect = ConnectionRefusedError()
+
+        session_mgr = CompanionSessionManager(timeout_failures=2)
+        session_mgr.on_poll_success()
+        assert session_mgr.is_active
+
+        poller = EventPoller(
+            base_url="http://localhost:17234",
+            write_stream=mock_write,
+            http_client=mock_http,
+            session_manager=session_mgr,
+        )
+        await poller.poll_once()
+        await poller.poll_once()
+
+        assert not session_mgr.is_active  # Encerrou após 2 falhas consecutivas
+
 
 # ============================================================================
 # 7.6-7.9 — MCP Tools
@@ -310,6 +361,82 @@ class TestCompanionTools:
         call_body = mock_http.post.call_args[1]["json"]
         assert call_body["type"] == "move"
         assert call_body["strategy"] == "follow_player"
+
+    @pytest.mark.asyncio
+    async def test_move_companion_goto_coords_sends_xyz(self):
+        """RED: goto_coords envia coordenadas x, y, z no body."""
+        from apps.mcp_servers.planet_crafter_companion import handle_tool_call
+
+        mock_http = AsyncMock()
+        mock_http.post.return_value.status_code = 200
+
+        await handle_tool_call(
+            "move_companion_to",
+            {"strategy": "goto_coords", "x": 100, "y": 50, "z": 200},
+            http_client=mock_http,
+            base_url="http://localhost:17234",
+        )
+
+        call_body = mock_http.post.call_args[1]["json"]
+        assert call_body["type"] == "move"
+        assert call_body["strategy"] == "goto_coords"
+        assert call_body["x"] == 100
+        assert call_body["y"] == 50
+        assert call_body["z"] == 200
+
+    @pytest.mark.asyncio
+    async def test_move_companion_goto_named_sends_name(self):
+        """RED: goto_named envia nome do local no body."""
+        from apps.mcp_servers.planet_crafter_companion import handle_tool_call
+
+        mock_http = AsyncMock()
+        mock_http.post.return_value.status_code = 200
+
+        await handle_tool_call(
+            "move_companion_to",
+            {"strategy": "goto_named", "name": "base"},
+            http_client=mock_http,
+            base_url="http://localhost:17234",
+        )
+
+        call_body = mock_http.post.call_args[1]["json"]
+        assert call_body["type"] == "move"
+        assert call_body["strategy"] == "goto_named"
+        assert call_body["name"] == "base"
+
+    @pytest.mark.asyncio
+    async def test_move_companion_returns_error_when_unavailable(self):
+        """RED: move_companion_to retorna erro quando mod indisponível."""
+        from apps.mcp_servers.planet_crafter_companion import handle_tool_call
+
+        mock_http = AsyncMock()
+        mock_http.post.side_effect = ConnectionRefusedError()
+
+        result = await handle_tool_call(
+            "move_companion_to",
+            {"strategy": "follow_player"},
+            http_client=mock_http,
+            base_url="http://localhost:17234",
+        )
+
+        assert "não está disponível" in result or "indisponível" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_set_companion_animation_returns_error_when_unavailable(self):
+        """RED: set_companion_animation retorna erro quando mod indisponível."""
+        from apps.mcp_servers.planet_crafter_companion import handle_tool_call
+
+        mock_http = AsyncMock()
+        mock_http.post.side_effect = ConnectionRefusedError()
+
+        result = await handle_tool_call(
+            "set_companion_animation",
+            {"animation": "thinking"},
+            http_client=mock_http,
+            base_url="http://localhost:17234",
+        )
+
+        assert "não está disponível" in result or "indisponível" in result.lower()
 
     @pytest.mark.asyncio
     async def test_set_companion_animation_validates_animation(self):

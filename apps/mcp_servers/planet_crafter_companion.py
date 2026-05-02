@@ -129,12 +129,14 @@ class EventPoller:
         http_client: httpx.AsyncClient | None = None,
         poll_interval: int = DEFAULT_POLL_INTERVAL,
         throttle_seconds: int = DEFAULT_THROTTLE_SECONDS,
+        session_manager: CompanionSessionManager | None = None,
     ):
         self.base_url = base_url
         self.write_stream = write_stream
         self.http_client = http_client or httpx.AsyncClient()
         self.poll_interval = poll_interval
         self.throttle_seconds = throttle_seconds
+        self.session_manager = session_manager
         self._last_notification_time: float = 0
         self._pending_events: list[dict] = []
 
@@ -145,7 +147,12 @@ class EventPoller:
             events = resp.json()
         except (httpx.ConnectError, ConnectionRefusedError, OSError):
             logger.info("Mod indisponível, tentando novamente no próximo ciclo")
+            if self.session_manager:
+                self.session_manager.on_poll_failure()
             return
+
+        if self.session_manager:
+            self.session_manager.on_poll_success()
 
         if not events:
             return
@@ -224,18 +231,24 @@ async def handle_tool_call(
             elif strategy == "goto_named":
                 if "name" in arguments:
                     body["name"] = arguments["name"]
-            await client.post(f"{base_url}/action", json=body)
-            return f"Movimento executado: {strategy}"
+            try:
+                await client.post(f"{base_url}/action", json=body)
+                return f"Movimento executado: {strategy}"
+            except (httpx.ConnectError, ConnectionRefusedError, OSError):
+                return "Companion não está disponível — verifique se o jogo está aberto com o mod carregado"
 
         elif name == "set_companion_animation":
             animation = arguments.get("animation", "")
             if animation not in VALID_ANIMATIONS:
                 return f"Animação inválida '{animation}'. Válidas: {', '.join(VALID_ANIMATIONS)}"
-            await client.post(
-                f"{base_url}/action",
-                json={"type": "set_animation", "animation": animation},
-            )
-            return f"Animação alterada para: {animation}"
+            try:
+                await client.post(
+                    f"{base_url}/action",
+                    json={"type": "set_animation", "animation": animation},
+                )
+                return f"Animação alterada para: {animation}"
+            except (httpx.ConnectError, ConnectionRefusedError, OSError):
+                return "Companion não está disponível — verifique se o jogo está aberto com o mod carregado"
 
         elif name == "get_game_state":
             try:
@@ -359,7 +372,7 @@ async def main():
             return [TextContent(type="text", text=result)]
 
     async with stdio_server() as (read_stream, write_stream):
-        poller = EventPoller(base_url=base_url, write_stream=write_stream)
+        poller = EventPoller(base_url=base_url, write_stream=write_stream, session_manager=session_manager)
 
         async def poll_loop():
             while True:
