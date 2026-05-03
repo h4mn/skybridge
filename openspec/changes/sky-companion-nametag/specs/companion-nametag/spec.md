@@ -1,19 +1,23 @@
 ## ADDED Requirements
 
-### Requirement: Name tag persistente acima do modelo
-O sistema SHALL exibir um label TextMeshPro 3D com o nome do companion posicionado acima ou abaixo do modelo, visível em world-space.
+### Requirement: Name tag persistente via OnGUI/IMGUI
+O sistema SHALL exibir um label com o nome do companion usando OnGUI/IMGUI (mesmo frame da mensagem de tela), posicionado via WorldToScreenPoint acima do companion.
 
 #### Scenario: Name tag visível por padrão
-- **WHEN** o companion é inicializado
-- **THEN** SHALL exibir label com texto configurável (default: "Sky") acima do modelo
+- **WHEN** o companion é inicializado e greeting completo
+- **THEN** SHALL exibir label com texto configurável (default: "Sky") acima do companion na tela
 
 #### Scenario: Name tag oculto por configuração
 - **WHEN** `NametagVisible` config é false
-- **THEN** SHALL ocultar o label completamente
+- **THEN** SHALL não desenhar o label
 
 #### Scenario: Name tag sempre visível quando speaking
 - **WHEN** o companion está no estado Speaking
-- **THEN** SHALL exibir o name tag independente da configuração NametagVisible
+- **THEN** SHALL desenhar o name tag independente da configuração NametagVisible
+
+#### Scenario: Name tag oculto quando atrás da câmera
+- **WHEN** o companion está atrás da câmera (WorldToScreenPoint.z <= 0)
+- **THEN** SHALL não desenhar o label
 
 ### Requirement: Gradiente de cores animado por sweep
 O label SHALL exibir gradiente de cores animado (azul → índigo → violeta → roxo → lavanda → fúcsia) com sweep temporal por caractere.
@@ -26,45 +30,37 @@ O label SHALL exibir gradiente de cores animado (azul → índigo → violeta �
 - **WHEN** `NametagGradientSpeed` é alterado
 - **THEN** SHALL ajustar a velocidade de rotação das cores (default: 1.0)
 
-### Requirement: Billboard — sempre olha para câmera
-O label SHALL sempre mirar para a câmera ativa (compatível com 1a e 3a pessoa).
+### Requirement: Posição acompanha companion
+A posição do label SHALL seguir a posição 3D do companion convertida para coordenadas de tela.
 
-#### Scenario: Rotação acompanha câmera
-- **WHEN** a câmera rotaciona
-- **THEN** o label SHALL rotacionar para permanecer legível de qualquer ângulo
+#### Scenario: Label acompanha companion
+- **WHEN** o companion se move no mundo
+- **THEN** o label SHALL se mover na tela proporcionalmente
 
-### Requirement: Escala por distância
-O label SHALL escalar inversamente proporcional à distância da câmera para manter tamanho aparente constante.
-
-#### Scenario: Tamanho constante a qualquer distância
-- **WHEN** a câmera se aproxima ou se afasta
-- **THEN** o label SHALL manter tamanho visual aproximadamente constante (clamp entre min e max)
-
-### Requirement: Posição configurável acima/abaixo
-A posição do label SHALL ser configurável via `NametagOffsetY` (positivo = acima, negativo = abaixo).
-
-#### Scenario: Offset positivo posiciona acima
-- **WHEN** `NametagOffsetY` > 0 (default: 0.8)
-- **THEN** label SHALL aparecer acima do modelo
-
-#### Scenario: Offset negativo posiciona abaixo
-- **WHEN** `NametagOffsetY` < 0
-- **THEN** label SHALL aparecer abaixo do modelo
-
-### Requirement: Nome muda com evolução
-O nome exibido SHALL mudar automaticamente quando o companion evolui para Oesbe.
-
-#### Scenario: Evolução muda nome
-- **WHEN** insects > 0 e companion evolui
-- **THEN** nome SHALL mudar de "Sky" para "Sky Oesbe"
-
-#### Scenario: Nome customizado mantém evolução
-- **WHEN** nome configurado como "Buddy" e companion evolui
-- **THEN** nome SHALL mudar para "Buddy Oesbe"
+#### Scenario: Offset Y configurável
+- **WHEN** `NametagOffsetY` > 0 (default: 1.2)
+- **THEN** label SHALL aparecer acima do companion no mundo
 
 ### Requirement: Parâmetros configuráveis via BepInEx
 Todos os parâmetros do name tag SHALL ser configuráveis via BepInEx ConfigEntry.
 
 #### Scenario: ConfigEntries registrados
 - **WHEN** o mod carrega
-- **THEN** SHALL registrar: NametagText, NametagVisible, NametagOffsetY, NametagFontSize, NametagGradientSpeed, NametagMinScale, NametagMaxScale
+- **THEN** SHALL registrar: NametagText, NametagVisible, NametagOffsetY, NametagFontSize, NametagGradientSpeed
+
+## REMOVED Requirements
+
+### ~~Requirement: TextMeshPro world-space~~
+Removido — TMP world-space não apareceu. Renderer.isVisible instável, sem renderer no modelo primitivo, transição de evolução quebra referência. Substituído por OnGUI/IMGUI.
+
+### ~~Requirement: Escala por distância~~
+Removido — IMGUI é screen-space, tamanho fixo.
+
+### ~~Requirement: Nome muda com evolução~~
+Removido — funcionalidade de evolução será tratada em change separada.
+
+### ~~Requirement: Billboard — sempre olha para câmera~~
+Removido — IMGUI é screen-space, não precisa de billboard.
+
+### ~~Requirement: Visibilidade condicional por frustum da câmera~~
+Removido — Renderer.isVisible instável. Substituído por screenPos.z > 0 (atrás da câmera).

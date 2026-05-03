@@ -1,70 +1,62 @@
 ## Context
 
-O companion já possui modelo 3D (borboleta), state machine de movimentação com 13 estados, e balão de mensagens com TextMeshPro. Falta um identificador visual persistente — um name tag que flutua acima do modelo com o nome da borboleta e a identidade visual da Sky.
+O companion já possui modelo 3D (borboleta), state machine de movimentação com 13 estados, e frame de mensagem via OnGUI (IMGUI) que funciona perfeitamente. Falta um identificador visual persistente — um name tag que mostra o nome da borboleta com a identidade visual da Sky.
 
 Referência de identidade visual:
 - **Statusline** (`statusline.py`): gradiente SKY_GRADIENT com 6 cores animadas por offset temporal (azul #3B82F6 → índigo #6366F1 → violeta #8B5CF6 → roxo #A855F7 → lavanda #C084FC → fúcsia #D946EF)
-- **Welcome logo** (`welcome.py`): paletas por emoção com sweep animado e interpolação entre estados
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Label 3D com nome do companion usando TextMeshPro
-- Gradiente de cores animado (azul→violeta→fúcsia) por sweep temporal
-- Billboard: sempre olha para a câmera
-- Escala por distância: tamanho aparente constante independente da distância
-- Posição configurável: acima ou abaixo do modelo
+- Label persistente com nome do companion usando o mesmo frame OnGUI/IMGUI das mensagens (`_screenMessage`)
+- Posição rastreia companion via `WorldToScreenPoint`
+- Gradiente de cores animado (azul→violeta→fúcsia) por sweep temporal por caractere
+- Visibilidade: só desenha se companion está na frente da câmera (screenPos.z > 0)
 - Visibilidade configurável via BepInEx
 - Nome configurável via BepInEx (default: "Sky")
-- Nome muda automaticamente na evolução ("Sky" → "Sky Oesbe")
 
 **Non-Goals:**
-- Sombras ou efeitos de iluminação no label
-- Outline/borda no texto
-- Interatividade (clique no nome)
-- Fonte customizada (usa default do TextMeshPro)
+- Billboard (IMGUI é screen-space, não precisa)
+- Escala por distância (IMGUI é screen-space, tamanho fixo)
+- Frustum culling via Renderer.isVisible (instável)
+- Mudança automática de nome na evolução (será change separada)
+- TextMeshPro world-space (não funcionou — Renderer.isVisible instável)
 
 ## Decisions
 
-### D1: TextMeshPro world-space com billboard manual
+### D1: OnGUI/IMGUI em vez de TextMeshPro world-space
 
-**Escolha:** Criar TextMeshPro em world-space como child do companion. No Update, rotacionar para olhar a câmera (`transform.LookAt(camera)`) e inverter escala com distância.
-
-**Alternativas:**
-- Canvas Screen Space: ficaria fixo na tela, não world-space
-- Canvas World Space: mais flexível mas mais pesado que TMP direto
-- Overlay IMGUI: já existe pra mensagens, não serve pra label 3D
-
-**Rationale:** TMP world-space com billboard manual é leve, já usamos TMP no projeto, e funciona em 1a/3a pessoa.
-
-### D2: Gradiente por sweep temporal (offset + Lerp entre cores)
-
-**Escolha:** Array de 6 cores (SKY_GRADIENT). Offset avança com `Time.time * velocidade`. Cada caractere recebe cor = Lerp(cores[offset % 6], cores[(offset+1) % 6], fração). No Update, aplicar cor por caractere via `textMesh.textInfo.meshInfo`.
+**Escolha:** Usar `OnGUI()` com `GUI.Label` e `Camera.main.WorldToScreenPoint()` para posicionar o nametag na tela. Mesmo frame já usado para `_screenMessage`.
 
 **Alternativas:**
-- Vertex gradient do TMP: só 2 cantos, não dá sweep por caractere
-- Material property: não controla por caractere
-- Color tag rich text: `[color]` inline, simples mas sem animação smooth
+- TextMeshPro world-space: não apareceu — Renderer.isVisible instável, sem renderer no modelo primitivo, transição de evolução quebra
+- Canvas Screen Space: mais complexo, não necessário
+- Canvas World Space: mais pesado, mesmo problema de visibilidade
 
-**Rationale:** Sweep por caractere com Lerp dá o mesmo efeito do statusline — cada letra tem uma cor diferente que flui. O meshInfo do TMP permite alterar cores sem recriar o texto.
+**Rationale:** O frame de mensagem (OnGUI) funciona perfeitamente. IMGUI é screen-space, não depende de renderer, e WorldToScreenPoint converte posição do mundo pra tela de forma confiável.
 
-### D3: Escala por distância (1/distance)
+### D2: Gradiente por sweep temporal (caractere por caractere via GUI.Label)
 
-**Escolha:** `scale = baseSize / Mathf.Clamp(distance, minDist, maxDist)`. Distance = distância câmera→label. Base size configurável.
+**Escolha:** Desenhar cada caractere como GUI.Label separado com cor do gradiente. Sweep: `cor = Lerp(cores[idx], cores[idx+1], frac)` onde offset avança com `Time.time * speed`.
 
-**Rationale:** Inversamente proporcional à distância mantém tamanho aparente constante. Clamp evita escala infinita (muito perto) ou invisível (muito longe).
+**Rationale:** IMGUI não suporta per-character colors em Label único. Desenhar caractere a caractere com GUI.Label individual dá o mesmo efeito visual do sweep.
 
-### D4: ConfigEntry para todos os parâmetros
+### D3: Visibilidade por screenPos.z > 0
 
-**Escolha:** BepInEx ConfigEntry para: NametagText, NametagVisible, NametagOffsetY (positivo=acima, negativo=abaixo), NametagFontSize, NametagGradientSpeed, NametagMinScale, NametagMaxScale.
+**Escolha:** Se `WorldToScreenPoint` retorna z <= 0, companion está atrás da câmera → não desenha.
 
-**Rationale:** Hot-reload pelo config do BepInEx sem rebuild.
+**Rationale:** Simples e confiável. Não depende de Renderer.isVisible.
+
+### D4: ConfigEntry para parâmetros essenciais
+
+**Escolha:** BepInEx ConfigEntry para: NametagText, NametagVisible, NametagOffsetY, NametagFontSize, NametagGradientSpeed.
+
+**Rationale:** Hot-reload pelo config do BepInEx sem rebuild. NametagMinScale/NametagMaxScale removidos (IMGUI é screen-space).
 
 ## Risks / Trade-offs
 
 | Risco | Mitigação |
 |-------|-----------|
-| Sweep por caractere pode causar GC allocation | Usar `meshInfo.colors32` direto, não recriar arrays |
-| Escala por distância pode conflitar com FOV | Clamp de escala mínima/máxima |
-| Gradiente animado chama Update todo frame | Custo baixo (6-20 caracteres), batch com Update existente |
-| TMP font pode não renderizar em distância longa | Configurar `fontSizeMin`/`fontSizeMax` no TMP |
+| GUI.Label por caractere pode ser lento com nomes longos | Nomes curtos (3-10 chars), custo desprezível |
+| WorldToScreenPoint pode jitter em transições de câmera | Aceitável para label |
+| IMGUI roda após OnPostRender → pode piscar | Aceitável para label flutuante |

@@ -4,23 +4,23 @@ O companion não tem identificação visual — o jogador não sabe o nome da bo
 
 ## What Changes
 
-- Adicionar label TextMeshPro 3D acima/abaixo do modelo do companion
+- Name tag usando mesmo frame TextMeshPro do balão de mensagem (padrão já funcional)
 - Gradiente de cores dinâmico (azul → índigo → violeta → roxo → lavanda → fúcsia) animado por sweep temporal
-- Escala por distância para manter tamanho aparente constante (billboard)
-- Posição configurável (acima/abaixo do modelo)
+- Label acompanha posição do modelo 3D como child — sem billboard manual
+- Visibilidade condicional: só renderiza quando modelo 3D está no frustum da câmera
 - Visibilidade configurável via BepInEx (sempre visível se flag=true)
 - Nome configurável via BepInEx (default: "Sky")
-- Nome muda automaticamente para "Sky Oesbe" quando evolui
 
 ## Capabilities
 
 ### New Capabilities
-- `companion-nametag`: Name tag 3D com gradiente animado, billboard, escala por distância, e configurações BepInEx
+- `companion-nametag`: Name tag com gradiente animado, visibilidade por frustum, e configurações BepInEx
 
 ### Modified Capabilities
+- `companion-nametag` (revisão): Remove escala por distância, remove billboard manual, remove mudança de nome na evolução
 
 ## Impact
 
-- **Arquivos C#**: `CompanionController.cs` (criação do label, Update para billboard/gradiente), `MovementConfig.cs` (novos ConfigEntries)
+- **Arquivos C#**: `CompanionController.cs` (simplificar UpdateNametag — remover LookAt/scale), `MovementConfig.cs` (remover NametagMinScale/NametagMaxScale)
 - **Dependências**: TextMeshPro (já presente no projeto)
-- **Referência visual**: `statusline.py` (gradiente SKY_GRADIENT), `welcome.py` (paletas _PALETAS com sweep animado)
+- **Referência visual**: `statusline.py` (gradiente SKY_GRADIENT), balão de mensagem existente (padrão TMP)
