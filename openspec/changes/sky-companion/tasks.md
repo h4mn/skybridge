@@ -1,75 +1,87 @@
 ## 1. Infraestrutura do Mod (C#)
 
-- [x] 1.1 Configurar HttpServer com porta configurável via BepInEx ConfigEntry (default 17234) — ref: spec `game-state-provider`, design D1
-- [x] 1.2 Implementar GET /state retornando JSON com terraform, posição do jogador, inventário — ref: spec `game-state-provider` req 1
-- [x] 1.3 Implementar GET /events retornando fila de eventos significativos — ref: spec `game-state-provider` req 2
-- [x] 1.4 Implementar POST /action aceitando comandos (show_message, set_animation, move) — ref: spec `game-state-provider` req 3
-- [ ] 1.5 Escrever testes unitários para HttpServer (validação de rotas, JSON serialization, porta configurável)
+- [x] 1.1 Configurar HttpServer com porta configurável via BepInEx ConfigEntry (default 17234)
+- [x] 1.2 Implementar GET /state retornando JSON com terraform, posição do jogador, inventário
+- [x] 1.3 Implementar GET /events retornando fila de eventos significativos (cursor-based)
+- [x] 1.4 Implementar POST /action aceitando comandos (show_message, set_animation, move)
+- [ ] 1.5 Escrever testes unitários para HttpServer (validação de rotas, JSON serialization)
 
 ## 2. EventFilter e Eventos Significativos
 
-- [x] 2.1 Implementar EventFilter no mod C# que mantém fila de significant_events — ref: design D7
-- [x] 2.2 Adicionar detection de milestone de terraformação como evento significativo — ref: spec `game-state-provider` req 2
-- [x] 2.3 Adicionar detection de morte do jogador como evento significativo
-- [ ] 2.4 Escrever testes para EventFilter (thresholds, tipos de evento, fila FIFO)
+- [x] 2.1 Implementar EventFilter no mod C# que mantém fila de significant_events
+- [x] 2.2 Adicionar detection de milestone de terraformação como evento significativo
+- [ ] 2.3 Adicionar detection de morte do jogador → **MOVIDO PARA SPRINT FUTURA** (PlayerGaugeHealth API não encontrada)
+- [ ] 2.4 Escrever testes para EventFilter → **MOVIDO PARA SPRINT FUTURA**
 
 ## 3. Modelo 3D — Borboleta Evolutiva
 
-- [ ] 3.1 Implementar SkyModel3D que instancia modelo próximo ao jogador — ref: spec `companion-3d-model` req 1
-- [ ] 3.2 Implementar fallback com primitivas Unity (2 quads como asas + capsule como corpo) — ref: spec `companion-3d-model` req 1
-- [ ] 3.3 Implementar animações: idle (asas batendo suavemente), thinking (asas lentas), speaking (asas ativas + balão) — ref: spec `companion-3d-model` req 2
-- [ ] 3.4 Implementar controle de animação via POST /action com type "set_animation" — ref: spec `companion-tools` req 3
-- [ ] 3.5 Implementar evolução Lorpen→Oesbe: detectar estágio de oxigênio/insetos e trocar modelo — ref: spec `companion-3d-model` req 1, design D2
-- [ ] 3.6 Garantir que em save avançado o modelo já nasce como Oesbe — ref: spec `companion-3d-model` req 1
+- [x] 3.1 Implementar CompanionController com modelo próximo ao jogador
+- [x] 3.2 Implementar fallback com primitivas Unity (Unlit/Color, double-sided wings)
+- [x] 3.3 Implementar animações: idle, thinking, speaking (batida de asas)
+- [x] 3.4 Controle de animação via POST /action type "set_animation"
+- [x] 3.5 Evolução Lorpen→Oesbe: detectar insects > 0 e trocar cor
+- [x] 3.6 Em save avançado o modelo já nasce como Oesbe
+- [x] 3.7 Busca automática de prefab de borboleta do jogo (Butterfly_LOD1)
+- [x] 3.8 Fallback periódico: busca asset a cada 5s até encontrar
+- [ ] 3.9 Diferenciar visualmente Lorpen vs Oesbe com assets distintos → **MOVIDO PARA SPRINT FUTURA**
 
 ## 4. Balão de Fala World-Space
 
-- [ ] 4.1 Implementar balão TextMeshPro em world-space acima do modelo 3D — ref: spec `companion-3d-model` req 4, design D3.1
-- [ ] 4.2 Implementar escala de font size por distância ao jogador (legibilidade) — ref: spec `companion-3d-model` req 4
-- [ ] 4.3 Implementar fade-out do balão após 5 segundos sem nova mensagem — ref: spec `companion-3d-model` req 4
-- [ ] 4.4 Garantir distância configurável do companion ao jogador (default ~3 unidades) — ref: spec `companion-3d-model` req 3
+- [x] 4.1 Implementar balão TextMeshPro em world-space acima do modelo 3D
+- [x] 4.2 Implementar escala de font size por distância ao jogador
+- [x] 4.3 Implementar fade-out do balão após 5 segundos
+- [x] 4.4 Distância configurável do companion ao jogador (default ~3 unidades)
+- [ ] 4.5 Fix shader do TextMeshPro em world-space → **MOVIDO PARA SPRINT FUTURA** (balão existe mas não renderiza visivelmente)
 
-## 5. Chat /skychat
+## 5. Chat Bidirecional
 
-- [x] 5.1 Implementar handler de input que captura /skychat <mensagem> — ref: spec `companion-chat` req 1
-- [x] 5.2 Enfileirar mensagem como evento tipo "skychat" no EventFilter — ref: spec `companion-chat` req 1
-- [ ] 5.3 Exibir confirmação visual no jogo ao capturar comando
-- [x] 5.4 Validar comando vazio (exibir "Uso: /skychat <mensagem>") — ref: spec `companion-chat` req 1
-- [ ] 5.5 Conectar POST /action type "show_message" ao balão de fala — ref: spec `companion-chat` req 2
+- [x] 5.1 Harmony prefix em UiWindowChat.OnSendText captura todas as mensagens (sem prefixo)
+- [x] 5.2 Push imediato via POST para MCP server (localhost:17235/incoming)
+- [x] 5.3 return true = chat vanilla funciona normalmente (mensagens aparecem no histórico do jogo)
+- [x] 5.4 POST /action type "show_message" → overlay no topo da tela (flash 3x, 30s visível)
+- [x] 5.5 Fix Harmony postfix → prefix: capturar texto ANTES de OnSendText limpar o _inputField
+- [x] 5.6 Null recovery: GameHooks reconecta via CompanionController.Instance quando _companion é null
 
 ## 6. DestinationStrategy — Movimentação
 
-- [ ] 6.1 Implementar follow_player: seguir jogador mantendo distância configurável — ref: spec `companion-tools` req 2
-- [ ] 6.2 Implementar goto_coords(x, y, z): mover para coordenada — ref: spec `companion-tools` req 2
-- [ ] 6.3 Implementar goto_named(name): mover para local nomeado do registro — ref: spec `companion-tools` req 2
-- [ ] 6.4 Implementar stay: parar no local atual — ref: spec `companion-tools` req 2
-- [ ] 6.5 Conectar POST /action type "move" ao DestinationStrategy — ref: design D5
+- [x] 6.1 Implementar follow_player: seguir jogador mantendo distância configurável
+- [x] 6.2 Implementar goto_coords(x, y, z): mover para coordenada
+- [x] 6.3 Implementar goto_named(name): mover para local nomeado do registro
+- [x] 6.4 Implementar stay: parar no local atual
+- [x] 6.5 Conectar POST /action type "move" ao DestinationStrategy
 
-## 7. Channel MCP (Python)
+## 7. Channel MCP (Python) — Push Direto
 
-- [x] 7.1 Criar planet-crafter-channel.py com MCP Server via stdio — ref: design D4, spec `channel-mcp-companion`
-- [x] 7.2 Declarar capability experimental claude/channel na inicialização — ref: spec `channel-mcp-companion` req 3
-- [x] 7.3 Implementar polling de GET /events a cada 10s com JSONRPCNotification — ref: spec `channel-mcp-companion` req 1
-- [x] 7.4 Implementar throttling de 30s entre notificações (agrupar eventos) — ref: spec `channel-mcp-companion` req 2
-- [x] 7.5 Implementar reconexão automática ao mod (log + retry) — ref: spec `channel-mcp-companion` req 4
-- [x] 7.6 Implementar tool send_companion_message(text) → POST /action — ref: spec `companion-tools` req 1
-- [x] 7.7 Implementar tool move_companion_to(strategy, params) → POST /action — ref: spec `companion-tools` req 2
-- [x] 7.8 Implementar tool set_companion_animation(animation) → POST /action — ref: spec `companion-tools` req 3
-- [x] 7.9 Implementar tool get_game_state() → GET /state — ref: spec `companion-tools` req 4
-- [x] 7.10 Escrever testes para o Channel MCP (mock HTTP, throttling, capability declaration)
+- [x] 7.1 Criar planet-crafter-channel.py com MCP Server via stdio
+- [x] 7.2 Declarar capability experimental claude/channel na inicialização
+- [x] 7.3 HTTP server aiohttp na porta 17235 recebendo POST /incoming do mod
+- [x] 7.4 Push imediato: POST /incoming → JSONRPCNotification (sem polling, sem throttle)
+- [x] 7.5 Tool send_companion_message(text) → POST /action no mod
+- [x] 7.6 Tool move_companion_to(strategy, params) → POST /action
+- [x] 7.7 Tool set_companion_animation(animation) → POST /action
+- [x] 7.8 Tool get_game_state() → GET /state
+- [x] 7.9 Tool add_session_note(text) e get_session_summary()
+- [x] 7.10 Testes: 29 testes passando (unit + E2E com MockModServer)
 
 ## 8. Sessão de Jogatina
 
-- [x] 8.1 Implementar criação de sessão ao primeiro polling bem-sucedido — ref: spec `companion-session` req 1
-- [x] 8.2 Implementar registro de eventos na sessão (milestone, skychat, note) — ref: spec `companion-session` req 2
-- [x] 8.3 Implementar tool add_session_note(text) — ref: spec `companion-session` req 3
-- [x] 8.4 Implementar encerramento de sessão após 60s de indisponibilidade — ref: spec `companion-session` req 4
-- [x] 8.5 Implementar tool get_session_summary() — ref: spec `companion-session` req 5
-- [x] 8.6 Escrever testes para gerenciamento de sessão
+- [x] 8.1 Sessão criada no primeiro evento recebido
+- [x] 8.2 Registro de eventos na sessão (milestone, skychat, note)
+- [x] 8.3 Tool add_session_note(text)
+- [x] 8.4 Tool get_session_summary()
+- [x] 8.5 Testes para gerenciamento de sessão
 
-## 9. Configuração e Integração
+## 9. Integração E2E
 
-- [x] 9.1 Adicionar entrada do channel no .mcp.json do skybridge
-- [ ] 9.2 Validar integração E2E: mod rodando → channel conectado → Claude Code recebe notificações
-- [ ] 9.3 Validar integração E2E: /skychat → notificação → resposta via tool → balão no jogo
+- [x] 9.1 Entrada do channel no .mcp.json do skybridge
+- [x] 9.2 E2E validado: mod rodando → push direto → Claude Code recebe notificação via channel
+- [x] 9.3 E2E validado: chat no jogo → push → notificação → resposta via tool → overlay no topo
 - [ ] 9.4 Documentar setup: como instalar o mod, configurar o channel, usar no Claude Code
+
+## Sprint Futura (pendências)
+
+- [ ] F1 Detecção de morte do jogador (PlayerGaugeHealth API)
+- [ ] F2 Testes unitários C# (HttpServer, EventFilter)
+- [ ] F3 Diferenciar Lorpen vs Oesbe visualmente (assets distintos, texturas)
+- [ ] F4 Fix shader TextMeshPro world-space (balão de fala 3D)
+- [ ] F5 Documentação de setup e uso

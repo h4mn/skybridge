@@ -2,24 +2,19 @@
 # -*- coding: utf-8 -*-
 """Planet Crafter Companion — MCP Server.
 
-MCP server que:
-- Faz polling de eventos significativos do mod via HTTP
-- Envia notificações em tempo real via JSONRPCNotification (claude/channel)
-- Expõe tools para Claude Code interagir com o jogo
-- Gerencia sessão de jogatina
+Fluxo direto: mod POSTa eventos → MCP server notifica Claude Code imediatamente.
+Sem polling. Sem throttle. Sem cursor.
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
-import sys
-import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
 import httpx
+from aiohttp import web
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import JSONRPCMessage, JSONRPCNotification, TextContent, Tool
@@ -27,22 +22,13 @@ from mcp.types import JSONRPCMessage, JSONRPCNotification, TextContent, Tool
 logger = logging.getLogger(__name__)
 
 VALID_ANIMATIONS = ("idle", "thinking", "speaking")
-DEFAULT_BASE_URL = "http://localhost:17234"
-DEFAULT_POLL_INTERVAL = 10
-DEFAULT_THROTTLE_SECONDS = 30
-DEFAULT_TIMEOUT_FAILURES = 6  # ~60s a 10s por poll
+DEFAULT_MOD_URL = "http://localhost:17234"
+MCP_LISTEN_PORT = 17235
 
 
 # ============================================================================
-# Session Management (Tasks 8.1-8.5)
+# Session Management
 # ============================================================================
-
-@dataclass
-class SessionEvent:
-    type: str
-    description: str
-    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-
 
 @dataclass
 class Session:
@@ -55,39 +41,24 @@ class Session:
 class CompanionSessionManager:
     """Gerencia o ciclo de vida da sessão de jogatina."""
 
-    def __init__(self, timeout_failures: int = DEFAULT_TIMEOUT_FAILURES):
+    def __init__(self):
         self.session: Session | None = None
-        self._consecutive_failures = 0
-        self._timeout_failures = timeout_failures
 
     @property
     def is_active(self) -> bool:
         return self.session is not None and self.session.active
 
-    def on_poll_success(self) -> None:
+    def start_if_needed(self) -> None:
         if self.session is None:
             self.session = Session()
-        self._consecutive_failures = 0
-
-    def on_poll_failure(self) -> None:
-        if self.session is None:
-            return
-        self._consecutive_failures += 1
-        if self._consecutive_failures >= self._timeout_failures:
-            self._end_session()
-
-    def _end_session(self) -> None:
-        if self.session:
-            self.session.active = False
-            self.session.end_time = datetime.now().isoformat()
 
     def log_event(self, event_type: str, description: str) -> None:
-        if self.session:
-            self.session.events.append({
-                "type": event_type,
-                "description": description,
-                "timestamp": datetime.now().isoformat(),
-            })
+        self.start_if_needed()
+        self.session.events.append({
+            "type": event_type,
+            "description": description,
+            "timestamp": datetime.now().isoformat(),
+        })
 
     def add_note(self, text: str) -> None:
         self.log_event("note", text)
@@ -116,96 +87,79 @@ class CompanionSessionManager:
 
 
 # ============================================================================
-# Event Poller (Tasks 7.3-7.5)
+# Direct Push: mod POSTa evento → MCP notifica Claude Code imediatamente
 # ============================================================================
 
-class EventPoller:
-    """Faz polling de GET /events e envia notificações via MCP channel."""
+async def send_channel_notification(write_stream: Any, content: str, source: str = "planet-crafter") -> None:
+    """Envia JSONRPCNotification diretamente via write_stream."""
+    notif = JSONRPCNotification(
+        jsonrpc="2.0",
+        method="notifications/claude/channel",
+        params={"content": content, "meta": {"source": source}},
+    )
+    try:
+        await write_stream.send(JSONRPCMessage(notif))
+        logger.info(f"[CHANNEL] Notificação enviada: {content[:80]}")
+    except Exception as e:
+        logger.error(f"[CHANNEL] Erro: {type(e).__name__}: {e}")
 
-    def __init__(
-        self,
-        base_url: str,
-        write_stream: Any,
-        http_client: httpx.AsyncClient | None = None,
-        poll_interval: int = DEFAULT_POLL_INTERVAL,
-        throttle_seconds: int = DEFAULT_THROTTLE_SECONDS,
-        session_manager: CompanionSessionManager | None = None,
-    ):
-        self.base_url = base_url
-        self.write_stream = write_stream
-        self.http_client = http_client or httpx.AsyncClient()
-        self.poll_interval = poll_interval
-        self.throttle_seconds = throttle_seconds
-        self.session_manager = session_manager
-        self._last_notification_time: float = 0
-        self._pending_events: list[dict] = []
 
-    async def poll_once(self) -> None:
+def create_push_handler(write_stream: Any, session_manager: CompanionSessionManager):
+    """Cria handler HTTP que recebe POST direto do mod."""
+    async def handle_incoming(request: web.Request) -> web.Response:
         try:
-            resp = await self.http_client.get(f"{self.base_url}/events")
-            resp.raise_for_status()
-            events = resp.json()
-        except (httpx.ConnectError, ConnectionRefusedError, OSError):
-            logger.info("Mod indisponível, tentando novamente no próximo ciclo")
-            if self.session_manager:
-                self.session_manager.on_poll_failure()
-            return
+            data = await request.json()
+        except Exception:
+            return web.json_response({"status": "error", "message": "JSON inválido"}, status=400)
 
-        if self.session_manager:
-            self.session_manager.on_poll_success()
+        event_type = data.get("type", "unknown")
+        description = data.get("description", "")
+        text = data.get("text", "")
 
-        if not events:
-            return
+        # Compatibilidade: aceita {type: "skychat", description: "..."} e {type: "show_message", text: "..."}
+        content = description or text or str(data)
 
-        now = time.monotonic()
-        elapsed = now - self._last_notification_time
+        # Registra na sessão
+        session_manager.log_event(event_type, content)
 
-        if elapsed >= self.throttle_seconds:
-            await self._send_notification(events)
-            self._last_notification_time = now
-        else:
-            self._pending_events.extend(events)
-            logger.debug(f"Throttled — {len(self._pending_events)} eventos pendentes")
+        # Envia notificação imediata ao Claude Code
+        message = f"[{event_type}] {content}"
+        await send_channel_notification(write_stream, message)
 
-    async def _send_notification(self, events: list[dict]) -> None:
-        all_events = self._pending_events + events
-        self._pending_events = []
+        return web.json_response({"status": "ok"})
 
-        descriptions = "; ".join(
-            f"[{e.get('type', 'unknown')}] {e.get('description', '')}"
-            for e in all_events
-        )
-
-        notif = JSONRPCNotification(
-            jsonrpc="2.0",
-            method="notifications/claude/channel",
-            params={"content": descriptions, "meta": {"event_count": len(all_events)}},
-        )
-
-        await self.write_stream.send(JSONRPCMessage(notif))
-        logger.info(f"Notificação enviada: {len(all_events)} eventos")
+    return handle_incoming
 
 
 # ============================================================================
-# MCP Server & Tools (Tasks 7.1, 7.2, 7.6-7.9)
+# MCP Server & Tools
 # ============================================================================
 
 def create_server() -> Server:
-    return Server("planet-crafter-channel")
+    return Server(
+        "planet-crafter-channel",
+        instructions=(
+            "Eventos do Planet Crafter chegam como <channel source=\"planet-crafter\" ...>. "
+            "Tipos: milestone (terraformação), skychat (mensagem do jogador), death, note. "
+            "Para responder ao jogador, use send_companion_message(text). "
+            "Para contexto do jogo, use get_game_state(). "
+            "Responda sempre em português brasileiro."
+        ),
+    )
 
 
 def create_initialization_options() -> Any:
     server = create_server()
-    opts = server.create_initialization_options()
-    opts.capabilities.experimental = {"claude/channel": {}}
-    return opts
+    return server.create_initialization_options(
+        experimental_capabilities={"claude/channel": {}}
+    )
 
 
 async def handle_tool_call(
     name: str,
     arguments: dict,
     http_client: httpx.AsyncClient | None = None,
-    base_url: str = DEFAULT_BASE_URL,
+    base_url: str = DEFAULT_MOD_URL,
     session_manager: CompanionSessionManager | None = None,
 ) -> str:
     client = http_client or httpx.AsyncClient()
@@ -213,7 +167,7 @@ async def handle_tool_call(
     try:
         if name == "send_companion_message":
             try:
-                resp = await client.post(
+                await client.post(
                     f"{base_url}/action",
                     json={"type": "show_message", "text": arguments["text"]},
                 )
@@ -278,7 +232,7 @@ async def handle_tool_call(
 
 
 # ============================================================================
-# Main (para execução standalone)
+# Main
 # ============================================================================
 
 async def main():
@@ -286,7 +240,7 @@ async def main():
 
     server = create_server()
     session_manager = CompanionSessionManager()
-    base_url = DEFAULT_BASE_URL
+    base_url = DEFAULT_MOD_URL
 
     @server.list_tools()
     async def list_tools() -> list[Tool]:
@@ -314,22 +268,10 @@ async def main():
                             "enum": ["follow_player", "goto_coords", "goto_named", "stay"],
                             "description": "Estratégia de movimentação do companion",
                         },
-                        "x": {
-                            "type": "number",
-                            "description": "Coordenada X (apenas para goto_coords)",
-                        },
-                        "y": {
-                            "type": "number",
-                            "description": "Coordenada Y / altura (apenas para goto_coords)",
-                        },
-                        "z": {
-                            "type": "number",
-                            "description": "Coordenada Z (apenas para goto_coords)",
-                        },
-                        "name": {
-                            "type": "string",
-                            "description": "Nome do local cadastrado (apenas para goto_named, ex: 'base', 'cave')",
-                        },
+                        "x": {"type": "number", "description": "Coordenada X (apenas para goto_coords)"},
+                        "y": {"type": "number", "description": "Coordenada Y / altura (apenas para goto_coords)"},
+                        "z": {"type": "number", "description": "Coordenada Z (apenas para goto_coords)"},
+                        "name": {"type": "string", "description": "Nome do local cadastrado (apenas para goto_named, ex: 'base', 'cave')"},
                     },
                     "required": ["strategy"],
                 },
@@ -358,10 +300,29 @@ async def main():
                 description="Retorna resumo da sessão de jogatina",
                 inputSchema={"type": "object", "properties": {}},
             ),
+            Tool(
+                name="test_channel_push",
+                description="DIAGNÓSTICO: testa se notificação push chega ao Claude Code",
+                inputSchema={"type": "object", "properties": {"text": {"type": "string"}}, "required": []},
+            ),
         ]
+
+    _write_stream = None
 
     @server.call_tool()
     async def call_tool(name: str, arguments: Any) -> list[TextContent]:
+        nonlocal _write_stream
+
+        if name == "test_channel_push":
+            if _write_stream is None:
+                return [TextContent(type="text", text="write_stream não disponível")]
+            await send_channel_notification(
+                _write_stream,
+                arguments.get("text", "teste de push"),
+                source="diagnostic",
+            )
+            return [TextContent(type="text", text=f"Notificação enviada: {arguments.get('text', 'teste')}")]
+
         async with httpx.AsyncClient() as client:
             result = await handle_tool_call(
                 name, arguments,
@@ -372,19 +333,23 @@ async def main():
             return [TextContent(type="text", text=result)]
 
     async with stdio_server() as (read_stream, write_stream):
-        poller = EventPoller(base_url=base_url, write_stream=write_stream, session_manager=session_manager)
+        _write_stream = write_stream
 
-        async def poll_loop():
-            while True:
-                await poller.poll_once()
-                await asyncio.sleep(DEFAULT_POLL_INTERVAL)
+        # HTTP server direto — mod POSTa eventos aqui
+        app = web.Application()
+        app.router.add_post("/incoming", create_push_handler(write_stream, session_manager))
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "localhost", MCP_LISTEN_PORT)
+        await site.start()
+        logger.info(f"[PUSH] HTTP server ouvindo em localhost:{MCP_LISTEN_PORT}")
 
-        asyncio.create_task(poll_loop())
-
-        opts = server.create_initialization_options()
-        opts.capabilities.experimental = {"claude/channel": {}}
+        opts = server.create_initialization_options(
+            experimental_capabilities={"claude/channel": {}}
+        )
         await server.run(read_stream, write_stream, opts)
 
 
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())

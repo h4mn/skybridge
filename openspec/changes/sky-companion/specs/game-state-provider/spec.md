@@ -14,9 +14,9 @@ O mod BepInEx SHALL expor endpoint `GET /state` retornando JSON com terraform (T
 - **WHEN** o Harmony patch de `WorldUnitsHandler.CreateUnits` ainda não disparou e uma requisição `GET /state` é enviada
 - **THEN** o mod retorna JSON com campos de terraform em 0.0 e posição do jogador em [0, 0, 0] como fallback
 
-### Requirement: Mod expõe eventos filtrados via HTTP GET /events
+### Requirement: Mod expõe eventos filtrados via HTTP GET /events (cursor-based)
 
-O mod SHALL manter uma fila interna de eventos significativos (milestones de terraformação, morte do jogador, mensagens `/skychat`, story events, construções concluídas) e expô-los via `GET /events`.
+O mod SHALL manter uma fila interna de eventos significativos (milestones de terraformação, morte do jogador, mensagens `/skychat`, story events, construções concluídas) e expô-los via `GET /events` com leitura **não-destrutiva** baseada em cursor.
 
 #### Scenario: Eventos significativos enfileirados
 
@@ -28,14 +28,19 @@ O mod SHALL manter uma fila interna de eventos significativos (milestones de ter
 - **WHEN** o jogador se move ou O2 sobe 0.1
 - **THEN** o mod NÃO adiciona evento na fila interna
 
-#### Scenario: Consulta de eventos retorna lista
+#### Scenario: Consulta de eventos retorna novos desde o cursor (não-destrutivo)
 
-- **WHEN** uma requisição `GET /events` é enviada
-- **THEN** o mod retorna array de eventos enfileirados desde a última consulta, cada um com {type, description, timestamp}
+- **WHEN** uma requisição `GET /events?since={timestamp}` é enviada
+- **THEN** o mod retorna array de eventos com timestamp > since, cada um com {type, description, timestamp}. A fila NÃO é limpa — múltiplos consumidores podem ler os mesmos eventos com cursores diferentes.
+
+#### Scenario: Consulta sem cursor retorna últimos N eventos
+
+- **WHEN** uma requisição `GET /events` (sem parametro since) é enviada
+- **THEN** o mod retorna os últimos 50 eventos (ou menos) sem limpar a fila
 
 #### Scenario: Fila tem limite de tamanho
 
-- **WHEN** a fila de eventos excede 50 entradas
+- **WHEN** a fila de eventos excede 200 entradas
 - **THEN** o mod remove o evento mais antigo (FIFO)
 
 ### Requirement: Mod executa ações via HTTP POST /action

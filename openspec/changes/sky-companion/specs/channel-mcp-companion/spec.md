@@ -2,7 +2,19 @@
 
 ### Requirement: Channel MCP empurra eventos significativos para Claude Code
 
-O Channel MCP (`planet-crafter-channel.py`) SHALL fazer polling de `GET /events` no mod em intervalo de 10s e enviar `JSONRPCNotification` via `notifications/claude/channel` quando a fila de eventos não estiver vazia.
+O Channel MCP (`planet-crafter-channel.py`) SHALL fazer polling de `GET /events` no mod e enviar `JSONRPCNotification` via `notifications/claude/channel` quando a fila de eventos não estiver vazia.
+
+**Throttling**: O Channel MCP SHALL usar throttling diferenciado por tipo de evento:
+- **Chat (`skychat`)**: sem throttle — notificação imediata (até 2s de delay)
+- **Milestone/terraform**: throttle de 30s — agrupa eventos de progresso
+- **Morte/ação**: throttle de 10s
+
+**Polling**: Intervalo de 2s para verificar eventos de chat, 10s para outros tipos.
+
+#### Scenario: Evento de chat gera notificação imediata
+
+- **WHEN** o polling detecta evento tipo "skychat"
+- **THEN** o Channel MCP envia notificação imediatamente, sem aguardar throttle
 
 #### Scenario: Evento significativo gera notificação
 
@@ -14,19 +26,21 @@ O Channel MCP (`planet-crafter-channel.py`) SHALL fazer polling de `GET /events`
 - **WHEN** o polling de `GET /events` retorna array vazio
 - **THEN** o Channel MCP NÃO envia notificação
 
-### Requirement: Throttling mínimo de 30s entre notificações
+### Requirement: Throttling diferenciado por tipo de evento (DEPRECATED: migrado pra requirement acima)
 
-O Channel MCP SHALL respeitar intervalo mínimo de 30 segundos entre notificações para não lotar o contexto do Claude Code.
+~~O Channel MCP SHALL respeitar intervalo mínimo de 30 segundos entre notificações para não lotar o contexto do Claude Code.~~
 
-#### Scenario: Eventos rápidos são agrupados
+**Novo comportamento**: Throttle é por categoria. Chat sem throttle, milestones com 30s, outros com 10s.
 
-- **WHEN** dois eventos significativos ocorrem com menos de 30s de diferença
-- **THEN** o Channel MCP envia apenas uma notificação combinando ambos os eventos após o throttle
+#### Scenario: Eventos de milestone são agrupados
 
-#### Scenario: Intervalo normal entre eventos
+- **WHEN** dois milestones ocorrem com menos de 30s de diferença
+- **THEN** o Channel MCP envia apenas uma notificação combinando ambos após o throttle
 
-- **WHEN** dois eventos ocorrem com mais de 30s de diferença
-- **THEN** o Channel MCP envia duas notificações separadas
+#### Scenario: Chat não é throttled
+
+- **WHEN** duas mensagens /skychat chegam com menos de 30s de diferença
+- **THEN** o Channel MCP envia duas notificações separadas imediatamente
 
 ### Requirement: Channel MCP declara capability experimental claude/channel
 
