@@ -5,14 +5,18 @@ O sistema SHALL manter uma state machine que controla o estado de movimento atua
 
 #### Scenario: Transição automática por prioridade
 - **WHEN** múltiplas transições são possíveis simultaneamente
-- **THEN** a state machine SHALL selecionar a transição de maior prioridade (speaking > celebrate > listening > lead > flee > goto/stay > perch > explore > orbit)
+- **THEN** a state machine SHALL selecionar a transição de maior prioridade (speaking > celebrate > listening > lead > flee > goto/stay > perch > explore > orbit > thinking)
 
 #### Scenario: Cooldown entre transições
 - **WHEN** uma transição ocorre
 - **THEN** nenhuma outra transição automática SHALL ocorrer por 0.3 segundos (cooldown configurável)
 
+#### Scenario: State machine bloqueada até greeting
+- **WHEN** o companion é inicializado
+- **THEN** nenhuma transição automática SHALL ocorrer até o greeting ser disparado (1s após spawn)
+
 ### Requirement: MovementContext fornecido a cada frame
-O sistema SHALL construir um `MovementContext` imutável a cada frame contendo: playerPosition, playerForward, playerVelocity, cameraViewport, isPlayerMoving, timeSincePlayerStopped, isSpeaking, currentMessage.
+O sistema SHALL construir um `MovementContext` imutável a cada frame contendo: playerPosition, playerForward, playerVelocity, cameraPosition, cameraForward, isPlayerMoving, timeSincePlayerStopped, isSpeaking, currentMessage.
 
 #### Scenario: Context reflete estado atual do jogo
 - **WHEN** o Update roda
@@ -36,9 +40,9 @@ O estado **orbit** SHALL ser o estado padrão (idle). A borboleta SHALL circular
 - **WHEN** jogador está parado e sem eventos
 - **THEN** companion SHALL orbitar com raio 3u, altura 2u, ondulação Y ±0.5u
 
-#### Scenario: LookAt tangente ao círculo
+#### Scenario: LookAt para a câmera
 - **WHEN** em orbit
-- **THEN** companion SHALL olhar na direção do voo (tangente ao círculo), NÃO diretamente para o jogador
+- **THEN** companion SHALL olhar para a câmera do jogador (centro da visão), compatível com 1a e 3a pessoa
 
 ### Requirement: Stay para no local atual
 O estado **stay** SHALL parar o companion no local atual com oscilação Y sutil.

@@ -23,7 +23,7 @@ O estado **speaking** SHALL mover o companion para o canto superior esquerdo da 
 O estado **lead** SHALL posicionar o companion à frente do jogador na direção do movimento, como "punho do Superman", quando o jogador está andando ou usando jetpack.
 
 #### Scenario: Ativação por velocidade
-- **WHEN** velocidade horizontal do jogador > `lead_min_speed` (default 2 u/s) por mais de 0.5s
+- **WHEN** velocidade horizontal do jogador > `lead_min_speed` (default 2 u/s) por mais de 0.5s consecutivos
 - **THEN** companion SHALL transicionar para lead
 
 #### Scenario: Posicionamento à frente
@@ -35,7 +35,7 @@ O estado **lead** SHALL posicionar o companion à frente do jogador na direção
 - **THEN** companion SHALL manter velocidade igual à do jogador + 10% (lead_speed_bonus)
 
 #### Scenario: Retorno ao orbit
-- **WHEN** jogador para (velocidade < threshold) por mais de `lead_stop_delay` segundos (default 2s)
+- **WHEN** jogador para (velocidade < threshold) por mais de `lead_stop_delay` segundos (default 1s)
 - **THEN** companion SHALL retornar ao estado orbit
 
 #### Scenario: Lead ignora eixo Y
@@ -62,30 +62,42 @@ O estado **celebrate** SHALL fazer o companion executar uma espiral ascendente q
 - **THEN** companion SHALL retornar ao estado orbit
 
 ### Requirement: Greeting aparece em arco ao carregar save
-O estado **greeting** SHALL fazer o companion aparecer em um arco descendente na frente do jogador quando o save carrega.
+O estado **greeting** SHALL fazer o companion aparecer em um arco descendente seguido de figura-8 na frente do jogador quando o save carrega.
 
-#### Scenario: Spawn com arco
+#### Scenario: Delay antes do greeting
 - **WHEN** o companion é inicializado (spawn/save load)
+- **THEN** SHALL aguardar 1 segundo (carregamento do save e spawn do jogador) antes de iniciar o greeting
+
+#### Scenario: Fase 1 — arco descendente
+- **WHEN** o greeting inicia
 - **THEN** SHALL executar arco descendente de cima para frente do jogador (2s de duração)
 
+#### Scenario: Fase 2 — figura-8
+- **WHEN** a fase 1 do greeting termina
+- **THEN** SHALL executar figura-8 na frente do jogador (1s de duração)
+
 #### Scenario: Transição pós-greeting
-- **WHEN** greeting termina (2s)
+- **WHEN** greeting termina (3s total: 2s arco + 1s figura-8)
 - **THEN** companion SHALL transicionar para orbit
 
 ### Requirement: Listening aproxima quando jogador digita
-O estado **listening** SHALL fazer o companion se aproximar do jogador quando uma mensagem de chat é detectada.
+O estado **listening** SHALL fazer o companion se aproximar do jogador quando uma mensagem de chat é detectada, posicionando-se acima da UI do chatbox.
 
 #### Scenario: Aproximação ao jogador
 - **WHEN** jogador envia mensagem no chat
-- **THEN** companion SHALL voar para posição frontal do jogador (~1.5u, nível dos olhos)
+- **THEN** companion SHALL voar para posição acima do chatbox via ViewportToWorldPoint(0.5, 0.4, 2.0)
 
 #### Scenario: LookAt rosto do jogador
 - **WHEN** em listening
-- **THEN** companion SHALL olhar para o rosto do jogador
+- **THEN** companion SHALL olhar para o rosto do jogador (playerPosition + up * 1.7)
 
 #### Scenario: Timeout de listening
-- **WHEN** 10s se passam sem nova mensagem no chat
-- **THEN** companion SHALL retornar ao estado orbit
+- **WHEN** 3s se passam sem nova mensagem no chat
+- **THEN** companion SHALL transicionar para estado thinking (aguardando resposta do companion)
+
+#### Scenario: Fluxo listening → thinking → speaking
+- **WHEN** o jogador envia mensagem e o companion responde
+- **THEN** o fluxo SHALL ser: listening (3s) → thinking (aguarda resposta) → speaking (resposta enviada)
 
 #### Scenario: Asas aceleradas no listening
 - **WHEN** em listening

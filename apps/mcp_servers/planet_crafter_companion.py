@@ -258,14 +258,15 @@ async def main():
                     "follow_player = segue o jogador mantendo distância (~3 unidades); "
                     "goto_coords = vai para coordenadas específicas (requer x, y, z); "
                     "goto_named = vai para local nomeado cadastrado (requer name, ex: 'base'); "
-                    "stay = para no local atual."
+                    "stay = para no local atual; "
+                    "explore = vagueia por pontos aleatórios ao redor do jogador."
                 ),
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "strategy": {
                             "type": "string",
-                            "enum": ["follow_player", "goto_coords", "goto_named", "stay"],
+                            "enum": ["follow_player", "goto_coords", "goto_named", "stay", "explore"],
                             "description": "Estratégia de movimentação do companion",
                         },
                         "x": {"type": "number", "description": "Coordenada X (apenas para goto_coords)"},

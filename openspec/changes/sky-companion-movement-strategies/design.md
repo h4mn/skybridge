@@ -9,7 +9,7 @@ Referência de design: `src/core/companion/docs/movement-strategies.md` — tabe
 ## Goals / Non-Goals
 
 **Goals:**
-- State machine de movimentação com 12 estados contextuais
+- State machine de movimentação com 13 estados contextuais
 - Transições automáticas por prioridade (speaking > celebrate > lead > orbit > perch)
 - Movimento **lead** ("punho do Superman") — borboleta voa na frente quando jogador se move
 - Movimento **speaking** — borboleta voa para o canto superior esquerdo do viewport
@@ -61,11 +61,11 @@ Referência de design: `src/core/companion/docs/movement-strategies.md` — tabe
 
 **Rationale:** Sem access direto ao CharacterController do jogador (API não exposta), medimos velocidade por diferença de posição. O delay de 0.5s evita flickering ao andar devagar.
 
-### D5: Orbit com coordenadas polares + ruído
+### D5: Orbit com coordenadas polares + lookAt câmera
 
-**Escolha:** Posição orbit calculada como `center + polar(angle + time * speed) * radius + Vector3.up * (height + sin(time * wobbleFreq) * wobble)`. O ângulo avança com `time * orbit_speed`. LookAt é tangente ao círculo (direção de voo).
+**Escolha:** Posição orbit calculada como `center + polar(angle + time * speed) * radius + Vector3.up * (height + sin(time * wobbleFreq) * wobble)`. O ângulo avança com `time * orbit_speed`. LookAt aponta para a câmera do jogador (compatível com 1a/3a pessoa). Ao retornar de outro estado, o ângulo da órbita é sincronizado com a posição atual do companion (SyncOrbitAngle) para evitar jump visual.
 
-**Rationale:** Coordenadas polares são naturais para órbita. O seno no Y dá ondulação. LookAt tangente faz a borboleta olhar pra onde está voando, não pro jogador.
+**Rationale:** Coordenadas polares são naturais para órbita. O seno no Y dá ondulação. LookAt para câmera garante que a borboleta sempre enfrente o jogador, independente da perspectiva (1a/3a pessoa). SyncOrbitAngle elimina teleportes visuais ao transicionar de volta para orbit.
 
 ## Arquitetura
 
@@ -94,7 +94,7 @@ Apply WingSpeed
 ## Prioridade de Transição
 
 ```
-speaking > celebrate > listening > lead > flee > goto/stay > perch > explore > orbit
+speaking > celebrate > listening > lead > flee > goto/stay > perch > explore > orbit > thinking
 ```
 
 ## Risks / Trade-offs
@@ -104,7 +104,7 @@ speaking > celebrate > listening > lead > flee > goto/stay > perch > explore > o
 | ViewportToWorldPoint varia com FOV/resolução | Offset configurável, calibrar empiricamente |
 | Cálculo de velocidade por posição pode ter jitter | Suavizar com média móvel de 5 frames |
 | Transições rápidas podem causar flickering | Cooldown mínimo de 0.3s entre transições |
-| 12 estados pode parecer over-engineering | Estados são classes simples (~30 linhas cada) |
+| 12 estados pode parecer over-engineering | Estados são classes simples (~30 linhas cada) — são 13 estados |
 | Lead pode conflitar com jetpack vertical | Lead só ativa no eixo horizontal, ignora Y |
 | Performance: 12 classes de estado por frame | Sem alocação, context é struct, lookup por enum |
 
