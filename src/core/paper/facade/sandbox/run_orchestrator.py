@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Script de experimento para o PaperOrchestrator.
 
-Demonstra o uso do orchestrator com workers.
+Demonstra o uso do orchestrator com workers — incluindo StrategyWorker real.
 
 Uso:
     python -m src.core.paper.facade.sandbox.run_orchestrator
@@ -13,55 +13,95 @@ Controle:
 
 import asyncio
 import logging
+import os
 import signal
 import sys
-from typing import Optional
+from decimal import Decimal
 
 from .orchestrator import PaperOrchestrator
-from .workers import PositionWorker, StrategyWorker, BacktestWorker
+from .workers import PositionWorker
+from .workers.strategy_worker import StrategyWorker
 
-# Configuração de logging
+# Configuração de logging (console + arquivo)
+log_file = "logs/guardiao-conservador.log"
+os.makedirs("logs", exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%H:%M:%S",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(log_file, encoding="utf-8"),
+    ],
 )
 
 logger = logging.getLogger(__name__)
 
 
 def create_orchestrator() -> PaperOrchestrator:
-    """Cria e configura o orchestrator com workers.
+    """Cria e configura o orchestrator com workers."""
+    from src.core.paper.adapters.brokers.paper_broker import PaperBroker
+    from src.core.paper.adapters.data_feeds.yahoo_finance_feed import YahooFinanceFeed
+    from src.core.paper.domain.events.event_bus import get_event_bus
+    from src.core.paper.domain.services.executor_ordem import ExecutorDeOrdem
+    from src.core.paper.domain.services.validador_ordem import ValidadorDeOrdem
+    from src.core.paper.domain.strategies.guardiao_conservador import GuardiaoConservador
+    from src.core.paper.domain.strategies.position_tracker import PositionTracker
 
-    Returns:
-        Orchestrator configurado com PositionWorker.
-    """
-    orchestrator = PaperOrchestrator(interval_seconds=10.0)
+    orchestrator = PaperOrchestrator(interval_seconds=60.0)
 
-    # PositionWorker com callback de PnL
+    # --- Infraestrutura ---
+    datafeed = YahooFinanceFeed()
+    broker = PaperBroker(feed=datafeed)
+    event_bus = get_event_bus()
+
+    # Validator mínimo que satisfaz ValidatorProtocol
+    from src.core.paper.domain.events.ordem_events import OrdemCriada, Lado
+
+    class SimpleValidator:
+        async def validar_e_criar_ordem(
+            self, ticker: str, lado: Lado, quantidade: int, preco_limit=None
+        ) -> OrdemCriada:
+            return OrdemCriada(
+                ordem_id=f"ordem-{ticker}-{lado.value}",
+                ticker=ticker,
+                lado=lado,
+                quantidade=quantidade,
+            )
+
+    executor = ExecutorDeOrdem(
+        broker=broker,
+        datafeed=datafeed,
+        event_bus=event_bus,
+        validator=SimpleValidator(),
+    )
+
+    # --- StrategyWorker REAL ---
+    strategy = GuardiaoConservador()
+    tracker = PositionTracker(
+        stop_loss_pct=Decimal("0.015"),
+        take_profit_pct=Decimal("0.03"),
+    )
+    strategy_worker = StrategyWorker(
+        strategy=strategy,
+        datafeed=datafeed,
+        executor=executor,
+        position_tracker=tracker,
+        tickers=["BTC-USD"],
+        periodo_historico=30,
+    )
+    orchestrator.register(strategy_worker)
+
+    # --- PositionWorker (stub) ---
     def on_pnl_change(pnl: float, pnl_pct: float) -> None:
         logger.info(f"PnL atualizado: R$ {pnl:,.2f} ({pnl_pct:+.2f}%)")
 
     position_worker = PositionWorker(
         portfolio_id="sandbox",
-        tickers=["PETR4.SA", "BTC-USD"],
+        tickers=["BTC-USD"],
         on_pnl_change=on_pnl_change,
     )
     orchestrator.register(position_worker)
-
-    # StrategyWorker (stub)
-    strategy_worker = StrategyWorker(
-        strategy_name="momentum",
-        on_suggestion=lambda t, a: logger.info(f"Sugestão: {a} {t}"),
-    )
-    orchestrator.register(strategy_worker)
-
-    # BacktestWorker (stub)
-    backtest_worker = BacktestWorker(
-        backtest_id="test_2026",
-        on_progress=lambda c, t: logger.info(f"Backtest: {c}/{t}"),
-    )
-    orchestrator.register(backtest_worker)
 
     return orchestrator
 
@@ -69,7 +109,7 @@ def create_orchestrator() -> PaperOrchestrator:
 async def main() -> None:
     """Ponto de entrada principal."""
     logger.info("=" * 50)
-    logger.info("Paper Orchestrator - Sandbox Experiment")
+    logger.info("Paper Orchestrator - Guardião Conservador")
     logger.info("=" * 50)
 
     orchestrator = create_orchestrator()
@@ -82,25 +122,17 @@ async def main() -> None:
         logger.info("\nRecebido sinal de shutdown (Ctrl+C)...")
         shutdown_event.set()
 
-    # Registra handler para SIGINT (Ctrl+C)
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
             loop.add_signal_handler(sig, signal_handler)
         except NotImplementedError:
-            # Windows não suporta add_signal_handler
             pass
 
-    # Executa orchestrator em background
     orchestrator_task = asyncio.create_task(orchestrator.run())
-
-    # Aguarda sinal de shutdown
     await shutdown_event.wait()
 
-    # Inicia shutdown graceful
     logger.info("Iniciando shutdown graceful...")
     await orchestrator.shutdown()
-
-    # Aguarda task do orchestrator finalizar
     await orchestrator_task
 
     logger.info("Orchestrator finalizado com sucesso!")

@@ -15,5 +15,6 @@ from . import entities
 from . import value_objects
 from . import events
 from . import services
+from . import strategies
 
-__all__ = ["entities", "value_objects", "events", "services"]
+__all__ = ["entities", "value_objects", "events", "services", "strategies"]
