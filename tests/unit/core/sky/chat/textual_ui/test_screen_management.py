@@ -12,11 +12,11 @@ Estes testes verificam a integração correta com esses recursos.
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 
-from src.core.sky.chat.textual_ui.screens.chat import ChatScreen
+from src.core.sky.chat.textual_ui.screens.main import MainScreen as ChatScreen
 from src.core.sky.chat.textual_ui.screens.config import ConfigScreen
 from src.core.sky.chat.textual_ui.screens.help import HelpScreen
-from src.core.sky.chat.textual_ui.widgets.modal import ConfirmModal
-from src.core.sky.chat.textual_ui.widgets.toast import ToastNotification
+from src.core.sky.chat.textual_ui.widgets.common.modal import ConfirmModal
+from src.core.sky.chat.textual_ui.widgets.common.toast import ToastNotification
 
 
 class TestScreenStack:
@@ -72,7 +72,7 @@ class TestPushScreen:
         ENTÃO HelpScreen é adicionada à pilha
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             chat_screen = ChatScreen()
             chat_screen.app = Mock()
             chat_screen.app.push_screen = Mock()
@@ -92,7 +92,7 @@ class TestPushScreen:
         # Arrange
         from src.core.sky.chat.textual_ui.commands import Command, CommandType
 
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             chat_screen = ChatScreen()
             chat_screen.app = Mock()
 
@@ -112,7 +112,7 @@ class TestPushScreen:
         # Arrange
         from src.core.sky.chat.textual_ui.commands import Command, CommandType
 
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             chat_screen = ChatScreen()
             chat_screen.app = Mock()
 
@@ -130,7 +130,7 @@ class TestPushScreen:
         ENTÃO app.push_screen() é chamado com modal
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             chat_screen = ChatScreen()
             chat_screen.app = Mock()
             chat_screen.app.push_screen = Mock()
@@ -204,7 +204,7 @@ class TestPreservarEstado:
         ENTÃO ChatScreen preserva message_history
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             chat_screen = ChatScreen()
 
         from src.core.sky.chat import ChatMessage
@@ -231,7 +231,7 @@ class TestPreservarEstado:
         ENTÃO ChatScreen preserva métricas
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             chat_screen = ChatScreen()
             chat_screen._response_count = 5
             chat_screen._total_tokens = 1000
@@ -308,7 +308,7 @@ class TestChatScreenComoBase:
         ENTÃO não chama app.pop_screen() em operações normais
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             chat_screen = ChatScreen()
             chat_screen.app = Mock()
 
@@ -327,7 +327,7 @@ class TestChatScreenComoBase:
         # Arrange
         from src.core.sky.chat.textual_ui.commands import Command, CommandType
 
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             chat_screen = ChatScreen()
             chat_screen.app = Mock()
 
@@ -352,7 +352,7 @@ class TestScreenNavigationCenarios:
         ENTÃO volta para ChatScreen com estado preservado
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             chat_screen = ChatScreen()
 
         from src.core.sky.chat import ChatMessage
@@ -376,7 +376,7 @@ class TestScreenNavigationCenarios:
         ENTÃO volta para ChatScreen com estado preservado
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             chat_screen = ChatScreen()
             chat_screen._response_count = 3
 
@@ -395,7 +395,7 @@ class TestScreenNavigationCenarios:
         ENTÃO ação é executada e modal é fechado
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             chat_screen = ChatScreen()
             chat_screen.app = Mock()
 

@@ -78,8 +78,14 @@ logs/security/
 .claude/*.md
 .claude/sessions/
 
+# Claude Code skills e plugins (local development)
+.claude-plugin/
+.claude/skills/
+
 # Private documentation (brainstorming, drafts)
 docs/.private/
+scripts/analise_*.md
+scripts/validar_*.py
 
 # Skybridge local data
 .sky/

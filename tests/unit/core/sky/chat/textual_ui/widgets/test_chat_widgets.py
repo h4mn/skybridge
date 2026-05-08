@@ -7,8 +7,8 @@ DOC: openspec/changes/sky-chat-textual-ui-fix/design.md - ChatLog e ChatScroll
 
 import pytest
 
-from src.core.sky.chat.textual_ui.widgets.chat_log import ChatLog
-from src.core.sky.chat.textual_ui.widgets.chat_scroll import ChatScroll
+from src.core.sky.chat.textual_ui.widgets.common.log import ChatLog
+from src.core.sky.chat.textual_ui.widgets.scroll.chat_scroll import ChatScroll
 
 
 class TestChatLog:

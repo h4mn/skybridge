@@ -240,8 +240,10 @@ class SkyTextualDOM:
             attr_name = parsed["attr"]
             attr_value = parsed.get("value")
 
-            # Buscar em state e reactive_props
-            value = node.state.get(attr_name) or node.reactive_props.get(attr_name)
+            # Buscar em state e reactive_props (evitar or com falsy values)
+            value = node.state.get(attr_name)
+            if value is None:
+                value = node.reactive_props.get(attr_name)
 
             if attr_value is not None:
                 # Match exato (convertendo para string para comparação)

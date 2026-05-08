@@ -10,7 +10,7 @@ import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
 
-from src.core.sky.chat.textual_ui.screens.chat import ChatScreen
+from src.core.sky.chat.textual_ui.screens.main import MainScreen as ChatScreen
 from src.core.sky.chat import ChatMessage
 
 
@@ -25,7 +25,7 @@ class TestChatScreenInit:
         ENTÃO inicializa com estados vazios
         """
         # Arrange & Act
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Assert
@@ -42,7 +42,7 @@ class TestChatScreenInit:
         ENTÃO armazena mensagem inicial
         """
         # Arrange & Act
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen(initial_message="Olá Sky!")
 
         # Assert
@@ -54,7 +54,7 @@ class TestChatScreenInit:
         ENTÃO inicializa ClaudeWorker e RAGWorker
         """
         # Arrange & Act
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Assert
@@ -68,7 +68,7 @@ class TestChatScreenInit:
         ENTÃO inicializa métricas da sessão
         """
         # Arrange & Act
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Assert
@@ -88,7 +88,7 @@ class TestChatScreenCompose:
         ENTÃO retorna Header, ScrollView com content-area, e Footer
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Act
@@ -105,7 +105,7 @@ class TestChatScreenCompose:
         # Arrange
         from src.core.sky.chat.textual_ui.widgets.header import ChatHeader
 
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Act
@@ -120,7 +120,7 @@ class TestChatScreenCompose:
         ENTÃO inclui ScrollView com id="messages-scroll"
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Act
@@ -140,7 +140,7 @@ class TestChatScreenCompose:
         # Arrange
         from textual.widgets import Footer
 
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Act
@@ -209,7 +209,7 @@ class TestChatScreenOnInputSubmitted:
         ENTÃO não processa mensagem
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         mock_event = Mock()
@@ -227,7 +227,7 @@ class TestChatScreenOnInputSubmitted:
         ENTÃO processa mensagem
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         mock_event = Mock()
@@ -246,7 +246,7 @@ class TestChatScreenOnInputSubmitted:
         ENTÃO executa comando em vez de processar mensagem
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         mock_event = Mock()
@@ -271,7 +271,7 @@ class TestChatScreenProcessMessage:
         ENTÃO cria ChatMessage com role="user"
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         with patch.object(screen, "_add_user_bubble"), \
@@ -291,7 +291,7 @@ class TestChatScreenProcessMessage:
         ENTÃO adiciona UserBubble ao scroll view
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         with patch.object(screen, "_add_user_bubble") as mock_add, \
@@ -309,7 +309,7 @@ class TestChatScreenProcessMessage:
         ENTÃO exibe ThinkingIndicator
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         with patch.object(screen, "_add_user_bubble"), \
@@ -334,7 +334,7 @@ class TestChatScreenAddBubbles:
         ENTÃO cria UserBubble e monta no scroll view
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         mock_scroll = Mock()
@@ -355,7 +355,7 @@ class TestChatScreenAddBubbles:
         ENTÃO cria SkyBubble e separador
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         mock_scroll = Mock()
@@ -379,7 +379,7 @@ class TestChatScreenClearSession:
         ENTÃO limpa message_history
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
             screen.message_history = [
                 ChatMessage(role="user", content="Msg1"),
@@ -404,7 +404,7 @@ class TestChatScreenClearSession:
         ENTÃO reseta título e contexto do header
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         mock_header = Mock()
@@ -431,7 +431,7 @@ class TestChatScreenExecuteCommand:
         # Arrange
         from src.core.sky.chat.textual_ui.commands import Command, CommandType
 
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         command = Command(type=CommandType.HELP, raw="/help")
@@ -451,7 +451,7 @@ class TestChatScreenExecuteCommand:
         # Arrange
         from src.core.sky.chat.textual_ui.commands import Command, CommandType
 
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
             screen.message_history = [
                 ChatMessage(role="user", content="Msg1"),
@@ -474,7 +474,7 @@ class TestChatScreenExecuteCommand:
         # Arrange
         from src.core.sky.chat.textual_ui.commands import Command, CommandType
 
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
             screen._pending_task = None
 

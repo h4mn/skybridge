@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from src.core.sky.chat.textual_ui.widgets.header import ChatHeader
-from src.core.sky.chat.textual_ui.widgets.animated_verb import EstadoLLM
+from src.core.sky.chat.textual_ui.widgets.header.animated_verb import EstadoLLM
 
 
 class TestChatHeaderUpdateEstado:

@@ -10,10 +10,13 @@ DOC: openspec/changes/discord-ddd-migration/specs/discord-infrastructure/spec.md
 
 from __future__ import annotations
 
-from typing import Any, Optional, Self
+from typing import Any, Optional, Self, TYPE_CHECKING
 
-import discord
-from discord import Embed
+# Lazy imports para evitar colisao de namespace com tests/unit/core/discord/
+# durante coleta do pytest. discord.py e importado apenas quando necessario.
+if TYPE_CHECKING:
+    import discord
+    from discord import Embed
 
 from ...domain.entities import Message, Channel
 from ...domain.repositories import (
@@ -38,7 +41,7 @@ class DiscordAdapter(MessageRepository, ChannelRepository):
         client: Instância de discord.Client ou discord.Bot
     """
 
-    def __init__(self, client: discord.Client | discord.Bot) -> None:
+    def __init__(self, client) -> None:
         """
         Inicializa adapter.
 
@@ -99,10 +102,12 @@ class DiscordAdapter(MessageRepository, ChannelRepository):
         Returns:
             ID da mensagem enviada
         """
+        from discord import Embed as _Embed
+
         channel = await self._client.fetch_channel(channel_id)
 
         # Criar embed Discord
-        embed = Embed(
+        embed = _Embed(
             title=title,
             description=description,
             color=color,
@@ -139,6 +144,7 @@ class DiscordAdapter(MessageRepository, ChannelRepository):
         Returns:
             ID da mensagem enviada
         """
+        import discord as _discord
         from discord.ui import Button, View
 
         channel = await self._client.fetch_channel(channel_id)
@@ -149,16 +155,16 @@ class DiscordAdapter(MessageRepository, ChannelRepository):
         for btn_data in buttons:
             # Mapear estilo para ButtonStyle
             style_map = {
-                "primary": discord.ButtonStyle.primary,
-                "secondary": discord.ButtonStyle.secondary,
-                "success": discord.ButtonStyle.success,
-                "danger": discord.ButtonStyle.danger,
-                "link": discord.ButtonStyle.link,
+                "primary": _discord.ButtonStyle.primary,
+                "secondary": _discord.ButtonStyle.secondary,
+                "success": _discord.ButtonStyle.success,
+                "danger": _discord.ButtonStyle.danger,
+                "link": _discord.ButtonStyle.link,
             }
 
             style = style_map.get(
                 btn_data.get("style", "primary"),
-                discord.ButtonStyle.primary,
+                _discord.ButtonStyle.primary,
             )
 
             button = Button(
@@ -203,16 +209,18 @@ class DiscordAdapter(MessageRepository, ChannelRepository):
 
     async def get_by_id(self, message_id: MessageId) -> Optional[Message]:
         """Busca mensagem por ID no Discord."""
+        import discord as _discord
+
         try:
             # Discord API não permite buscar mensagem diretamente sem canal
             # Precisamos buscar nos canais acessíveis
             for channel in self._client.get_all_channels():
-                if not isinstance(channel, discord.abc.Messageable):
+                if not isinstance(channel, _discord.abc.Messageable):
                     continue
                 try:
                     msg = await channel.fetch_message(int(message_id.value))
                     return self._to_domain_message(msg)
-                except discord.NotFound:
+                except _discord.NotFound:
                     continue
             return None
         except Exception:
@@ -235,9 +243,11 @@ class DiscordAdapter(MessageRepository, ChannelRepository):
         limit: int = 20,
     ) -> list[Message]:
         """Busca histórico de mensagens do canal."""
+        import discord as _discord
+
         try:
             channel = await self._client.fetch_channel(int(channel_id.value))
-            if not isinstance(channel, discord.abc.Messageable):
+            if not isinstance(channel, _discord.abc.Messageable):
                 return []
 
             messages = []
@@ -249,15 +259,17 @@ class DiscordAdapter(MessageRepository, ChannelRepository):
 
     async def delete(self, message_id: MessageId) -> bool:
         """Remove mensagem do Discord."""
+        import discord as _discord
+
         try:
             for channel in self._client.get_all_channels():
-                if not isinstance(channel, discord.abc.Messageable):
+                if not isinstance(channel, _discord.abc.Messageable):
                     continue
                 try:
                     msg = await channel.fetch_message(int(message_id.value))
                     await msg.delete()
                     return True
-                except discord.NotFound:
+                except _discord.NotFound:
                     continue
             return False
         except Exception:
@@ -296,7 +308,7 @@ class DiscordAdapter(MessageRepository, ChannelRepository):
     # Métodos Auxiliares de Tradução (Discord → Domínio)
     # =========================================================================
 
-    def _to_domain_message(self, discord_msg: discord.Message) -> Message:
+    def _to_domain_message(self, discord_msg) -> Message:
         """Traduz discord.Message para Message (entidade do domínio)."""
         return Message(
             message_id=MessageId(str(discord_msg.id)),
@@ -309,7 +321,7 @@ class DiscordAdapter(MessageRepository, ChannelRepository):
             is_dm=discord_msg.guild is None,
         )
 
-    def _to_domain_channel(self, discord_channel: discord.abc.GuildChannel) -> Channel:
+    def _to_domain_channel(self, discord_channel) -> Channel:
         """Traduz discord.Channel para Channel (entidade do domínio)."""
         return Channel(
             channel_id=ChannelId(str(discord_channel.id)),
@@ -318,7 +330,7 @@ class DiscordAdapter(MessageRepository, ChannelRepository):
             guild_id=ChannelId(str(discord_channel.guild.id)) if discord_channel.guild else None,
         )
 
-    def _to_domain_dm_channel(self, discord_channel: discord.DMChannel) -> Channel:
+    def _to_domain_dm_channel(self, discord_channel) -> Channel:
         """Traduz discord.DMChannel para Channel (entidade do domínio)."""
         return Channel(
             channel_id=ChannelId(str(discord_channel.id)),
@@ -332,11 +344,11 @@ class DiscordAdapter(MessageRepository, ChannelRepository):
     # =========================================================================
 
     @classmethod
-    def create(cls, client: discord.Client | discord.Bot) -> Self:
+    def create(cls, client) -> Self:
         """Factory method."""
         return cls(client)
 
 
-def create_discord_adapter(client: discord.Client | discord.Bot) -> DiscordAdapter:
+def create_discord_adapter(client) -> DiscordAdapter:
     """Cria instância de DiscordAdapter."""
     return DiscordAdapter.create(client)

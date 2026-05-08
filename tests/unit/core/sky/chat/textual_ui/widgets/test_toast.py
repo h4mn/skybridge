@@ -9,7 +9,7 @@ DOC: openspec/changes/sky-chat-textual-ui/design.md - Toast notifications
 import pytest
 from unittest.mock import Mock, patch
 
-from src.core.sky.chat.textual_ui.widgets.toast import ToastNotification
+from src.core.sky.chat.textual_ui.widgets.common.toast import ToastNotification
 
 
 class TestToastNotificationInit:

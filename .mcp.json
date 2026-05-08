@@ -23,6 +23,31 @@
       "env": {
         "TOGGL_API_TOKEN": "5cc4a817d5006d689bcd164108054591"
       }
+    },
+    "sky-memory": {
+      "command": "python",
+      "args": ["B:/_repositorios/sky-memory/.mcp/sky_mcp_server.py"],
+      "cwd": "B:/_repositorios/sky-memory/.mcp",
+      "env": {
+        "SKY_MEMORY_PATH": "B:/_repositorios/sky-memory",
+        "PYTHONIOENCODING": "utf-8"
+      }
+    },
+    "glitchtip": {
+      "command": "python",
+      "args": ["B:/_repositorios/skybridge/apps/mcp_servers/glitchtip.py"],
+      "cwd": "B:/_repositorios/skybridge",
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      }
+    },
+    "planet-crafter": {
+      "command": "python",
+      "args": ["-m", "apps.mcp_servers.planet_crafter_companion"],
+      "cwd": "B:/_repositorios/skybridge",
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      }
     }
   }
 }

@@ -31,7 +31,7 @@ class TestIntentRouter:
         """Testa roteamento para queries de ensinamentos."""
         queries = [
             "O que papai me ensinou?",
-            "Papai disse algo importante",
+            "Papai disse algo importante"
             "Qual ensinamento?",
         ]
 

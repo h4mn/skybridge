@@ -1,0 +1,45 @@
+x-environment: &default-environment
+  DATABASE_URL: ${DATABASE_URL}
+  VALKEY_URL: ${VALKEY_URL}
+  SECRET_KEY: ${SECRET_KEY}
+  EMAIL_URL: ${EMAIL_URL}
+  GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN}
+  DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL}
+  ENABLE_ADMIN: ${ENABLE_ADMIN:-False}
+  ENABLE_OPENAPI: ${ENABLE_OPENAPI:-False}
+  GLITCHTIP_ENABLE_MCP: ${GLITCHTIP_ENABLE_MCP:-True}
+  GLITCHTIP_ENABLE_DUCKDB: ${GLITCHTIP_ENABLE_DUCKDB:-True}
+  GLITCHTIP_ENABLE_LOGS: ${GLITCHTIP_ENABLE_LOGS:-True}
+  GLITCHTIP_ENABLE_UPTIME: ${GLITCHTIP_ENABLE_UPTIME:-True}
+  PORT: ${PORT:-8000}
+
+x-depends_on: &default-depends_on
+  - postgres
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+    restart: unless-stopped
+    volumes:
+      - pg-data:/var/lib/postgresql
+  web:
+    image: glitchtip/glitchtip:6
+    depends_on: *default-depends_on
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *default-environment
+      SERVER_ROLE: all_in_one
+    restart: unless-stopped
+    volumes:
+      - uploads:/code/uploads
+
+volumes:
+  pg-data:
+    external: true
+    name: glitchtip-self-hosted_pg-data
+  uploads:
+    external: true
+    name: glitchtip-self-hosted_uploads

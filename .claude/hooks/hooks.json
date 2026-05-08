@@ -1,12 +1,24 @@
 {
-  "description": "Project hooks for Ralph Loop session capture",
+  "description": "Project hooks for Sky Memory System + Cedilha pt-BR",
   "hooks": {
-    "UserPromptSubmit": [
+    "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PROJECT_DIR}/.claude/hooks/ralph-session-capture.sh",
+            "command": "python ${SKY_MEMORY_PATH}/.claude/hooks/session-memory-fetcher.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python B:/_repositorios/skybridge/src/core/cedilha/cedilha_hook.py",
             "timeout": 5
           }
         ]

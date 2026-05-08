@@ -58,7 +58,7 @@ class TestDiscordAdapter:
         )
 
         # Assert
-        mock_channel.send.assert_called_once_with("Mensagem de teste")
+        mock_channel.send.assert_called_once_with(content="Mensagem de teste")
         assert result == "123"
 
     @pytest.mark.asyncio
@@ -87,12 +87,12 @@ class TestDiscordAdapter:
             fields=[],
         )
 
-        # Assert - embed foi enviado
+        # Assert - embed foi enviado como keyword arg
         assert mock_channel.send.called
         call_args = mock_channel.send.call_args
-        embed = call_args[0][0]
+        embed = call_args.kwargs.get("embed") or call_args[1].get("embed")
 
-        assert embed.title.value == "Titulo Teste"
+        assert embed.title == "Titulo Teste"
         assert embed.description == "Descrição Teste"
         assert embed.color.value == 3447003
         assert result == "456"
@@ -159,7 +159,12 @@ class TestDiscordAdapter:
         mock_msg2.author.bot = False
 
         mock_channel = MagicMock()
-        mock_channel.history = AsyncMock(return_value=[mock_msg1, mock_msg2])
+
+        async def _async_iter():
+            for msg in [mock_msg1, mock_msg2]:
+                yield msg
+
+        mock_channel.history = MagicMock(return_value=_async_iter())
         mock_discord_client.fetch_channel = AsyncMock(return_value=mock_channel)
 
         # Act

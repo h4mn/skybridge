@@ -8,7 +8,7 @@ DOC: openspec/changes/sky-chat-textual-ui/design.md - Barra de contexto com core
 
 import pytest
 
-from src.core.sky.chat.textual_ui.widgets.context_bar import ContextBar
+from src.core.sky.chat.textual_ui.widgets.header.context_bar import ContextBar
 
 
 class TestContextBarInit:

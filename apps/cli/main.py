@@ -59,6 +59,11 @@ app.add_typer(workspace_app, name="ws")  # Alias curto
 from apps.cli.kanban import kanban_app
 app.add_typer(kanban_app, name="kanban")
 
+# YouTube commands
+from apps.cli.youtube import youtube_app
+app.add_typer(youtube_app, name="youtube")
+app.add_typer(youtube_app, name="yt")  # Alias curto
+
 # Configuração padrão
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 
@@ -242,6 +247,11 @@ def show_help():
     help_text.append("\nKanban:\n", style="bold white")
     help_text.append("  sb kanban snapshot             Mostra comparação Kanban.db vs Trello\n", style="white")
     help_text.append("  sb kanban sync                 Sincroniza Trello → kanban.db\n", style="white")
+    help_text.append("\nYouTube:\n", style="bold white")
+    help_text.append("  sb youtube setup                Configura State Repository SQLite\n", style="white")
+    help_text.append("  sb youtube favorite-lists       Lista playlists do usuário\n", style="white")
+    help_text.append("  sb youtube favorite-videos      Lista vídeos de uma playlist\n", style="white")
+    help_text.append("  sb yt transcribe <url> <out>    Transcreve vídeo YouTube\n", style="white")
     help_text.append("\nAgent:\n", style="bold white")
     help_text.append("  sb agent issue                  Cria issue no GitHub\n", style="white")
     help_text.append("\nOutros:\n", style="bold white")

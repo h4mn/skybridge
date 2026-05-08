@@ -14,7 +14,7 @@ from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
 
 from src.core.sky.chat import ChatMessage
-from src.core.sky.chat.textual_ui.screens.chat import ChatScreen
+from src.core.sky.chat.textual_ui.screens.main import MainScreen as ChatScreen
 from src.core.sky.chat.textual_ui.screens.welcome import WelcomeScreen
 from src.core.sky.chat.textual_ui.screens.help import HelpScreen
 from src.core.sky.chat.textual_ui.commands import Command, CommandType
@@ -34,7 +34,7 @@ class TestE2EFluxoCompletoMensagem:
         ENTÃO UserBubble é adicionado, thinking aparece, SkyBubble é adicionado
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Act
@@ -58,7 +58,7 @@ class TestE2EFluxoCompletoMensagem:
         ENTÃO ChatMessage é criado com role correto
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Act
@@ -86,7 +86,7 @@ class TestE2EComandoNewComModal:
         ENTÃO ConfirmModal deve ser considerado
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Adiciona 5 mensagens ao histórico
@@ -110,7 +110,7 @@ class TestE2EComandoNewComModal:
         ENTÃO sessão deve ser limpa diretamente (sem modal)
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Adiciona apenas 2 mensagens
@@ -133,7 +133,7 @@ class TestE2EComandoNewComModal:
         ENTÃO modal deve ser ativado
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Exatamente 5 mensagens
@@ -199,7 +199,7 @@ class TestE2ETituloGeradoAposMensagens:
         ENTÃO _response_count é incrementado
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
             screen._response_count = 2  # Já teve 2 respostas
 
@@ -215,7 +215,7 @@ class TestE2ETituloGeradoAposMensagens:
         ENTÃO condição para gerar título é atendida
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
             screen._response_count = 3
 
@@ -230,7 +230,7 @@ class TestE2ETituloGeradoAposMensagens:
         ENTÃO condição para gerar título não é atendida
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
             screen._response_count = 2
 
@@ -252,7 +252,7 @@ class TestE2EBarraContextoMudaCor:
         ENTÃO ContextBar tem classe --green
         """
         # Arrange
-        from src.core.sky.chat.textual_ui.widgets.context_bar import ContextBar
+        from src.core.sky.chat.textual_ui.widgets.header.context_bar import ContextBar
 
         bar = ContextBar(total=20)
 
@@ -271,7 +271,7 @@ class TestE2EBarraContextoMudaCor:
         ENTÃO ContextBar tem classe --yellow
         """
         # Arrange
-        from src.core.sky.chat.textual_ui.widgets.context_bar import ContextBar
+        from src.core.sky.chat.textual_ui.widgets.header.context_bar import ContextBar
 
         bar = ContextBar(total=20)
 
@@ -288,7 +288,7 @@ class TestE2EBarraContextoMudaCor:
         ENTÃO ContextBar tem classe --orange
         """
         # Arrange
-        from src.core.sky.chat.textual_ui.widgets.context_bar import ContextBar
+        from src.core.sky.chat.textual_ui.widgets.header.context_bar import ContextBar
 
         bar = ContextBar(total=20)
 
@@ -305,7 +305,7 @@ class TestE2EBarraContextoMudaCor:
         ENTÃO ContextBar tem classe --red
         """
         # Arrange
-        from src.core.sky.chat.textual_ui.widgets.context_bar import ContextBar
+        from src.core.sky.chat.textual_ui.widgets.header.context_bar import ContextBar
 
         bar = ContextBar(total=20)
 
@@ -322,7 +322,7 @@ class TestE2EBarraContextoMudaCor:
         ENTÃO classe CSS é atualizada corretamente
         """
         # Arrange
-        from src.core.sky.chat.textual_ui.widgets.context_bar import ContextBar
+        from src.core.sky.chat.textual_ui.widgets.header.context_bar import ContextBar
 
         bar = ContextBar(total=20)
 
@@ -450,7 +450,7 @@ class TestE2EScrollManualPausaAutoScroll:
         ENTÃO auto-scroll está desabilitado
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Act - desabilita auto-scroll
@@ -465,7 +465,7 @@ class TestE2EScrollManualPausaAutoScroll:
         ENTÃO auto-scroll pode ser reativado
         """
         # Arrange
-        with patch("src.core.sky.chat.textual_ui.screens.chat.get_memory"):
+        with patch("src.core.sky.chat.textual_ui.screens.main.get_memory"):
             screen = ChatScreen()
 
         # Act - reativa auto-scroll

@@ -8,7 +8,7 @@ DOC: openspec/changes/sky-chat-textual-ui-fix/design.md - Título dinâmico com 
 
 import pytest
 
-from src.core.sky.chat.textual_ui.widgets.title import AnimatedTitle
+from src.core.sky.chat.textual_ui.widgets.header.title import AnimatedTitle
 
 
 class TestAnimatedTitleInit:
@@ -224,7 +224,7 @@ class TestTitleStatic:
         QUANDO verbo termina em -ando
         ENTÃO extrai radical corretamente
         """
-        from src.core.sky.chat.textual_ui.widgets.title import TitleStatic
+        from src.core.sky.chat.textual_ui.widgets.header.title import TitleStatic
 
         # Assert
         assert TitleStatic._extrair_radical("processando") == "process"
@@ -236,7 +236,7 @@ class TestTitleStatic:
         QUANDO verbo termina em -endo
         ENTÃO extrai radical corretamente
         """
-        from src.core.sky.chat.textual_ui.widgets.title import TitleStatic
+        from src.core.sky.chat.textual_ui.widgets.header.title import TitleStatic
 
         # Assert
         assert TitleStatic._extrair_radical("escrevendo") == "escrev"
@@ -247,7 +247,7 @@ class TestTitleStatic:
         QUANDO verbo termina em -indo
         ENTÃO extrai radical corretamente
         """
-        from src.core.sky.chat.textual_ui.widgets.title import TitleStatic
+        from src.core.sky.chat.textual_ui.widgets.header.title import TitleStatic
 
         # Assert
         assert TitleStatic._extrair_radical("corrigindo") == "corrig"
@@ -258,7 +258,7 @@ class TestTitleStatic:
         QUANDO verbo termina em -ou (pretérito)
         ENTÃO extrai radical corretamente
         """
-        from src.core.sky.chat.textual_ui.widgets.title import TitleStatic
+        from src.core.sky.chat.textual_ui.widgets.header.title import TitleStatic
 
         # Assert
         assert TitleStatic._extrair_radical("processou") == "process"
@@ -270,7 +270,7 @@ class TestTitleStatic:
         QUANDO verbo termina em -eu (pretérito)
         ENTÃO extrai radical corretamente
         """
-        from src.core.sky.chat.textual_ui.widgets.title import TitleStatic
+        from src.core.sky.chat.textual_ui.widgets.header.title import TitleStatic
 
         # Assert
         assert TitleStatic._extrair_radical("escreveu") == "escrev"
@@ -281,7 +281,7 @@ class TestTitleStatic:
         QUANDO verbo termina em -iu (pretérito)
         ENTÃO extrai radical corretamente
         """
-        from src.core.sky.chat.textual_ui.widgets.title import TitleStatic
+        from src.core.sky.chat.textual_ui.widgets.header.title import TitleStatic
 
         # Assert
         assert TitleStatic._extrair_radical("corrigiu") == "corrig"
@@ -292,7 +292,7 @@ class TestTitleStatic:
         QUANDO verbo é muito curto ou não segue padrões
         ENTÃO retorna o próprio verbo como fallback
         """
-        from src.core.sky.chat.textual_ui.widgets.title import TitleStatic
+        from src.core.sky.chat.textual_ui.widgets.header.title import TitleStatic
 
         # Assert
         assert TitleStatic._extrair_radical("iu") == "iu"
