@@ -21,12 +21,12 @@ Este change documenta o módulo `src/core/paper` já implementado.
 - [x] 2.3 Verificar se specs refletem implementação atual dos adapters/ → **✅ ALINHADO**
 - [x] 2.4 Verificar se specs refletem implementação atual da facade/ → **⚠️ PARCIAL**
 
-## 3. Melhorias Futuras (Backlog)
+## 3. Melhorias Futuras (Sincronizado 2026-05-07)
 
-- [ ] 3.1 Implementar eventos de domínio (domain/events/)
-- [ ] 3.2 Implementar serviços de domínio (domain/services/)
-- [ ] 3.3 Implementar commands CQRS (application/commands/)
-- [ ] 3.4 Adicionar testes unitários para specs
+- [x] 3.1 Implementar eventos de domínio (domain/events/) — ✅ DONE: DomainEvent, EventBus, 5 eventos
+- [x] 3.2 Implementar serviços de domínio (domain/services/) — ✅ DONE: Validador, Executor, CalculadorRisco, GeradorRelatorio
+- [x] 3.3 Implementar commands CQRS (application/commands/) — ✅ DONE: criar_ordem, depositar, resetar + queries + handlers
+- [x] 3.4 Adicionar testes unitários para specs — ✅ DONE: 122+ testes unitários
 - [ ] 3.5 Adicionar cache de cotações para reduzir rate limiting
 
 ## Notas
@@ -45,8 +45,8 @@ O módulo já está funcional com:
 | paper-ports | ✅ ALINHADO | Todas interfaces implementadas |
 | paper-adapters | ✅ ALINHADO | PaperBroker, YahooFinanceFeed, repositórios OK |
 | paper-application | ✅ ALINHADO | ConsultarPortfolioQuery e Handler OK |
-| paper-facade-api | ⚠️ PARCIAL | Spec descreve API planejada, mas `facade.py` tem NotImplementedError |
-| paper-facade-mcp | ⚠️ PARCIAL | Spec descreve MCP planejado, mas `facade.py` tem NotImplementedError |
+| paper-facade-api | ⚠️ PARCIAL → ✅ ALINHADO | API REST funcional com rotas mercado/ordens/portfolio/risco (FastAPI) |
+| paper-facade-mcp | ⚠️ PARCIAL | MCP facade ainda com NotImplementedError — tools são stubs |
 | paper-facade-helloworld | ✅ ALINHADO | Implementação completa e funcional |
 
 **Conclusão:** A implementação funcional real está em `facade/helloworld/`. As facades `api/` e `mcp/` são scaffolds com interfaces definidas mas não implementadas.
@@ -57,3 +57,22 @@ uvicorn src.core.paper.facade.helloworld.facade:app --reload --port 8000
 ```
 
 > "Tarefas documentadas são promessas cumpridas" – made by Sky 🚀
+
+---
+
+## Sincronização 2026-05-07
+
+Revisão do estado real do módulo vs documentação. Resultado:
+
+| Componente | Antes | Depois |
+|------------|-------|--------|
+| Domain Events | Pendente | ✅ 5 eventos + EventBus |
+| Domain Services | Pendente | ✅ 4 serviços completos |
+| Commands CQRS | Pendente | ✅ 3 commands + 4 queries + 8 handlers |
+| Testes Unitários | Pendente | ✅ 122+ testes |
+| Facade API | Stub | ✅ FastAPI funcional |
+| Facade MCP | Stub | ⚠️ Ainda NotImplementedError |
+| Guardião Conservador | — | ❌ Não existe |
+| HeartbeatWorker | — | ❌ Não existe |
+
+**Linear sincronizado:** SKY-21, SKY-34, SKY-28 → Done. SKY-35, SKY-38 → Backlog (reais).
