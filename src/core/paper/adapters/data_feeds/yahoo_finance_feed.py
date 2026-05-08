@@ -67,18 +67,19 @@ class YahooFinanceFeed(DataFeedPort):
         self,
         ticker: str,
         periodo_dias: int = 30,
+        intervalo: str = "1d",
     ) -> list[Cotacao]:
-        """Retorna histórico de fechamentos diários."""
+        """Retorna histórico de cotações no intervalo especificado."""
         loop = asyncio.get_event_loop()
         historico = await loop.run_in_executor(
-            None, self._buscar_historico, ticker, periodo_dias
+            None, self._buscar_historico, ticker, periodo_dias, intervalo
         )
         return historico
 
-    def _buscar_historico(self, ticker: str, periodo_dias: int) -> list[Cotacao]:
+    def _buscar_historico(self, ticker: str, periodo_dias: int, intervalo: str = "1d") -> list[Cotacao]:
         periodo = f"{periodo_dias}d"
         ativo = yf.Ticker(ticker)
-        hist = ativo.history(period=periodo, interval="1d")
+        hist = ativo.history(period=periodo, interval=intervalo)
 
         if hist.empty:
             raise ValueError(f"Ticker '{ticker}' não encontrado ou sem histórico.")

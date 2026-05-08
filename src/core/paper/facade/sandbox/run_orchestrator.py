@@ -14,6 +14,7 @@ Controle:
 import asyncio
 import logging
 import os
+import re
 import signal
 import sys
 from decimal import Decimal
@@ -22,18 +23,35 @@ from .orchestrator import PaperOrchestrator
 from .workers import PositionWorker
 from .workers.strategy_worker import StrategyWorker
 
-# Configuração de logging (console + arquivo)
+# Configuração de logging (console colorido + arquivo limpo)
 log_file = "logs/guardiao-conservador.log"
 os.makedirs("logs", exist_ok=True)
+
+_ansi_re = re.compile(r"\033\[[0-9;]*m")
+
+
+class _AnsiStripFormatter(logging.Formatter):
+    """Formatter que remove ANSI codes — para FileHandler."""
+    def format(self, record):
+        return _ansi_re.sub("", super().format(record))
+
+
+_fmt = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+_datefmt = "%H:%M:%S"
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%H:%M:%S",
+    format=_fmt,
+    datefmt=_datefmt,
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(log_file, encoding="utf-8"),
     ],
 )
+
+# FileHandler separado com formatter limpo (sem ANSI)
+_fh = logging.FileHandler(log_file, encoding="utf-8")
+_fh.setFormatter(_AnsiStripFormatter(_fmt, _datefmt))
+logging.getLogger().addHandler(_fh)
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +97,8 @@ def create_orchestrator() -> PaperOrchestrator:
     # --- StrategyWorker REAL ---
     strategy = GuardiaoConservador()
     tracker = PositionTracker(
-        stop_loss_pct=Decimal("0.015"),
-        take_profit_pct=Decimal("0.03"),
+        stop_loss_pct=Decimal("0.0025"),
+        take_profit_pct=Decimal("0.005"),
     )
     strategy_worker = StrategyWorker(
         strategy=strategy,
@@ -88,7 +106,8 @@ def create_orchestrator() -> PaperOrchestrator:
         executor=executor,
         position_tracker=tracker,
         tickers=["BTC-USD"],
-        periodo_historico=30,
+        periodo_historico=5,
+        intervalo_historico="1m",
     )
     orchestrator.register(strategy_worker)
 

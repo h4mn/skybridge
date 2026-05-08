@@ -44,7 +44,7 @@ class TipoSinal(str, Enum):
 class DadosMercado:
     ticker: str
     preco_atual: Decimal
-    historico_precos: list[Decimal]  # últimos N períodos
+    historico_precos: tuple[Decimal, ...]  # últimos N períodos
 
 @dataclass(frozen=True)
 class SinalEstrategia:
@@ -78,12 +78,18 @@ class StrategyProtocol(Protocol):
 
 ---
 
-## Arquivos Modificados (2)
+## Arquivos Modificados
 
-### 5. `facade/sandbox/workers/strategy_worker.py` — Refatorar stub → real
+### 5. `facade/sandbox/workers/strategy_worker.py` — Stub → real + observabilidade
 
-**Antes:** `_do_tick()` só faz log
-**Depois:**
+**Modos:** Real (com strategy/datafeed/executor/tracker) e Legacy (backward-compat)
+
+**Observabilidade embutida:**
+- `[DIAG]` — diagnóstico no primeiro tick: range dos dados, qtd de velas, intervalo
+- `[TICK #N]` — log por tick: preço, velas recebidas, resultado da estratégia
+- `[HEARTBEAT]` — resumo a cada 10 ticks: contadores de sinais e erros
+- Contadores: `_tick_count`, `_signal_count`, `_error_count`
+
 ```python
 class StrategyWorker(BaseWorker):
     def __init__(
@@ -93,36 +99,26 @@ class StrategyWorker(BaseWorker):
         executor: ExecutorDeOrdem,
         position_tracker: PositionTracker,
         tickers: list[str],
-        periodo_historico: int = 30,
+        periodo_historico: int = 5,
+        intervalo_historico: str = "1m",  # ← velas de 1 minuto!
+        quantity: int = 100,
     ): ...
-
-    async def _do_tick(self) -> None:
-        for ticker in self._tickers:
-            # 1. Busca dados de mercado
-            historico = await self._datafeed.obter_historico(ticker, self._periodo_historico)
-            cotacao = await self._datafeed.obter_cotacao(ticker)
-
-            # 2. Monta DadosMercado
-            dados = DadosMercado(ticker, cotacao.preco, [c.preco for c in historico])
-
-            # 3. Avalia estratégia
-            sinal = self._strategy.evaluate(dados)
-            if sinal and sinal.tipo != TipoSinal.NEUTRO:
-                await self._executor.executar_ordem(
-                    ticker=sinal.ticker,
-                    lado=Lado.COMPRA if sinal.tipo == TipoSinal.COMPRA else Lado.VENDA,
-                    quantidade=100,  # fixo por enquanto
-                )
-
-            # 4. Verifica SL/TP
-            sl_tp_sinal = self._position_tracker.check_price(ticker, cotacao.preco)
-            if sl_tp_sinal:
-                await self._executor.executar_ordem(...)
 ```
 
-### 6. `domain/__init__.py` — Exportar strategies
+### 6. `ports/data_feed_port.py` — Parâmetro `intervalo`
 
-Adicionar `from . import strategies` e `"strategies"` ao `__all__`.
+O `obter_historico` agora aceita `intervalo: str = "1d"` (backward-compat). Valores comuns:
+- `"1d"` — fechamento diário (default, legado)
+- `"1h"` — velas de 1 hora
+- `"1m"` — velas de 1 minuto (usado pelo Guardião)
+
+### 7. `adapters/data_feeds/yahoo_finance_feed.py` — Propaga intervalo
+
+O `_buscar_historico` agora recebe o intervalo e passa ao `yf.Ticker.history()`.
+
+**Limitação Yahoo Finance:** intervalo `"1m"` suporta no máximo 8 dias de histórico.
+
+### 8. `domain/__init__.py` — Exportar strategies
 
 ---
 
@@ -130,26 +126,46 @@ Adicionar `from . import strategies` e `"strategies"` ao `__all__`.
 
 ```python
 # Criar dependências
-datafeed = YahooFinanceFeed()  # adapter existente
+datafeed = YahooFinanceFeed()
 broker = PaperBroker(feed=datafeed)
 event_bus = get_event_bus()
-validator = ValidadorDeOrdem(broker)
-executor = ExecutorDeOrdem(broker=broker, datafeed=datafeed, event_bus=event_bus, validator=validator)
 
-# Criar estratégia
+class SimpleValidator:
+    async def validar_e_criar_ordem(self, ticker, lado, quantidade, preco_limit=None):
+        return OrdemCriada(...)
+
+executor = ExecutorDeOrdem(broker=broker, datafeed=datafeed, event_bus=event_bus, validator=SimpleValidator())
+
+# Estratégia com SL/TP para ticks de 1 minuto
 strategy = GuardiaoConservador()
-tracker = PositionTracker(stop_loss_pct=Decimal("0.05"), take_profit_pct=Decimal("0.10"))
+tracker = PositionTracker(stop_loss_pct=Decimal("0.0025"), take_profit_pct=Decimal("0.005"))
 
-# Criar worker com dependências reais
 strategy_worker = StrategyWorker(
     strategy=strategy,
     datafeed=datafeed,
     executor=executor,
     position_tracker=tracker,
     tickers=["BTC-USD"],
-    periodo_historico=30,
+    periodo_historico=5,       # 5 dias
+    intervalo_historico="1m",  # velas de 1 minuto (~6000 pontos)
 )
 ```
+
+---
+
+## Lições Aprendidas — Overnight Bug
+
+### Problema
+O bot rodou 7.5h sem executar nenhum trade, mesmo com cruzamentos SMA visíveis no gráfico.
+
+### Causa Raiz
+O `obter_historico` retornava **dados diários** (`interval="1d"`) enquanto a estratégia analisava como se fossem **dados de 1 minuto**. A estratégia "funcionava" — só analisava o universo errado. E era **completamente invisível** porque nenhum tick produzia log.
+
+### Correções
+1. Parâmetro `intervalo` no port + adapter (backward-compat)
+2. StrategyWorker com `intervalo_historico="1m"`
+3. Observabilidade: `[DIAG]`, `[TICK]`, `[HEARTBEAT]` — nunca mais tick silencioso
+4. Diagnóstico no primeiro tick valida range e quantidade de dados
 
 ---
 
@@ -157,14 +173,14 @@ strategy_worker = StrategyWorker(
 
 | # | Arquivo | Teste | Status |
 |---|---------|-------|--------|
-| 1 | `signal.py` | `test_signal_creation_and_types` | RED |
-| 2 | `protocol.py` | `test_strategy_protocol_duck_typing` | RED |
-| 3 | `position_tracker.py` | `test_tracker_sl_tp_trigger` | RED |
-| 4 | `guardiao_conservador.py` | `test_sma_crossover_buy_sell` | RED |
-| 5 | `strategy_worker.py` | `test_worker_tick_calls_strategy` | RED |
-| 6 | GREEN — implementar todos | GREEN |
-| 7 | REFACTOR — limpar, renomear | REFACTOR |
-| 8 | Wiring no `run_orchestrator.py` | teste de integração manual | VERIFY |
+| 1 | `signal.py` | `test_signal_creation_and_types` | ✅ |
+| 2 | `protocol.py` | `test_strategy_protocol_duck_typing` | ✅ |
+| 3 | `position_tracker.py` | `test_tracker_sl_tp_trigger` | ✅ |
+| 4 | `guardiao_conservador.py` | `test_sma_crossover_buy_sell` | ✅ |
+| 5 | `strategy_worker.py` | `test_worker_tick_calls_strategy` | ✅ |
+| 6 | GREEN — implementar todos | ✅ |
+| 7 | REFACTOR — limpar, renomear | ✅ |
+| 8 | Wiring no `run_orchestrator.py` | teste de integração manual | 🔲 |
 
 ---
 
@@ -178,21 +194,13 @@ Esse log no console = Missão A completa.
 
 ---
 
-## Arquivos Críticos (já existentes, somente leitura)
-
-- `src/core/paper/domain/services/executor_ordem.py` — ExecutorDeOrdem + ValidatorProtocol
-- `src/core/paper/ports/data_feed_port.py` — Cotacao, DataFeedPort
-- `src/core/paper/adapters/brokers/paper_broker.py` — PaperBroker
-- `src/core/paper/domain/events/event_bus.py` — EventBus singleton
-- `src/core/paper/facade/sandbox/workers/base.py` — BaseWorker
-- `src/core/paper/domain/events/ordem_events.py` — Lado enum
-
----
-
 ## Verificação
 
 1. `python -m pytest tests/unit/paper/domain/strategies/ -v` — todos verdes
 2. `python -m pytest tests/ -k "guardiao or strategy" -v` — específicos
-3. Rodar `run_orchestrator.py` e verificar log "COMPRA BTC-USD" após ~2 ciclos
+3. Rodar `run_orchestrator.py` e verificar:
+   - `[DIAG]` mostra velas de 1m com range correto
+   - `[TICK #N]` aparece a cada 60s com preço e status
+   - `[HEARTBEAT]` a cada 10 ticks
 
 > "O guardião não dorme enquanto o mercado está aberto" – made by Sky 🛡️

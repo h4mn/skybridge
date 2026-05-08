@@ -67,6 +67,7 @@ class DataFeedPort(ABC):
         self,
         ticker: str,
         periodo_dias: int = 30,
+        intervalo: str = "1d",
     ) -> list[Cotacao]:
         """
         Obtém histórico de cotações.
@@ -74,6 +75,7 @@ class DataFeedPort(ABC):
         Args:
             ticker: Código do ativo
             periodo_dias: Número de dias de histórico
+            intervalo: Intervalo das velas ("1d", "1h", "1m", etc.)
 
         Returns:
             Lista de cotações históricas
