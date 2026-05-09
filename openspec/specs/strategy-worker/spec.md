@@ -1,7 +1,9 @@
 ## MODIFIED Requirements
 
 ### Requirement: StrategyWorker com injeção de dependências
-O StrategyWorker SHALL aceitar via construtor: `strategy` (StrategyProtocol), `datafeed` (DataFeedPort), `executor` (ExecutorDeOrdem), `position_tracker` (PositionTracker), `tickers` (list[str]), e `periodo_historico` (int, default 30).
+O StrategyWorker SHALL aceitar via construtor: `strategy` (StrategyProtocol), `datafeed` (DataFeedPort), `executor` (ExecutorDeOrdem), `position_tracker` (PositionTracker), `tickers` (list[str]), `periodo_historico` (int, default 30), e `intervalo_historico` (str, default "1d").
+
+> **Nota:** `periodo_historico` define quantas velas o worker passa para `DadosMercado.historico_precos`. O Yahoo Finance Feed pode retornar mais dados que o solicitado. Para crypto 1min, recomenda-se `periodo_historico=30` com `intervalo_historico="1m"` para garantir dados suficientes ao crossover SMA(15).
 
 #### Scenario: Criar worker com dependências
 - **WHEN** criar `StrategyWorker(strategy, datafeed, executor, tracker, tickers=["BTC-USD"])`

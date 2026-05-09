@@ -106,7 +106,7 @@ def create_orchestrator() -> PaperOrchestrator:
         executor=executor,
         position_tracker=tracker,
         tickers=["BTC-USD"],
-        periodo_historico=5,
+        periodo_historico=30,
         intervalo_historico="1m",
     )
     orchestrator.register(strategy_worker)

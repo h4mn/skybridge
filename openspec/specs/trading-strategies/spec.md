@@ -16,7 +16,7 @@ O sistema SHALL definir um enum `TipoSinal` com valores `COMPRA`, `VENDA` e `NEU
 - **THEN** o valor SHALL ser `"neutro"` (string lowercase)
 
 ### Requirement: DadosMercado value object
-O sistema SHALL definir um VO imutável `DadosMercado` contendo ticker (str), preco_atual (Decimal) e historico_precos (list[Decimal]).
+O sistema SHALL definir um VO imutável `DadosMercado` contendo ticker (str), preco_atual (Decimal) e historico_precos (tuple[Decimal, ...]).
 
 #### Scenario: Criar dados de mercado
 - **WHEN** criar `DadosMercado(ticker="BTC-USD", preco_atual=Decimal("50000"), historico_precos=[...])`

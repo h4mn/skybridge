@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from .base import BaseWorker
 
@@ -43,7 +43,6 @@ class StrategyWorker(BaseWorker):
         quantity: int = 100,
         strategy_name: str | None = None,
         on_suggestion: SuggestionCallback | None = None,
-        **strategy_params: Any,
     ):
         if strategy is not None:
             self._mode = "real"
@@ -72,7 +71,6 @@ class StrategyWorker(BaseWorker):
             self._periodo_historico = 30
             self._intervalo_historico = "1d"
             self._quantity = 100
-        self._params = strategy_params
         self._tick_count = 0
         self._signal_count = 0
         self._error_count = 0

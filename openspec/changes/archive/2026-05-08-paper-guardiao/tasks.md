@@ -43,6 +43,6 @@
 
 - [x] 6.1 Atualizar `domain/__init__.py` para exportar `strategies`
 - [x] 6.2 Atualizar `run_orchestrator.py` com wiring real (YahooFinanceFeed, PaperBroker, EventBus, ExecutorDeOrdem)
-- [ ] 6.3 Teste de integração manual: rodar orchestrator e verificar log "COMPRA BTC-USD"
+- [x] 6.3 Teste de integração manual: rodar orchestrator e verificar log "COMPRA BTC-USD"
 
 > "Tarefas documentadas são promessas cumpridas" – made by Sky 📋

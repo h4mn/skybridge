@@ -23,7 +23,7 @@ O PositionTracker SHALL permitir fechar uma posição aberta, removendo-a do ras
 - **THEN** SHALL ser no-op (sem erro)
 
 ### Requirement: Verificar Stop Loss
-O PositionTracker SHALL gerar sinal de VENDA quando o preço atual cai abaixo do percentual de stop loss configurado.
+O PositionTracker SHALL gerar sinal de VENDA quando o preço atual cai abaixo do percentual de stop loss configurado. Os valores padrão são `0.05` (5%), mas o wiring recomenda `0.0025` (0.25%) para crypto em velas de 1min.
 
 #### Scenario: Stop Loss acionado (5%)
 - **WHEN** posição aberta em `50000`, stop_loss_pct=`0.05`, e preço atual é `47000` (-6%)
@@ -38,7 +38,7 @@ O PositionTracker SHALL gerar sinal de VENDA quando o preço atual cai abaixo do
 - **THEN** SHALL retornar sinal de venda (limite é <=)
 
 ### Requirement: Verificar Take Profit
-O PositionTracker SHALL gerar sinal de VENDA quando o preço atual sobe acima do percentual de take profit configurado.
+O PositionTracker SHALL gerar sinal de VENDA quando o preço atual sobe acima do percentual de take profit configurado. Os valores padrão são `0.10` (10%), mas o wiring recomenda `0.005` (0.50%) para crypto em velas de 1min.
 
 #### Scenario: Take Profit acionado (10%)
 - **WHEN** posição aberta em `50000`, take_profit_pct=`0.10`, e preço atual é `56000` (+12%)
