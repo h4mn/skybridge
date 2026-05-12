@@ -22,13 +22,6 @@ O SimpleTracker SHALL implementar PositionTrackerPort com modo netting — 1 pos
 - **WHEN** posição aberta via COMPRA
 - **THEN** `position_type` SHALL ser "BUY"
 
-### Requirement: SL fixo 0.50% (default)
-O SimpleTracker SHALL ter `stop_loss_pct` default de `Decimal("0.005")` (0.50%).
-
-#### Scenario: SL default na posição
-- **WHEN** abrir posição sem `stop_loss_pct`
-- **THEN** SHALL usar 0.005 como SL
-
 ### Requirement: Estado de re-entrada no SimpleTracker
 O SimpleTracker SHALL manter estado de re-entrada em `_reentry` dict separado.
 
@@ -51,41 +44,5 @@ O SimpleTracker SHALL manter estado de re-entrada em `_reentry` dict separado.
 #### Scenario: Expirar re-entrada após 200 ticks
 - **WHEN** `ticks_since_signal` >= 200
 - **THEN** estado SHALL ser automaticamente limpo
-
-### Requirement: Abrir posição com TP dinâmico
-O SimpleTracker SHALL registrar uma posição aberta com preço de entrada e TP percentual customizado.
-
-#### Scenario: Abrir posição com TP customizado
-- **WHEN** chamar `tracker.open_position("BTC-USD", Decimal("50000"), take_profit_pct=Decimal("0.004"))`
-- **THEN** a posição SHALL ser registrada com TP=0.40%
-
-#### Scenario: Abrir posição sem TP (usa default)
-- **WHEN** chamar `tracker.open_position("BTC-USD", Decimal("50000"))`
-- **THEN** SHALL usar TP default do tracker
-
-### Requirement: Verificar Stop Loss (threshold price)
-O SimpleTracker SHALL gerar sinal de VENDA no preço exato do threshold, não no preço de mercado.
-
-#### Scenario: SL executa no preço do threshold
-- **WHEN** posição aberta a $80,000, SL=0.50%, preço atual $79,500
-- **THEN** SHALL retornar sinal com preco = $79,600 (entrada * 0.995)
-
-### Requirement: Verificar Take Profit (threshold price, per-position)
-O check_price SHALL usar TP da posição (não o default) e executar no preço do threshold.
-
-### Requirement: Trailing Stop
-O SimpleTracker SHALL implementar trailing stop com ativação a +0.20%, distância 0.15% do pico, nunca abaixo do breakeven.
-
-### Requirement: Atualizar TP dinâmico
-O SimpleTracker SHALL permitir atualizar TP de posição aberta via `update_take_profit()`.
-
-### Requirement: Restaurar posições com TP
-O `restore_positions()` SHALL preservar `take_profit_pct` e `stop_loss_pct` de cada posição.
-
-### Requirement: Listar posições abertas
-O SimpleTracker SHALL permitir listar todas as posições.
-
-### Requirement: Backward-compatible alias
-`PositionTracker` SHALL ser alias para `SimpleTracker`.
 
 > "Stop loss é o paraquedas do trader" – made by Sky 🪂
