@@ -19,11 +19,17 @@ class Cotacao:
         preco: Decimal,
         volume: int,
         timestamp: str,
+        high: Decimal | None = None,
+        low: Decimal | None = None,
+        open: Decimal | None = None,
     ):
         self.ticker = ticker
         self.preco = preco
         self.volume = volume
         self.timestamp = timestamp
+        self.high = high
+        self.low = low
+        self.open = open
 
 
 class DataFeedPort(ABC):
