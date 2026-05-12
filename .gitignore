@@ -53,6 +53,12 @@ htmlcov/
 
 # Logs
 *.log
+logs/
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
 
 # Node.js
 node_modules/
