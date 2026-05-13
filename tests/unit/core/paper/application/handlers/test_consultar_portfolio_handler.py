@@ -25,9 +25,14 @@ class TestConsultarPortfolioHandler:
     @pytest.fixture
     def broker(self):
         """Broker mock."""
+        from src.core.paper.domain.cashbook import CashBook
+        from src.core.paper.domain.currency import Currency
+
+        cashbook = CashBook.from_single_currency(Currency.BRL, Decimal("50000"))
+
         broker = MagicMock()
         broker.saldo_inicial = Decimal("100000")
-        broker.obter_saldo = AsyncMock(return_value=Decimal("50000"))
+        broker.cashbook = cashbook
         broker.listar_posicoes_marcadas = AsyncMock(return_value=[
             {
                 "ticker": "PETR4.SA",
@@ -112,7 +117,9 @@ class TestConsultarPortfolioHandler:
         )
 
         # Setup: saldo 110000 BRL = 10% de lucro sobre 100000
-        broker.obter_saldo = AsyncMock(return_value=Decimal("110000"))
+        from src.core.paper.domain.cashbook import CashBook
+        from src.core.paper.domain.currency import Currency
+        broker.cashbook = CashBook.from_single_currency(Currency.BRL, Decimal("110000"))
         broker.listar_posicoes_marcadas = AsyncMock(return_value=[])
 
         handler = ConsultarPortfolioHandler(broker, feed, converter)

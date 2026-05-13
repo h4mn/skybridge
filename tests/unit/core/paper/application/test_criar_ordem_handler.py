@@ -157,8 +157,13 @@ class TestConsultarPortfolioHandler:
     @pytest.fixture
     def broker_mock(self):
         """Broker mock para testes."""
+        from src.core.paper.domain.cashbook import CashBook
+        from src.core.paper.domain.currency import Currency
+
+        cashbook = CashBook.from_single_currency(Currency.BRL, Decimal("50000"))
+
         broker = AsyncMock()
-        broker.obter_saldo = AsyncMock(return_value=Decimal("50000"))
+        broker.cashbook = cashbook
         broker.saldo_inicial = Decimal("100000")
         broker.listar_posicoes_marcadas = AsyncMock(return_value=[
             {
@@ -167,7 +172,7 @@ class TestConsultarPortfolioHandler:
                 "preco_medio": 30.0,
                 "preco_atual": 32.0,
                 "custo_total": 3000.0,
-                "valor_atual": 3200.0,  # Campo correto: valor_atual
+                "valor_atual": 3200.0,
                 "pnl": 200.0,
                 "pnl_percentual": 6.67,
             }

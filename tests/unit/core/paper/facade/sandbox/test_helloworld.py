@@ -19,8 +19,8 @@ def _make_facade_with_mocks() -> "HelloWorldFacade":
 
     with patch("src.core.paper.facade.sandbox.helloworld.YahooFinanceFeed"), \
          patch("src.core.paper.facade.sandbox.helloworld.YahooCurrencyAdapter"), \
-         patch("src.core.paper.facade.sandbox.helloworld.JsonFilePaperState"), \
-         patch("src.core.paper.facade.sandbox.helloworld.JsonFilePaperBroker") as MockBroker, \
+         patch("src.core.paper.facade.sandbox.helloworld.SQLitePaperState"), \
+         patch("src.core.paper.facade.sandbox.helloworld.StatefulPaperBroker") as MockBroker, \
          patch("src.core.paper.facade.sandbox.helloworld.CriarOrdemHandler"), \
          patch("src.core.paper.facade.sandbox.helloworld.ConsultarCotacaoHandler"), \
          patch("src.core.paper.facade.sandbox.helloworld.ConsultarHistoricoHandler"), \
