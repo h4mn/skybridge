@@ -14,12 +14,10 @@ if TYPE_CHECKING:
     from ...ports.currency_converter_port import CurrencyConverterPort
 
 
-class JsonFilePaperBroker(PaperBroker):
+class StatefulPaperBroker(PaperBroker):
     """Paper Broker com persistência delegada ao PaperStatePort.
 
-    Esta versão NÃO escreve diretamente no arquivo JSON.
-    Toda persistência é delegada ao PaperStatePort injetado.
-
+    Toda persistência é delegada ao PaperStatePort injetado (SQLite).
     Suporta CashBook multi-moeda sincronizado com PaperState.
     """
 

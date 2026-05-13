@@ -111,7 +111,9 @@ class PaperOrchestrator:
                 await self._tick_all_workers()
 
                 if self._on_tick_complete:
-                    self._on_tick_complete()
+                    result = self._on_tick_complete()
+                    if asyncio.iscoroutine(result):
+                        await result
 
                 await asyncio.sleep(self._interval)
         except asyncio.CancelledError:

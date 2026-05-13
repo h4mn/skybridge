@@ -55,20 +55,32 @@ logging.getLogger().addHandler(_fh)
 
 logger = logging.getLogger(__name__)
 
+# --- Persistência SQLite ---
+DB_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "..", "..", "paper", "data", "paper_state.db"
+)
 
-def create_orchestrator() -> PaperOrchestrator:
+
+async def create_orchestrator() -> PaperOrchestrator:
     """Cria e configura o orchestrator com workers."""
     from src.core.paper.adapters.brokers.paper_broker import PaperBroker
     from src.core.paper.adapters.data_feeds.yahoo_finance_feed import YahooFinanceFeed
+    from src.core.paper.adapters.persistence.sqlite_paper_state import SQLitePaperState
+    from src.core.paper.adapters.persistence.sqlite_write_queue import WriteQueue
     from src.core.paper.domain.events.event_bus import get_event_bus
     from src.core.paper.domain.services.executor_ordem import ExecutorDeOrdem
-    from src.core.paper.domain.services.validador_ordem import ValidadorDeOrdem
     from src.core.paper.domain.strategies.guardiao_conservador import GuardiaoConservador
     from src.core.paper.domain.strategies.position_tracker import PositionTracker
 
-    orchestrator = PaperOrchestrator(interval_seconds=60.0)
+    orchestrator = PaperOrchestrator(interval_seconds=1.0)
 
-    # --- Infraestrutura ---
+    # --- Infraestrutura SQLite ---
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    state = SQLitePaperState(DB_PATH)
+    queue = WriteQueue(state, flush_interval=0.5, max_batch=50)
+    await queue.start()
+
+    # --- Infraestrutura de mercado ---
     datafeed = YahooFinanceFeed()
     broker = PaperBroker(feed=datafeed)
     event_bus = get_event_bus()
@@ -80,8 +92,9 @@ def create_orchestrator() -> PaperOrchestrator:
         async def validar_e_criar_ordem(
             self, ticker: str, lado: Lado, quantidade: int, preco_limit=None
         ) -> OrdemCriada:
+            from uuid import uuid4
             return OrdemCriada(
-                ordem_id=f"ordem-{ticker}-{lado.value}",
+                ordem_id=f"ordem-{uuid4().hex[:8]}",
                 ticker=ticker,
                 lado=lado,
                 quantidade=quantidade,
@@ -94,11 +107,14 @@ def create_orchestrator() -> PaperOrchestrator:
         validator=SimpleValidator(),
     )
 
+    # --- Parâmetros validados (backtest 7d 1m BTC-USD) ---
+    tickers = ["BTC-USD"]
+
     # --- StrategyWorker REAL ---
     strategy = GuardiaoConservador()
     tracker = PositionTracker(
-        stop_loss_pct=Decimal("0.0025"),
-        take_profit_pct=Decimal("0.005"),
+        stop_loss_pct=Decimal("0.005"),
+        take_profit_pct=Decimal("0.004"),
     )
     strategy_worker = StrategyWorker(
         strategy=strategy,
@@ -106,9 +122,47 @@ def create_orchestrator() -> PaperOrchestrator:
         executor=executor,
         position_tracker=tracker,
         tickers=["BTC-USD"],
-        periodo_historico=30,
+        periodo_historico=7,
         intervalo_historico="1m",
+        write_queue=queue,
     )
+
+    # --- Restaurar estado do SQLite (fonte primária) ---
+    saved_positions = state.list_open_strategy_positions("guardiao-conservador")
+    closed_pnl_rows = state.get_all_closed_pnl()
+    closed_pnl_values = [float(r["pnl_value_display"]) for r in closed_pnl_rows]
+
+    if saved_positions:
+        for pos in saved_positions:
+            restore_data = {
+                "ticker": pos["ticker"],
+                "preco_entrada": Decimal(pos["entry_price"]),
+                "take_profit_pct": Decimal(pos["take_profit_pct"]) if pos.get("take_profit_pct") else None,
+            }
+            if pos.get("trailing_pico"):
+                restore_data["trailing_pico"] = pos["trailing_pico"]
+            if pos.get("trailing_stop"):
+                restore_data["trailing_stop"] = pos["trailing_stop"]
+            tracker.restore_positions([restore_data])
+    if closed_pnl_values:
+        strategy_worker.restore_closed_pnl(closed_pnl_values)
+
+    n_pos = len(tracker.list_positions())
+    if n_pos > 0 or closed_pnl_values:
+        total_pnl = sum(closed_pnl_values)
+        logger.info(
+            f"[STATE] Restaurado do SQLite: {n_pos} posição(ões) aberta(s), "
+            f"{len(closed_pnl_values)} trade(s) fechado(s), "
+            f"PnL acumulado=${total_pnl:,.2f}"
+        )
+
+    # Hook de persistência — flush WriteQueue após cada tick
+    async def _on_tick_complete() -> None:
+        await queue.flush()
+
+    orchestrator._on_tick_complete = _on_tick_complete
+    orchestrator._queue = queue
+    orchestrator._state = state
     orchestrator.register(strategy_worker)
 
     # --- PositionWorker (stub) ---
@@ -117,7 +171,7 @@ def create_orchestrator() -> PaperOrchestrator:
 
     position_worker = PositionWorker(
         portfolio_id="sandbox",
-        tickers=["BTC-USD"],
+        tickers=tickers,
         on_pnl_change=on_pnl_change,
     )
     orchestrator.register(position_worker)
@@ -131,7 +185,7 @@ async def main() -> None:
     logger.info("Paper Orchestrator - Guardião Conservador")
     logger.info("=" * 50)
 
-    orchestrator = create_orchestrator()
+    orchestrator = await create_orchestrator()
 
     # Setup signal handler para Ctrl+C
     loop = asyncio.get_running_loop()
@@ -153,6 +207,14 @@ async def main() -> None:
     logger.info("Iniciando shutdown graceful...")
     await orchestrator.shutdown()
     await orchestrator_task
+
+    # Close WriteQueue + SQLite
+    queue = getattr(orchestrator, '_queue', None)
+    state = getattr(orchestrator, '_state', None)
+    if queue:
+        await queue.close()
+    if state:
+        state.close()
 
     logger.info("Orchestrator finalizado com sucesso!")
     logger.info("=" * 50)

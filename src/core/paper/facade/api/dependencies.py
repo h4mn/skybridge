@@ -16,11 +16,10 @@ from decimal import Decimal
 
 from fastapi import Depends
 
-from ...adapters.persistence.json_file_paper_state import JsonFilePaperState
-from ...adapters.brokers.json_file_broker import JsonFilePaperBroker
+from ...adapters.persistence.sqlite_paper_state import SQLitePaperState
+from ...adapters.brokers.stateful_broker import StatefulPaperBroker
 from ...adapters.data_feeds.yahoo_finance_feed import YahooFinanceFeed
 from ...adapters.currency.yahoo_currency_adapter import YahooCurrencyAdapter
-from ...application.handlers.criar_ordem_handler import CriarOrdemHandler
 from ...application.handlers.criar_ordem_handler import CriarOrdemHandler
 from ...application.handlers.depositar_handler import DepositarHandler
 from ...application.handlers.resetar_handler import ResetarHandler
@@ -35,13 +34,13 @@ from ...ports.currency_converter_port import CurrencyConverterPort
 # ==================== Infrastructure ====================
 
 SALDO_INICIAL = Decimal("100000")
-PAPER_STATE_FILE = "paper_state.json"
+PAPER_STATE_DB = "paper_state.db"
 
 
 # @lru_cache  # REMOVIDO: pode causar problemas de concorrência
 def get_paper_state() -> PaperStatePort:
-    """Retorna instância do PaperState."""
-    return JsonFilePaperState(PAPER_STATE_FILE)
+    """Retorna instância do PaperState (SQLite com fallback JSON)."""
+    return SQLitePaperState(PAPER_STATE_DB)
 
 
 # @lru_cache  # REMOVIDO: evitar problemas de concorrência
@@ -60,13 +59,13 @@ def get_broker(
     paper_state: PaperStatePort = Depends(get_paper_state),
     feed: YahooFinanceFeed = Depends(get_feed),
     converter: YahooCurrencyAdapter = Depends(get_currency_converter),
-) -> JsonFilePaperBroker:
+) -> StatefulPaperBroker:
     """Retorna instância do broker com DI (SEM CACHE).
 
-    Cada request cria uma nova instância que lê o estado atualizado do arquivo.
+    Cada request cria uma nova instância que lê o estado atualizado do SQLite.
     Isso garante sincronização com mudanças externas.
     """
-    return JsonFilePaperBroker(
+    return StatefulPaperBroker(
         feed=feed,
         paper_state=paper_state,
         converter=converter,
@@ -78,7 +77,7 @@ def get_broker(
 
 
 def get_criar_ordem_handler(
-    broker: JsonFilePaperBroker = Depends(get_broker),
+    broker: StatefulPaperBroker = Depends(get_broker),
 ) -> CriarOrdemHandler:
     """Retorna handler para criação de ordens."""
     return CriarOrdemHandler(broker)
@@ -116,7 +115,7 @@ def get_consultar_historico_handler(
 
 
 def get_consultar_portfolio_handler(
-    broker: JsonFilePaperBroker = Depends(get_broker),
+    broker: StatefulPaperBroker = Depends(get_broker),
     feed: YahooFinanceFeed = Depends(get_feed),
     converter: YahooCurrencyAdapter = Depends(get_currency_converter),
 ) -> ConsultarPortfolioHandler:
@@ -125,7 +124,7 @@ def get_consultar_portfolio_handler(
 
 
 def get_consultar_ordens_handler(
-    broker: JsonFilePaperBroker = Depends(get_broker),
+    broker: StatefulPaperBroker = Depends(get_broker),
     paper_state: PaperStatePort = Depends(get_paper_state),
 ) -> ConsultarOrdensHandler:
     """Retorna handler para consulta de ordens."""

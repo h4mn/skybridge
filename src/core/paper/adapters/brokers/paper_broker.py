@@ -89,7 +89,8 @@ class PaperBroker(BrokerPort):
             ticker:       Código do ativo (ex: "PETR4.SA", "BTC-USD").
             lado:         "COMPRA" ou "VENDA".
             quantidade:   Número de unidades.
-            preco_limite: Ignorado na versão atual (sempre executa a mercado).
+            preco_limite: Preço limite para execução. Se fornecido, usa esse preço
+                     em vez do preço de mercado.
 
         Returns:
             ID da ordem executada.
@@ -106,8 +107,11 @@ class PaperBroker(BrokerPort):
         if quantidade <= 0:
             raise ValueError("Quantidade deve ser maior que zero.")
 
-        cotacao = await self._feed.obter_cotacao(ticker)
-        preco_execucao = cotacao.preco
+        if preco_limite is not None:
+            preco_execucao = preco_limite
+        else:
+            cotacao = await self._feed.obter_cotacao(ticker)
+            preco_execucao = cotacao.preco
         asset_currency = self._infer_currency(ticker)
         valor_total = preco_execucao * quantidade
 

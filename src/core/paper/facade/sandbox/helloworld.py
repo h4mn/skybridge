@@ -16,8 +16,8 @@ from ...application.handlers.consultar_ordens_handler import ConsultarOrdensHand
 from ...application.queries.consultar_cotacao import ConsultarCotacaoQuery
 from ...application.queries.consultar_historico import ConsultarHistoricoQuery
 from ...adapters.data_feeds.yahoo_finance_feed import YahooFinanceFeed
-from ...adapters.brokers.json_file_broker import JsonFilePaperBroker
-from ...adapters.persistence.json_file_paper_state import JsonFilePaperState
+from ...adapters.brokers.stateful_broker import StatefulPaperBroker
+from ...adapters.persistence.sqlite_paper_state import SQLitePaperState
 from ...adapters.brokers import SaldoInsuficienteError
 
 
@@ -107,8 +107,8 @@ class HelloWorldFacade:
     def __init__(self):
         # Infraestrutura
         self.feed = YahooFinanceFeed()
-        self.paper_state = JsonFilePaperState("paper_state.json")
-        self.broker = JsonFilePaperBroker(
+        self.paper_state = SQLitePaperState("paper_state.db")
+        self.broker = StatefulPaperBroker(
             feed=self.feed,
             paper_state=self.paper_state,
             saldo_inicial=self.SALDO_INICIAL,

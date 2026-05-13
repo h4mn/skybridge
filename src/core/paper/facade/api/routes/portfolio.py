@@ -20,7 +20,7 @@ from ..dependencies import (
     get_broker,
     get_currency_converter,
 )
-from ....adapters.brokers.json_file_broker import JsonFilePaperBroker
+from ....adapters.brokers.stateful_broker import StatefulPaperBroker
 
 if TYPE_CHECKING:
     from ....ports.currency_converter_port import CurrencyConverterPort
@@ -104,7 +104,7 @@ async def consultar_portfolio(
         examples=["BRL", "USD"],
     ),
     handler: ConsultarPortfolioHandler = Depends(get_consultar_portfolio_handler),
-    broker: JsonFilePaperBroker = Depends(get_broker),
+    broker: StatefulPaperBroker = Depends(get_broker),
 ):
     """Retorna resumo completo do portfolio com PnL calculado.
 
@@ -173,7 +173,7 @@ async def consultar_portfolio(
     summary="Listar posições",
 )
 async def listar_posicoes(
-    broker: JsonFilePaperBroker = Depends(get_broker),
+    broker: StatefulPaperBroker = Depends(get_broker),
 ):
     """Lista todas as posições abertas com PnL calculado ao preço atual."""
     try:
